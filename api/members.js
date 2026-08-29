@@ -18,7 +18,7 @@ export default async function handler(req, res) {
         'first_name','father_name','grandfather_name','amharic_full_name',
         'photo_url','email','phone','city','membership_type','status',
         'specialty','workplace','bio','cpd_points','issued_at','expires_at',
-        'is_verified','license_number'
+        'is_verified','license_number','phone_password','corporate_profile','student_profile'
       ];
       for (const f of fields) {
         if (m[f] !== undefined && m[f] !== null) row[f] = m[f];

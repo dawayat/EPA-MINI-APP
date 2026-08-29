@@ -366,6 +366,31 @@ export default function RegistrationModal({
         {formData.payment?.receipt_url && <div className="text-sm text-green-600 dark:text-[#d4ff00]">✓ Receipt uploaded</div>}
       </div>
 
+      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-500/20 p-4 rounded-xl mt-2">
+        <h4 className="font-bold text-blue-900 dark:text-blue-300 mb-1 text-sm flex items-center gap-2">
+          🔐 Create Your Login Password
+        </h4>
+        <p className="text-xs text-blue-700 dark:text-blue-400 mb-3 leading-relaxed">
+          Set a password to log in with your phone number if Telegram auto-login doesn't work.
+        </p>
+        <Input 
+          label="Password *" 
+          type="password" 
+          required 
+          placeholder="Min. 6 characters"
+          value={formData.phone_password || ''} 
+          onChange={(e: any) => updateForm('phone_password', e.target.value)} 
+        />
+        <Input 
+          label="Confirm Password *" 
+          type="password" 
+          required 
+          placeholder="Re-enter password"
+          value={formData.phone_password_confirm || ''} 
+          onChange={(e: any) => updateForm('phone_password_confirm', e.target.value)} 
+        />
+      </div>
+
       <div className="bg-gray-100 dark:bg-[#080808] p-4 rounded-xl mt-6">
         <h4 className="font-bold text-gray-900 dark:text-white mb-2 text-sm flex items-center gap-2">
           <CheckCircle className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" /> 
@@ -377,6 +402,7 @@ export default function RegistrationModal({
       </div>
     </div>
   );
+
 
   // Full Member Flow Steps - step 1 is now renderPersonalInfoStep()
   const renderFullStep1_unused = () => (

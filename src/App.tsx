@@ -31,6 +31,7 @@ import { SplashScreen } from './components/SplashScreen';
 import { BottomBar } from './components/BottomBar';
 import { initTelegramApp, getTelegramColorScheme, isTelegramMiniApp } from './lib/telegram';
 import { CheckCircle2, AlertCircle, Info, ShieldCheck, CreditCard } from 'lucide-react';
+import { PhoneLoginModal } from './components/PhoneLoginModal';
 
 interface Toast {
   id: string;
@@ -126,11 +127,24 @@ export default function App() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
   const [selectedRegTier, setSelectedRegTier] = useState<MembershipTypeCode>('FULL');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
+  const [isPhoneLoginOpen, setIsPhoneLoginOpen] = useState<boolean>(false);
   
   // Toast notifications
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const activeMember = members.find(m => m.id === activeMemberId);
+
+  // Handler: Phone login success - add member to state if not already there
+  const handlePhoneLoginSuccess = (member: Member) => {
+    setMembers(prev => {
+      const exists = prev.find(m => m.id === member.id);
+      if (exists) return prev;
+      return [member, ...prev];
+    });
+    setActiveMemberId(member.id);
+    setCurrentTab('portal');
+  };
+
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     if (!message) return;
@@ -143,6 +157,8 @@ export default function App() {
 
   // Handler: Application submission from registration modal
   const handleApplicationSubmit = async (newApp: Partial<Application>) => {
+    const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+    
     const fullApp: Application = {
       ...newApp,
       // Preserve id and application_number from modal if provided, else generate
@@ -150,7 +166,8 @@ export default function App() {
       application_number: newApp.application_number || ('EPA-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000)),
       membership_type: (newApp.membership_type || 'STUDENT') as any,
       status: 'SUBMITTED',
-      submitted_at: newApp.submitted_at || new Date().toISOString()
+      submitted_at: newApp.submitted_at || new Date().toISOString(),
+      telegram_id: tgUser?.id?.toString() || newApp.telegram_id || undefined
     };
 
     // Always try to save to Supabase (isSupabaseConfigured is now always true)
@@ -201,15 +218,17 @@ export default function App() {
       status: 'ACTIVE',
       specialty: app.student_profile ? `${app.student_profile.field_of_study}` : (app.qualifications?.[0]?.field || 'Clinical Psychology'),
       workplace: app.student_profile ? `${app.student_profile.university_name}` : 'Accredited Psychological Practice',
-      bio: 'Newly registered and accredited member of the Ethiopian Psychologists’ Association.',
+      bio: 'Newly registered and accredited member of the Ethiopian Psychologists\' Association.',
       cpd_points: 10,
       issued_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000 * 2).toISOString(),
       is_verified: true,
       license_number: app.membership_type === 'FULL' ? `EPA-LIC-CL-${Math.floor(1000 + Math.random() * 9000)}` : undefined,
       corporate_profile: app.corporate_profile,
-      student_profile: app.student_profile
+      student_profile: app.student_profile,
+      phone_password: (app as any).phone_password
     };
+
 
     if (isSupabaseConfigured) {
       await updateApplicationStatus(appId, 'APPROVED');
@@ -381,20 +400,29 @@ export default function App() {
               <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-3 font-syne">
                 {lang === 'EN' ? 'Access Restricted' : 'መግባት አይቻልም'}
               </h2>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-sm mb-8 leading-relaxed">
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-sm mb-6 leading-relaxed">
                 {lang === 'EN' 
-                  ? 'This portal is restricted to approved members only. Please submit an application or wait for your pending application to be approved by the council.'
-                  : 'ይህ ገጽ ለተረጋገጡ አባላት ብቻ ክፍት ነው። እባክዎ ማመልከቻ ያስገቡ ወይም ማመልከቻዎ እስኪጸድቅ ይጠብቁ።'}
+                  ? 'This portal is for approved members only. Log in with your phone and password, or submit an application.'
+                  : 'ይህ ገጽ ለተረጋገጡ አባላት ብቻ ነው። ስልክ ቁጥርዎ እና የይለፍ ቃልዎን ይጠቀሙ።'}
               </p>
-              <button 
-                onClick={() => setCurrentTab('welcome')} 
-                className="px-8 py-3.5 bg-[#d4ff00] text-black font-black uppercase text-xs rounded-xl shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:shadow-[0_0_30px_rgba(212,255,0,0.5)] transition-all active:scale-95"
-              >
-                {lang === 'EN' ? 'Return Home' : 'ወደ መነሻ ተመለስ'}
-              </button>
+              <div className="flex flex-col gap-3 w-full max-w-xs">
+                <button 
+                  onClick={() => setIsPhoneLoginOpen(true)} 
+                  className="px-8 py-3.5 bg-[#d4ff00] text-black font-black uppercase text-xs rounded-xl shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:shadow-[0_0_30px_rgba(212,255,0,0.5)] transition-all active:scale-95"
+                >
+                  🔐 {lang === 'EN' ? 'Login with Phone & Password' : 'ስልክ ቁጥርዎ በመጠቀም ግባ'}
+                </button>
+                <button 
+                  onClick={() => setCurrentTab('welcome')} 
+                  className="px-8 py-3 bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 font-bold uppercase text-xs rounded-xl hover:bg-gray-200 dark:hover:bg-white/20 transition-all active:scale-95"
+                >
+                  {lang === 'EN' ? 'Return Home' : 'ወደ መነሻ ተመለስ'}
+                </button>
+              </div>
             </div>
           )
         )}
+
 
         {currentTab === 'idcard' && (
           activeMember ? (
@@ -412,17 +440,25 @@ export default function App() {
               <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-3 font-syne">
                 {lang === 'EN' ? 'No Digital ID Found' : 'መታወቂያ አልተገኘም'}
               </h2>
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-sm mb-8 leading-relaxed">
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-sm mb-6 leading-relaxed">
                 {lang === 'EN' 
-                  ? 'You must be an approved member to view your Digital ID.'
-                  : 'የዲጂታል መታወቂያዎን ለማየት የተረጋገጡ አባል መሆን አለብዎት።'}
+                  ? 'Log in with your phone and password to view your Digital ID, or submit an application to become a member.'
+                  : 'ስልክ ቁጥርዎን እና የይለፍ ቃልዎን ይጠቀሙ ወይም ማመልከቻ ያስገቡ።'}
               </p>
-              <button 
-                onClick={() => setCurrentTab('welcome')} 
-                className="px-8 py-3.5 bg-[#d4ff00] text-black font-black uppercase text-xs rounded-xl shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:shadow-[0_0_30px_rgba(212,255,0,0.5)] transition-all active:scale-95"
-              >
-                {lang === 'EN' ? 'Return Home' : 'ወደ መነሻ ተመለስ'}
-              </button>
+              <div className="flex flex-col gap-3 w-full max-w-xs">
+                <button 
+                  onClick={() => setIsPhoneLoginOpen(true)} 
+                  className="px-8 py-3.5 bg-[#d4ff00] text-black font-black uppercase text-xs rounded-xl shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:shadow-[0_0_30px_rgba(212,255,0,0.5)] transition-all active:scale-95"
+                >
+                  🔐 {lang === 'EN' ? 'Login with Phone & Password' : 'ስልክ ቁጥርዎ በመጠቀም ግባ'}
+                </button>
+                <button 
+                  onClick={() => setCurrentTab('welcome')} 
+                  className="px-8 py-3 bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 font-bold uppercase text-xs rounded-xl hover:bg-gray-200 dark:hover:bg-white/20 transition-all active:scale-95"
+                >
+                  {lang === 'EN' ? 'Return Home' : 'ወደ መነሻ ተመለስ'}
+                </button>
+              </div>
             </div>
           )
         )}
@@ -584,8 +620,14 @@ export default function App() {
             <span className="text-green-700 dark:text-[#d4ff00] font-bold">REGISTRY V2.4.0</span>
           </div>
         </div>
+        <PhoneLoginModal
+          isOpen={isPhoneLoginOpen}
+          onClose={() => setIsPhoneLoginOpen(false)}
+          lang={lang}
+          onSuccess={handlePhoneLoginSuccess}
+          onToast={showToast}
+        />
       </footer>
-
     </div>
   );
 }

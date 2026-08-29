@@ -93,7 +93,8 @@ export interface Application {
   submitted_at: string;
   admin_notes?: string;
   rejection_reason?: string;
-  telegram_id?: number;
+  telegram_id?: number | string;
+  phone_password?: string;
   // Full member specific
   current_workplace?: string;
   current_specialty?: string;
@@ -110,9 +111,10 @@ export interface Member {
   verification_token: string;
   
   // Auth
-  telegram_id?: number;
+  telegram_id?: number | string;
   telegram_username?: string;
   email?: string;
+  phone_password?: string; // Simple password for phone-based login fallback
   
   // Personal
   first_name: string;
@@ -152,6 +154,9 @@ export interface Member {
   
   // Corporate specific
   corporate_profile?: CorporateProfile;
+
+  // Student specific
+  student_profile?: StudentProfile;
 }
 
 export interface Announcement {

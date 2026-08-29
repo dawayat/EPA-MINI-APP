@@ -697,6 +697,17 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                   <div className="text-neutral-600 dark:text-neutral-400 font-mono text-[11px] mt-1">
                     {reviewingApp.email} • {reviewingApp.phone}
                   </div>
+                  {reviewingApp.telegram_id && (
+                    <div className="text-neutral-500 dark:text-neutral-400 font-mono text-[11px] mt-0.5 flex items-center gap-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Telegram ID:</span>
+                      <span className="text-blue-500 font-bold">{reviewingApp.telegram_id}</span>
+                    </div>
+                  )}
+                  {!reviewingApp.telegram_id && (
+                    <div className="text-orange-500 dark:text-orange-400 font-mono text-[10px] mt-0.5 font-bold">
+                      ⚠ No Telegram ID captured — user may use phone/password login
+                    </div>
+                  )}
                   <div className="mt-1 flex items-center gap-2 font-mono">
                     <span className="px-2.5 py-0.5 rounded bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/30 font-bold text-[10px]">
                       {reviewingApp.membership_type}
