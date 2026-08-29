@@ -144,6 +144,27 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button 
+              onClick={async () => {
+                try {
+                  onToast('Running database migration...', 'info');
+                  const res = await fetch('/api/migrate');
+                  const data = await res.json();
+                  if (data.success) {
+                    onToast(data.message, 'success');
+                  } else {
+                    onToast(`Migration failed: ${data.error}`, 'error');
+                  }
+                } catch (e: any) {
+                  onToast('Error running migration', 'error');
+                }
+              }}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-red-600/20 active:scale-95 cursor-pointer"
+            >
+              <Settings className="w-4 h-4" />
+              Fix Database
+            </button>
+
             <button
               onClick={() => setShowAnnModal(true)}
               className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider shadow-lg shadow-[#d4ff00]/15 transition-all active:scale-95 cursor-pointer"
@@ -551,13 +572,35 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               <FileText className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />
               {lang === 'EN' ? 'Published Announcements & Drafts' : 'ማስታወቂያዎች እና ረቂቆች'}
             </h3>
-            <button
-              onClick={() => setShowAnnModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              {lang === 'EN' ? 'New' : 'አዲስ'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={async () => {
+                  try {
+                    onToast('Running database migration...', 'info');
+                    const res = await fetch('/api/migrate');
+                    const data = await res.json();
+                    if (data.success) {
+                      onToast(data.message, 'success');
+                    } else {
+                      onToast(`Migration failed: ${data.error}`, 'error');
+                    }
+                  } catch (e: any) {
+                    onToast('Error running migration', 'error');
+                  }
+                }}
+                className="px-4 py-2 bg-red-600/20 text-red-600 dark:text-red-400 font-bold text-xs rounded-lg hover:bg-red-600/30 transition-colors flex items-center gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                Fix Database Schema
+              </button>
+              <button
+                onClick={() => setShowAnnModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                {lang === 'EN' ? 'New' : 'አዲስ'}
+              </button>
+            </div>
           </div>
 
           {announcements.length === 0 ? (
