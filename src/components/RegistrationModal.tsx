@@ -310,23 +310,27 @@ export default function RegistrationModal({
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Profile Photo & Social</h3>
       
-      <div className="flex flex-col items-center justify-center mb-6">
-        <div className="w-32 h-32 rounded-full border-4 border-gray-100 dark:border-white/10 overflow-hidden mb-4 bg-gray-50 dark:bg-white/5 flex items-center justify-center relative group cursor-pointer" onClick={() => updateForm('photo_url', 'profile_pic.jpg')}>
+      <div className="flex flex-col items-center justify-center mb-2">
+        <div className="w-32 h-32 rounded-full border-4 border-gray-100 dark:border-white/10 overflow-hidden mb-4 bg-gray-50 dark:bg-white/5 flex items-center justify-center">
           {formData.photo_url ? (
-            <img src="https://ui-avatars.com/api/?name=User&background=random" alt="Profile" className="w-full h-full object-cover" />
+            <img src={formData.photo_url} alt="Profile preview" className="w-full h-full object-cover" />
           ) : (
             <User className="w-12 h-12 text-gray-400" />
           )}
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <Upload className="w-6 h-6 text-gray-900 dark:text-white" />
-          </div>
         </div>
-        <p className="text-sm text-gray-500">Tap to upload professional photo</p>
+        {formData.photo_url && <p className="text-xs text-green-600 dark:text-[#d4ff00] font-bold mb-2">✓ Photo uploaded</p>}
       </div>
+
+      <FileUpload
+        label="Profile Photo *"
+        hint="JPEG or PNG, clear face photo"
+        onChange={(url: string) => updateForm('photo_url', url)}
+      />
 
       <Input label="Telegram Username (Optional)" placeholder="@username" value={formData.telegram_username || ''} onChange={(e: any) => updateForm('telegram_username', e.target.value)} />
     </div>
   );
+
 
   const renderPaymentStep = (fee: string) => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
@@ -481,21 +485,20 @@ export default function RegistrationModal({
       <FileUpload label="National ID / Passport *" hint="Clear photo of your official ID" onChange={(url: string) => updateForm('id_document_url', url)} />
       {formData.id_document_url && <div className="text-sm text-green-600 dark:text-[#d4ff00] mb-4">✓ ID uploaded</div>}
       
-      <div className="flex flex-col mb-6">
-        <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Profile Photo (Optional)</label>
-        <div className="w-24 h-24 rounded-full border-4 border-gray-100 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-white/5 flex items-center justify-center relative group cursor-pointer" onClick={() => updateForm('photo_url', 'profile_pic.jpg')}>
+      <div className="flex flex-col items-center mb-2">
+        <div className="w-24 h-24 rounded-full border-4 border-gray-100 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-white/5 flex items-center justify-center mb-2">
           {formData.photo_url ? (
-            <img src="https://ui-avatars.com/api/?name=User&background=random" alt="Profile" className="w-full h-full object-cover" />
+            <img src={formData.photo_url} alt="Profile preview" className="w-full h-full object-cover" />
           ) : (
             <User className="w-8 h-8 text-gray-400" />
           )}
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <Upload className="w-5 h-5 text-gray-900 dark:text-white" />
-          </div>
         </div>
+        {formData.photo_url && <span className="text-xs text-green-600 dark:text-[#d4ff00] font-bold">✓ Photo uploaded</span>}
       </div>
+      <FileUpload label="Profile Photo (Optional)" hint="Clear professional headshot" onChange={(url: string) => updateForm('photo_url', url)} />
     </div>
   );
+
 
   const renderFullStep5 = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">

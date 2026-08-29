@@ -1,12 +1,18 @@
 import pkg from 'pg';
 const { Pool } = pkg;
 
+// Vercel Postgres (Neon) uses a self-signed cert in its chain - disable strict TLS
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 let pool;
 
 export function getDb() {
   if (!pool) {
+    // Strip sslmode from URL to avoid pg library SSL conflicts, then set ssl manually
+    const rawUrl = process.env.POSTGRES_URL || '';
+    const cleanUrl = rawUrl.replace(/[?&]sslmode=[^&]*/g, '').replace(/[?&]$/, '');
     pool = new Pool({
-      connectionString: process.env.POSTGRES_URL,
+      connectionString: cleanUrl || rawUrl,
       ssl: { rejectUnauthorized: false }
     });
   }
