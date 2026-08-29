@@ -1,38 +1,36 @@
-import { getDb, ensureSchema, cors } from './_db.js';
+import { dbSelect, dbInsert, cors } from './_db.js';
 
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const db = getDb();
-  await ensureSchema(db);
-
-  if (req.method === 'GET') {
-    const { rows } = await db.query('SELECT * FROM announcements ORDER BY published_at DESC');
-    return res.status(200).json(rows);
-  }
-
-  if (req.method === 'POST') {
-    const a = req.body;
-    try {
-      await db.query(`
-        INSERT INTO announcements (id, title, content, type, published_at, author_name, status, attachments, target_audience)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-        ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, content=EXCLUDED.content, status=EXCLUDED.status
-      `, [
-        a.id, a.title, a.content || '', a.type || 'General',
-        a.published_at || new Date().toISOString(),
-        a.author_name || 'EPA Executive Directorate',
-        a.status || 'PUBLISHED',
-        a.attachments ? JSON.stringify(a.attachments) : null,
-        a.target_audience || null
-      ]);
-      return res.status(201).json({ success: true });
-    } catch (err) {
-      console.error('Error inserting announcement:', err);
-      return res.status(500).json({ success: false, error: err.message });
+  try {
+    if (req.method === 'GET') {
+      const rows = await dbSelect('announcements', 'order=published_at.desc');
+      return res.status(200).json(rows);
     }
-  }
 
-  res.status(405).json({ error: 'Method not allowed' });
+    if (req.method === 'POST') {
+      const a = req.body;
+      const row = {
+        id: a.id,
+        title: a.title,
+        content: a.content || '',
+        type: a.type || 'General',
+        published_at: a.published_at || new Date().toISOString(),
+        author_name: a.author_name || 'EPA Executive Directorate',
+        status: a.status || 'PUBLISHED',
+      };
+      if (a.attachments) row.attachments = a.attachments;
+      if (a.target_audience) row.target_audience = a.target_audience;
+
+      await dbInsert('announcements', row);
+      return res.status(201).json({ success: true });
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (err) {
+    console.error('[announcements]', err.message);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 }

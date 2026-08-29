@@ -1,155 +1,78 @@
-import pkg from 'pg';
-const { Pool } = pkg;
+/**
+ * Supabase REST helper using SUPABASE_SERVICE_ROLE_KEY (server-side only).
+ * The service role key bypasses all RLS policies.
+ * Uses plain HTTPS on port 443 - no SSL cert issues.
+ */
 
-// Vercel Postgres (Neon) uses a self-signed cert in its chain - disable strict TLS
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-
-let pool;
-
-export function getDb() {
-  if (!pool) {
-    // Strip sslmode from URL to avoid pg library SSL conflicts, then set ssl manually
-    const rawUrl = process.env.POSTGRES_URL || '';
-    const cleanUrl = rawUrl.replace(/[?&]sslmode=[^&]*/g, '').replace(/[?&]$/, '');
-    pool = new Pool({
-      connectionString: cleanUrl || rawUrl,
-      ssl: { rejectUnauthorized: false }
-    });
-  }
-  return pool;
+// Support multiple possible env var names for Supabase URL
+function getSupabaseUrl() {
+  return (
+    process.env.SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    ''
+  );
 }
 
-export async function ensureSchema(db) {
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS members (
-      id text PRIMARY KEY,
-      membership_number text UNIQUE NOT NULL,
-      verification_token text UNIQUE,
-      telegram_id text,
-      first_name text NOT NULL,
-      father_name text NOT NULL,
-      grandfather_name text,
-      amharic_full_name text,
-      photo_url text,
-      email text,
-      phone text,
-      city text,
-      membership_type text NOT NULL,
-      status text NOT NULL DEFAULT 'PENDING',
-      specialty text,
-      workplace text,
-      bio text,
-      cpd_points integer DEFAULT 0,
-      issued_at timestamptz DEFAULT now(),
-      expires_at timestamptz,
-      is_verified boolean DEFAULT false,
-      license_number text,
-      created_at timestamptz DEFAULT now()
-    );
+// Service role key has full DB access, bypasses RLS
+function getServiceKey() {
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    ''
+  );
+}
 
-    CREATE TABLE IF NOT EXISTS applications (
-      id text PRIMARY KEY,
-      application_number text UNIQUE NOT NULL,
-      telegram_id text,
-      membership_type text NOT NULL,
-      status text NOT NULL DEFAULT 'SUBMITTED',
-      first_name text NOT NULL,
-      father_name text NOT NULL,
-      grandfather_name text,
-      amharic_full_name text,
-      gender text,
-      date_of_birth text,
-      phone text,
-      email text,
-      city text,
-      national_id_number text,
-      photo_url text,
-      current_workplace text,
-      current_specialty text,
-      years_of_experience integer,
-      license_number text,
-      degree_certificate_url text,
-      id_document_url text,
-      agreed_to_ethics boolean,
-      rejection_reason text,
-      admin_notes text,
-      student_profile jsonb,
-      corporate_profile jsonb,
-      qualifications jsonb,
-      payment jsonb,
-      submitted_at timestamptz DEFAULT now(),
-      updated_at timestamptz DEFAULT now()
-    );
+export function supabaseHeaders() {
+  const key = getServiceKey();
+  return {
+    'apikey': key,
+    'Authorization': `Bearer ${key}`,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=minimal',
+  };
+}
 
-    CREATE TABLE IF NOT EXISTS announcements (
-      id text PRIMARY KEY,
-      title text NOT NULL,
-      content text NOT NULL DEFAULT '',
-      type text NOT NULL DEFAULT 'General',
-      published_at timestamptz DEFAULT now(),
-      author_name text,
-      status text DEFAULT 'PUBLISHED',
-      attachments jsonb,
-      target_audience text[]
-    );
+export function supabaseUrl(table, query = '') {
+  const base = getSupabaseUrl();
+  return `${base}/rest/v1/${table}${query ? `?${query}` : ''}`;
+}
 
-    CREATE TABLE IF NOT EXISTS universities (
-      id text PRIMARY KEY,
-      name text NOT NULL,
-      city text,
-      type text,
-      is_accredited boolean DEFAULT true,
-      departments text[]
-    );
+export async function dbSelect(table, query = '') {
+  const res = await fetch(supabaseUrl(table, query), {
+    headers: { ...supabaseHeaders(), 'Prefer': 'return=representation' }
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`DB SELECT ${table} failed (${res.status}): ${text}`);
+  }
+  return res.json();
+}
 
-    CREATE TABLE IF NOT EXISTS cpd_courses (
-      id text PRIMARY KEY,
-      title text NOT NULL,
-      instructor text,
-      instructor_title text,
-      points integer DEFAULT 1,
-      category text,
-      duration text,
-      date text,
-      mode text,
-      description text,
-      registered boolean DEFAULT false
-    );
+export async function dbInsert(table, row) {
+  const res = await fetch(supabaseUrl(table), {
+    method: 'POST',
+    headers: supabaseHeaders(),
+    body: JSON.stringify(row)
+  });
+  if (!res.ok && res.status !== 201) {
+    const text = await res.text();
+    throw new Error(`DB INSERT ${table} failed (${res.status}): ${text}`);
+  }
+  return true;
+}
 
-    CREATE TABLE IF NOT EXISTS elections (
-      id text PRIMARY KEY,
-      title text NOT NULL,
-      description text,
-      position text,
-      is_active boolean DEFAULT false,
-      voting_starts_at timestamptz,
-      voting_ends_at timestamptz,
-      results_published boolean DEFAULT false,
-      eligible_voter_types text[]
-    );
-
-    CREATE TABLE IF NOT EXISTS election_candidates (
-      id text PRIMARY KEY,
-      election_id text,
-      member_id text,
-      name text NOT NULL,
-      title text,
-      institution text,
-      running_for text,
-      manifesto text,
-      votes_count integer DEFAULT 0,
-      avatar_url text
-    );
-
-    CREATE TABLE IF NOT EXISTS audit_logs (
-      id text PRIMARY KEY,
-      action text NOT NULL,
-      entity_type text NOT NULL,
-      entity_id text,
-      admin_username text NOT NULL DEFAULT 'system',
-      created_at timestamptz DEFAULT now()
-    );
-  `);
+export async function dbUpdate(table, row, matchColumn, matchValue) {
+  const res = await fetch(supabaseUrl(table, `${matchColumn}=eq.${matchValue}`), {
+    method: 'PATCH',
+    headers: supabaseHeaders(),
+    body: JSON.stringify(row)
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`DB UPDATE ${table} failed (${res.status}): ${text}`);
+  }
+  return true;
 }
 
 export function cors(res) {
