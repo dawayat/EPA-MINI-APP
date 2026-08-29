@@ -3,8 +3,9 @@ import {
   Users, Clock, CreditCard, CheckCircle2, XCircle, AlertTriangle,
   Search, FileText, Plus, Building, ShieldCheck, Send, Eye, Check,
   X, ExternalLink, History, GraduationCap, Vote, BookOpen, BarChart2,
-  Award, ChevronDown, Trash2, Image, TrendingUp
+  Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud
 } from 'lucide-react';
+import { uploadFile } from '../lib/api';
 import { Application, Member, University, Announcement, AuditLog, ApplicationStatus } from '../types';
 
 interface AdminPortalViewProps {
@@ -65,6 +66,11 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     file_attachment_url: '',      // Optional PDF/doc attachment
     target_audience: [] as string[]
   });
+  
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const annFileInputRef = React.useRef<HTMLInputElement>(null);
+  const annCoverInputRef = React.useRef<HTMLInputElement>(null);
 
   // Draft votes local state: announcementId -> { approve: number, adjust: number, userVote: string | null }
   const [draftVotes, setDraftVotes] = useState<Record<string, { approve: number; adjust: number; userVote: string | null }>>({});
@@ -875,15 +881,46 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
             </div>
             <div>
-              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Cover Photo URL (Optional)</label>
-              <div className="flex gap-2">
-                <Image className="w-4 h-4 text-neutral-400 shrink-0 mt-3" />
-                <input type="text" placeholder="https://images.unsplash.com/... or your image URL"
-                  value={newAnn.cover_photo_url} onChange={(e) => setNewAnn({ ...newAnn, cover_photo_url: e.target.value })}
-                  className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
+              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Cover Photo (Optional)</label>
+              <div 
+                className="border-2 border-dashed border-gray-300 dark:border-white/20 bg-black/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-4 flex flex-col items-center justify-center text-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer" 
+                onClick={() => !isUploadingCover && annCoverInputRef.current?.click()}
+              >
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  ref={annCoverInputRef}
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setIsUploadingCover(true);
+                      try {
+                        const url = await uploadFile(file);
+                        setNewAnn({ ...newAnn, cover_photo_url: url });
+                      } catch (err) {
+                        onToast('Failed to upload cover photo', 'error');
+                      } finally {
+                        setIsUploadingCover(false);
+                      }
+                    }
+                  }} 
+                />
+                <UploadCloud className={`w-6 h-6 ${isUploadingCover ? 'animate-bounce text-green-700 dark:text-[#d4ff00]' : 'text-neutral-400'} mb-2`} />
+                <span className="text-xs text-gray-900 dark:text-white font-bold">
+                  {isUploadingCover ? 'Uploading Cover...' : 'Click to upload Cover Photo'}
+                </span>
               </div>
               {newAnn.cover_photo_url && (
-                <img src={newAnn.cover_photo_url} alt="cover preview" className="w-full h-32 object-cover rounded-xl mt-2" onError={e => (e.currentTarget.style.display = 'none')} />
+                <div className="relative mt-2">
+                  <img src={newAnn.cover_photo_url} alt="cover preview" className="w-full h-32 object-cover rounded-xl" onError={e => (e.currentTarget.style.display = 'none')} />
+                  <button 
+                    onClick={() => setNewAnn({ ...newAnn, cover_photo_url: undefined })}
+                    className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/80 rounded-lg text-white"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               )}
             </div>
             <div>
@@ -906,12 +943,38 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             </div>
 
             {/* File Attachment */}
-            <div>
               <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Attach File (PDF / DOCX) — Optional</label>
-              <input type="text" placeholder="https://... or paste a Google Drive share link"
-                value={newAnn.file_attachment_url} onChange={(e) => setNewAnn({ ...newAnn, file_attachment_url: e.target.value })}
-                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
-            </div>
+              <div 
+                className="border-2 border-dashed border-gray-300 dark:border-white/20 bg-black/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-4 flex flex-col items-center justify-center text-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer" 
+                onClick={() => !isUploadingFile && annFileInputRef.current?.click()}
+              >
+                <input 
+                  type="file" 
+                  ref={annFileInputRef}
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setIsUploadingFile(true);
+                      try {
+                        const url = await uploadFile(file);
+                        setNewAnn({ ...newAnn, file_attachment_url: url });
+                      } catch (err) {
+                        onToast('Failed to upload file', 'error');
+                      } finally {
+                        setIsUploadingFile(false);
+                      }
+                    }
+                  }} 
+                />
+                <UploadCloud className={`w-6 h-6 ${isUploadingFile ? 'animate-bounce text-green-700 dark:text-[#d4ff00]' : 'text-neutral-400'} mb-2`} />
+                <span className="text-xs text-gray-900 dark:text-white font-bold">
+                  {isUploadingFile ? 'Uploading File...' : (newAnn.file_attachment_url ? 'File Attached (Click to replace)' : 'Click to attach Document')}
+                </span>
+                {newAnn.file_attachment_url && !isUploadingFile && (
+                  <span className="text-xs text-green-700 dark:text-[#d4ff00] mt-1 break-all px-4">{newAnn.file_attachment_url.split('/').pop() || 'Attachment'}</span>
+                )}
+              </div>
 
             {/* Target Audience */}
             <div>
