@@ -146,21 +146,19 @@ export default function App() {
     const fullApp: Application = {
       ...newApp,
       id: 'app-' + Date.now(),
-      application_number: 'APP-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000),
+      application_number: newApp.application_number || ('APP-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000)),
       status: 'SUBMITTED',
-      photo_url: newApp.photo_url,
-      student_profile: newApp.student_profile,
-      qualifications: newApp.qualifications,
-      payment: newApp.payment,
       submitted_at: new Date().toISOString()
     };
 
     if (isSupabaseConfigured) {
-      try {
-        await submitApplication(fullApp);
-      } catch (err) {
-        console.error("Failed to submit application to database:", err);
-        showToast('Submission failed, but saved locally for demo.', 'error');
+      const result = await submitApplication(fullApp);
+      if (!result.success) {
+        console.error('[App] Application submission failed:', result.error);
+        showToast(`Database error: ${result.error}`, 'error');
+        // Still add locally so admin can see it in this session
+      } else {
+        showToast('Application submitted and saved to database!', 'success');
       }
     }
 
@@ -264,11 +262,21 @@ export default function App() {
       content: ann.content || '',
       published_at: new Date().toISOString(),
       author: ann.author || 'EPA Executive Directorate',
+      cover_photo_url: ann.cover_photo_url,
+      file_attachment_url: ann.file_attachment_url,
+      target_audience: ann.target_audience,
+      is_draft: ann.is_draft,
       likes_count: 0,
       views_count: 1
     };
     if (isSupabaseConfigured) {
-      await publishAnnouncement(fullAnn);
+      const result = await publishAnnouncement(fullAnn);
+      if (!result.success) {
+        console.error('[App] Announcement publish failed:', result.error);
+        showToast(`Database error: ${result.error}`, 'error');
+      } else {
+        showToast('Announcement published to database!', 'success');
+      }
     }
     setAnnouncements(prev => [fullAnn, ...prev]);
   };

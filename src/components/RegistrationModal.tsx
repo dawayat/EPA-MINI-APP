@@ -82,12 +82,13 @@ const Select = ({ label, options, required = false, ...props }: any) => (
 const FileUpload = ({ label, hint, onChange }: any) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
   
   return (
     <div className="mb-4">
       <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">{label}</label>
       <div 
-        className="border-2 border-dashed border-gray-300 dark:border-white/20 bg-black/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-6 flex flex-col items-center justify-center text-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer" 
+        className={`border-2 border-dashed ${fileName ? 'border-green-500 dark:border-[#d4ff00]' : 'border-gray-300 dark:border-white/20'} bg-black/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-6 flex flex-col items-center justify-center text-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer`}
         onClick={() => !isUploading && fileInputRef.current?.click()}
       >
         <input 
@@ -98,8 +99,10 @@ const FileUpload = ({ label, hint, onChange }: any) => {
             const file = e.target.files?.[0];
             if (file) {
               setIsUploading(true);
+              setFileName(null);
               try {
                 const url = await uploadFile(file);
+                setFileName(file.name);
                 onChange(url);
               } catch (err) {
                 console.error('Upload failed', err);
@@ -109,15 +112,26 @@ const FileUpload = ({ label, hint, onChange }: any) => {
             }
           }} 
         />
-        <UploadCloud className={`w-8 h-8 ${isUploading ? 'animate-bounce text-green-700 dark:text-[#d4ff00]' : 'text-neutral-400 dark:text-neutral-500'} mb-2`} />
-        <span className="text-sm text-gray-900 dark:text-white font-bold">
-          {isUploading ? 'Uploading...' : 'Click to upload file'}
-        </span>
-        {hint && !isUploading && <span className="text-xs text-neutral-500 mt-1">{hint}</span>}
+        <UploadCloud className={`w-8 h-8 ${isUploading ? 'animate-bounce text-green-700 dark:text-[#d4ff00]' : fileName ? 'text-green-600 dark:text-[#d4ff00]' : 'text-neutral-400 dark:text-neutral-500'} mb-2`} />
+        {isUploading ? (
+          <span className="text-sm text-gray-900 dark:text-white font-bold">Uploading...</span>
+        ) : fileName ? (
+          <>
+            <span className="text-sm text-green-700 dark:text-[#d4ff00] font-bold">✓ File Selected</span>
+            <span className="text-xs text-neutral-500 mt-1 break-all px-2">{fileName}</span>
+            <span className="text-[10px] text-neutral-400 mt-1">Click to replace</span>
+          </>
+        ) : (
+          <>
+            <span className="text-sm text-gray-900 dark:text-white font-bold">Click to upload file</span>
+            {hint && <span className="text-xs text-neutral-500 mt-1">{hint}</span>}
+          </>
+        )}
       </div>
     </div>
   );
 };
+
 
 export default function RegistrationModal({
   isOpen, onClose, lang, initialTier, universities = [], onSubmitApplication, onToast

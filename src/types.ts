@@ -76,13 +76,13 @@ export interface Application {
   father_name: string;
   grandfather_name?: string;
   amharic_full_name?: string;
-  gender: 'M' | 'F';
-  email: string;
-  phone: string;
-  date_of_birth: string;
-  city: string;
+  email?: string;
+  phone?: string;
+  date_of_birth?: string;
+  city?: string;
   membership_type: MembershipTypeCode;
   status: ApplicationStatus;
+  gender?: 'M' | 'F';
   photo_url?: string;
   id_document_url?: string;
   degree_certificate_url?: string;
@@ -98,6 +98,10 @@ export interface Application {
   current_workplace?: string;
   current_specialty?: string;
   years_of_experience?: number;
+  gender?: 'M' | 'F';
+  date_of_birth?: string;
+  license_number?: string;
+  national_id_number?: string;
 }
 
 export interface Member {
@@ -166,6 +170,8 @@ export interface Announcement {
   cover_gradient?: string;
   target_audience?: string[];
   is_published?: boolean;
+  file_attachment_url?: string;
+  is_draft?: boolean;
 }
 
 export interface University {
