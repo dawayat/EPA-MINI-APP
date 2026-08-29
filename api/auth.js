@@ -28,28 +28,20 @@ export default async function handler(req, res) {
     const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
 
     if (action === 'login') {
-      // Find member by phone number
-      const rows = await dbSelect('members', `phone=eq.${encodeURIComponent(cleanPhone)}`);
-      
-      if (!rows || rows.length === 0) {
-        // Try with leading zero variant (e.g. 0911... vs 911...)
-        const altPhone = cleanPhone.startsWith('0') ? cleanPhone.slice(1) : '0' + cleanPhone;
-        const altRows = await dbSelect('members', `phone=eq.${encodeURIComponent(altPhone)}`);
-        
-        if (!altRows || altRows.length === 0) {
-          return res.status(401).json({ success: false, error: 'No approved member found with this phone number. Please contact EPA.' });
-        }
-        
-        const member = altRows[0];
-        if (!member.phone_password) {
-          return res.status(401).json({ success: false, error: 'No password set for this account. Please contact EPA admin.' });
-        }
-        if (member.phone_password !== password) {
-          return res.status(401).json({ success: false, error: 'Incorrect password.' });
-        }
-        return res.status(200).json({ success: true, member });
+      // Find member by phone number using LIKE query on the last 9 digits 
+      // (e.g. 911223344) to handle +251, 251, and 0 prefixes seamlessly.
+      const last9 = cleanPhone.slice(-9);
+      if (last9.length < 9) {
+        return res.status(400).json({ success: false, error: 'Phone number is too short.' });
       }
 
+      const rows = await dbSelect('members', `phone=like.*${last9}`);
+      
+      if (!rows || rows.length === 0) {
+        return res.status(401).json({ success: false, error: 'No approved member found with this phone number. Please check the number or contact EPA.' });
+      }
+      
+      // If multiple match, pick the first one
       const member = rows[0];
       if (!member.phone_password) {
         return res.status(401).json({ success: false, error: 'No password set for this account. Please contact EPA admin.' });

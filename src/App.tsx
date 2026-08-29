@@ -231,8 +231,17 @@ export default function App() {
 
 
     if (isSupabaseConfigured) {
-      await updateApplicationStatus(appId, 'APPROVED');
-      await createMember(newMember); // Save to database!
+      try {
+        const res = await createMember(newMember); // Save to database!
+        if (res && !res.success) {
+          showToast(`Failed to create member in DB: ${res.error}. Did you run the SQL migration?`, 'error');
+          return; // Abort local state update
+        }
+        await updateApplicationStatus(appId, 'APPROVED');
+      } catch (err: any) {
+        showToast(`Error creating member: ${err.message}`, 'error');
+        return;
+      }
     }
 
     setMembers(prev => [newMember, ...prev]);
@@ -242,6 +251,7 @@ export default function App() {
     // so they can immediately see their digital ID
     setActiveMemberId(newMember.id);
     setCurrentTab('idcard');
+    showToast(`Application approved and Digital ID issued!`, 'success');
 
     setAuditLogs(prev => [{
       id: 'log-' + Date.now(),
