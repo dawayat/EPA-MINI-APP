@@ -206,7 +206,9 @@ export default function App() {
       issued_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000 * 2).toISOString(),
       is_verified: true,
-      license_number: app.membership_type === 'FULL' ? `EPA-LIC-CL-${Math.floor(1000 + Math.random() * 9000)}` : undefined
+      license_number: app.membership_type === 'FULL' ? `EPA-LIC-CL-${Math.floor(1000 + Math.random() * 9000)}` : undefined,
+      corporate_profile: app.corporate_profile,
+      student_profile: app.student_profile
     };
 
     if (isSupabaseConfigured) {
@@ -220,7 +222,7 @@ export default function App() {
     // For testing/demo purposes, log the user in as the newly approved member 
     // so they can immediately see their digital ID
     setActiveMemberId(newMember.id);
-    setCurrentTab('id');
+    setCurrentTab('idcard');
 
     setAuditLogs(prev => [{
       id: 'log-' + Date.now(),

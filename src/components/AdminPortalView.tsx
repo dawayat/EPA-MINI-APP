@@ -708,43 +708,49 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </div>
 
               {/* Detailed Personal & Professional Info */}
-              <div>
-                <h4 className="font-mono font-bold text-xs text-green-700 dark:text-[#d4ff00] uppercase tracking-wider mb-2">
-                  Personal & Professional Details
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
-                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Gender</div>
-                    <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.gender === 'M' ? 'Male' : reviewingApp.gender === 'F' ? 'Female' : 'N/A'}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
-                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Date of Birth</div>
-                    <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.date_of_birth || 'N/A'}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
-                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">National ID</div>
-                    <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.national_id_number || 'N/A'}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
-                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Current Workplace</div>
-                    <div className="font-mono text-gray-900 dark:text-white mt-1 truncate" title={reviewingApp.current_workplace || ''}>{reviewingApp.current_workplace || 'N/A'}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
-                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Specialty</div>
-                    <div className="font-mono text-gray-900 dark:text-white mt-1 truncate" title={reviewingApp.current_specialty || ''}>{reviewingApp.current_specialty || 'N/A'}</div>
-                  </div>
-                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
-                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Experience</div>
-                    <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.years_of_experience ? `${reviewingApp.years_of_experience} years` : 'N/A'}</div>
-                  </div>
-                  {reviewingApp.license_number && (
-                    <div className="col-span-2 sm:col-span-3 p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
-                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Existing License Number</div>
-                      <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.license_number}</div>
+              {reviewingApp.membership_type !== 'CORPORATE' && (
+                <div>
+                  <h4 className="font-mono font-bold text-xs text-green-700 dark:text-[#d4ff00] uppercase tracking-wider mb-2">
+                    Personal & Professional Details
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Gender</div>
+                      <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.gender === 'M' ? 'Male' : reviewingApp.gender === 'F' ? 'Female' : 'N/A'}</div>
                     </div>
-                  )}
+                    <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Date of Birth</div>
+                      <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.date_of_birth || 'N/A'}</div>
+                    </div>
+                    <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">National ID</div>
+                      <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.national_id_number || 'N/A'}</div>
+                    </div>
+                    {reviewingApp.membership_type === 'FULL' && (
+                      <>
+                        <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                          <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Current Workplace</div>
+                          <div className="font-mono text-gray-900 dark:text-white mt-1 truncate" title={reviewingApp.current_workplace || ''}>{reviewingApp.current_workplace || 'N/A'}</div>
+                        </div>
+                        <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                          <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Specialty</div>
+                          <div className="font-mono text-gray-900 dark:text-white mt-1 truncate" title={reviewingApp.current_specialty || ''}>{reviewingApp.current_specialty || 'N/A'}</div>
+                        </div>
+                        <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                          <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Experience</div>
+                          <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.years_of_experience ? `${reviewingApp.years_of_experience} years` : 'N/A'}</div>
+                        </div>
+                        {reviewingApp.license_number && (
+                          <div className="col-span-2 sm:col-span-3 p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                            <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Existing License Number</div>
+                            <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.license_number}</div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Education / Qualifications breakdown */}
               {(reviewingApp.student_profile || (reviewingApp.qualifications && reviewingApp.qualifications.length > 0) || reviewingApp.corporate_profile) && (
