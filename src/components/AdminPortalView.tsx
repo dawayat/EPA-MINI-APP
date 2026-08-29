@@ -3,7 +3,7 @@ import {
   Users, Clock, CreditCard, CheckCircle2, XCircle, AlertTriangle,
   Search, FileText, Plus, Building, ShieldCheck, Send, Eye, Check,
   X, ExternalLink, History, GraduationCap, Vote, BookOpen, BarChart2,
-  Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud
+  Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud, Settings
 } from 'lucide-react';
 import { uploadFile } from '../lib/api';
 import { Application, Member, University, Announcement, AuditLog, ApplicationStatus } from '../types';
