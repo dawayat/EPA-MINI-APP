@@ -361,26 +361,70 @@ export default function App() {
         )}
 
         {currentTab === 'portal' && (
-          <MemberPortalView
-            member={activeMember}
-            lang={lang}
-            cpdCourses={cpdCourses}
-            announcements={announcements}
-            onOpenIdCard={() => setCurrentTab('idcard')}
-            onOpenVoting={() => setCurrentTab('elections')}
-            onOpenDirectory={() => setCurrentTab('directory')}
-            onRegisterCPD={handleRegisterCPD}
-            onToast={showToast}
-          />
+          activeMember ? (
+            <MemberPortalView
+              member={activeMember}
+              lang={lang}
+              cpdCourses={cpdCourses}
+              announcements={announcements}
+              onOpenIdCard={() => setCurrentTab('idcard')}
+              onOpenVoting={() => setCurrentTab('elections')}
+              onOpenDirectory={() => setCurrentTab('directory')}
+              onRegisterCPD={handleRegisterCPD}
+              onToast={showToast}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 animate-in fade-in zoom-in duration-500">
+              <div className="w-20 h-20 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-6 border border-gray-200 dark:border-white/10">
+                <ShieldCheck className="w-10 h-10 text-neutral-400 dark:text-neutral-500" />
+              </div>
+              <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-3 font-syne">
+                {lang === 'EN' ? 'Access Restricted' : 'መግባት አይቻልም'}
+              </h2>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-sm mb-8 leading-relaxed">
+                {lang === 'EN' 
+                  ? 'This portal is restricted to approved members only. Please submit an application or wait for your pending application to be approved by the council.'
+                  : 'ይህ ገጽ ለተረጋገጡ አባላት ብቻ ክፍት ነው። እባክዎ ማመልከቻ ያስገቡ ወይም ማመልከቻዎ እስኪጸድቅ ይጠብቁ።'}
+              </p>
+              <button 
+                onClick={() => setCurrentTab('welcome')} 
+                className="px-8 py-3.5 bg-[#d4ff00] text-black font-black uppercase text-xs rounded-xl shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:shadow-[0_0_30px_rgba(212,255,0,0.5)] transition-all active:scale-95"
+              >
+                {lang === 'EN' ? 'Return Home' : 'ወደ መነሻ ተመለስ'}
+              </button>
+            </div>
+          )
         )}
 
         {currentTab === 'idcard' && (
-          <DigitalIdCard
-            member={activeMember}
-            lang={lang}
-            onVerifyClick={handleVerifyClick}
-            onToast={showToast}
-          />
+          activeMember ? (
+            <DigitalIdCard
+              member={activeMember}
+              lang={lang}
+              onVerifyClick={handleVerifyClick}
+              onToast={showToast}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 animate-in fade-in zoom-in duration-500">
+              <div className="w-20 h-20 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mb-6 border border-gray-200 dark:border-white/10">
+                <CreditCard className="w-10 h-10 text-neutral-400 dark:text-neutral-500" />
+              </div>
+              <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-3 font-syne">
+                {lang === 'EN' ? 'No Digital ID Found' : 'መታወቂያ አልተገኘም'}
+              </h2>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-sm mb-8 leading-relaxed">
+                {lang === 'EN' 
+                  ? 'You must be an approved member to view your Digital ID.'
+                  : 'የዲጂታል መታወቂያዎን ለማየት የተረጋገጡ አባል መሆን አለብዎት።'}
+              </p>
+              <button 
+                onClick={() => setCurrentTab('welcome')} 
+                className="px-8 py-3.5 bg-[#d4ff00] text-black font-black uppercase text-xs rounded-xl shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:shadow-[0_0_30px_rgba(212,255,0,0.5)] transition-all active:scale-95"
+              >
+                {lang === 'EN' ? 'Return Home' : 'ወደ መነሻ ተመለስ'}
+              </button>
+            </div>
+          )
         )}
 
         {currentTab === 'directory' && (
