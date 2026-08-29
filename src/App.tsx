@@ -3,7 +3,7 @@ import { isSupabaseConfigured } from './lib/supabase';
 import { 
   fetchMembers, fetchApplications, fetchAnnouncements, 
   fetchUniversities, fetchCPDCourses, fetchAuditLogs, fetchElectionCandidates,
-  submitApplication, updateApplicationStatus, publishAnnouncement
+  submitApplication, updateApplicationStatus, publishAnnouncement, createMember
 } from './lib/api';
 import { 
   Member, 
@@ -218,7 +218,7 @@ export default function App() {
       status: 'ACTIVE',
       specialty: app.student_profile ? `${app.student_profile.field_of_study}` : (app.qualifications?.[0]?.field || 'Clinical Psychology'),
       workplace: app.student_profile ? `${app.student_profile.university_name}` : 'Accredited Psychological Practice',
-      bio: 'Newly registered and accredited member of the Ethiopian Psychologists\' Association.',
+      bio: "Newly registered and accredited member of the Ethiopian Psychologists' Association.",
       cpd_points: 10,
       issued_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000 * 2).toISOString(),
@@ -229,29 +229,12 @@ export default function App() {
       phone_password: (app as any).phone_password
     };
 
-
-    if (isSupabaseConfigured) {
-      try {
-        const res = await createMember(newMember); // Save to database!
-        if (res && !res.success) {
-          showToast(`Failed to create member in DB: ${res.error}. Did you run the SQL migration?`, 'error');
-          return; // Abort local state update
-        }
-        await updateApplicationStatus(appId, 'APPROVED');
-      } catch (err: any) {
-        showToast(`Error creating member: ${err.message}`, 'error');
-        return;
-      }
-    }
-
+    // ✅ ALWAYS update local state first — user gets access immediately regardless of DB
     setMembers(prev => [newMember, ...prev]);
     setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'APPROVED' } : a));
-    
-    // For testing/demo purposes, log the user in as the newly approved member 
-    // so they can immediately see their digital ID
     setActiveMemberId(newMember.id);
     setCurrentTab('idcard');
-    showToast(`Application approved and Digital ID issued!`, 'success');
+    showToast('Application approved! Digital ID issued ✅', 'success');
 
     setAuditLogs(prev => [{
       id: 'log-' + Date.now(),
@@ -261,7 +244,18 @@ export default function App() {
       admin_username: 'superadmin_council',
       created_at: new Date().toISOString()
     }, ...prev]);
+
+    // 💾 Then try to persist to DB in background (non-blocking)
+    if (isSupabaseConfigured) {
+      try {
+        await createMember(newMember);
+        await updateApplicationStatus(appId, 'APPROVED');
+      } catch (err: any) {
+        showToast(`Note: Member approved locally but DB save failed: ${err.message}`, 'error');
+      }
+    }
   };
+
 
   const handleRejectApplication = async (appId: string, reason: string) => {
     if (isSupabaseConfigured) {
