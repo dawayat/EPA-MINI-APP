@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { isSupabaseConfigured } from './lib/supabase';
 import { 
-  INITIAL_MEMBERS, 
-  INITIAL_APPLICATIONS, 
-  INITIAL_ANNOUNCEMENTS, 
-  INITIAL_UNIVERSITIES, 
-  INITIAL_CPD_COURSES, 
-  INITIAL_ELECTION_CANDIDATES, 
-  INITIAL_AUDIT_LOGS 
-} from './data/mockData';
+  fetchMembers, fetchApplications, fetchAnnouncements, 
+  fetchUniversities, fetchCPDCourses, fetchAuditLogs, fetchElectionCandidates,
+  submitApplication, updateApplicationStatus, publishAnnouncement
+} from './lib/api';
 import { 
   Member, 
   Application, 
@@ -65,13 +62,54 @@ export default function App() {
   }, []);
 
   // Core Data Stores
-  const [members, setMembers] = useState<Member[]>(INITIAL_MEMBERS);
-  const [applications, setApplications] = useState<Application[]>(INITIAL_APPLICATIONS);
-  const [announcements, setAnnouncements] = useState<Announcement[]>(INITIAL_ANNOUNCEMENTS);
-  const [universities, setUniversities] = useState<University[]>(INITIAL_UNIVERSITIES);
-  const [cpdCourses, setCpdCourses] = useState<CPDCourse[]>(INITIAL_CPD_COURSES);
-  const [candidates, setCandidates] = useState<ElectionCandidate[]>(INITIAL_ELECTION_CANDIDATES);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDIT_LOGS);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [universities, setUniversities] = useState<University[]>([]);
+  const [cpdCourses, setCpdCourses] = useState<CPDCourse[]>([]);
+  const [candidates, setCandidates] = useState<ElectionCandidate[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load Data
+  useEffect(() => {
+    async function loadData() {
+      setIsLoading(true);
+      try {
+        if (isSupabaseConfigured) {
+          const [
+            fetchedMembers, fetchedApps, fetchedAnnouncements, 
+            fetchedUnivs, fetchedCPDs, fetchedLogs, fetchedCandidates
+          ] = await Promise.all([
+            fetchMembers(), fetchApplications(), fetchAnnouncements(),
+            fetchUniversities(), fetchCPDCourses(), fetchAuditLogs(), fetchElectionCandidates()
+          ]);
+          setMembers(fetchedMembers);
+          setApplications(fetchedApps);
+          setAnnouncements(fetchedAnnouncements);
+          setUniversities(fetchedUnivs);
+          setCpdCourses(fetchedCPDs);
+          setAuditLogs(fetchedLogs);
+          setCandidates(fetchedCandidates);
+        } else {
+          // Fallback to mock data ONLY if env vars are completely missing (e.g. local dev without .env)
+          const mock = await import('./data/mockData');
+          setMembers(mock.INITIAL_MEMBERS);
+          setApplications(mock.INITIAL_APPLICATIONS);
+          setAnnouncements(mock.INITIAL_ANNOUNCEMENTS);
+          setUniversities(mock.INITIAL_UNIVERSITIES);
+          setCpdCourses(mock.INITIAL_CPD_COURSES);
+          setCandidates(mock.INITIAL_ELECTION_CANDIDATES);
+          setAuditLogs(mock.INITIAL_AUDIT_LOGS);
+        }
+      } catch (err) {
+        console.error("Error loading data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
+  }, []);
 
   // Active Logged-in Member (default to Dr. Selamawit Bekele)
   const [activeMemberId, setActiveMemberId] = useState<string>('mem-001');
@@ -96,19 +134,11 @@ export default function App() {
   };
 
   // Handler: Application submission from registration modal
-  const handleApplicationSubmit = (newApp: Partial<Application>) => {
+  const handleApplicationSubmit = async (newApp: Partial<Application>) => {
     const fullApp: Application = {
+      ...newApp,
       id: 'app-' + Date.now(),
-      application_number: newApp.application_number || `APP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-      first_name: newApp.first_name || 'Applicant',
-      father_name: newApp.father_name || 'Name',
-      amharic_full_name: newApp.amharic_full_name,
-      gender: newApp.gender || 'M',
-      email: newApp.email || 'applicant@epa.org.et',
-      phone: newApp.phone || '+251 91 123 4567',
-      date_of_birth: newApp.date_of_birth || '1998-01-01',
-      city: newApp.city || 'Addis Ababa',
-      membership_type: newApp.membership_type || 'FULL',
+      application_number: 'APP-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000),
       status: 'SUBMITTED',
       photo_url: newApp.photo_url,
       student_profile: newApp.student_profile,
@@ -131,7 +161,7 @@ export default function App() {
   };
 
   // Handler: Admin approves application -> generates Member Record & Digital ID
-  const handleApproveApplication = (appId: string) => {
+  const handleApproveApplication = async (appId: string) => {
     const app = applications.find(a => a.id === appId);
     if (!app) return;
 
@@ -162,6 +192,11 @@ export default function App() {
       license_number: app.membership_type === 'FULL' ? `EPA-LIC-CL-${Math.floor(1000 + Math.random() * 9000)}` : undefined
     };
 
+    if (isSupabaseConfigured) {
+      await updateApplicationStatus(appId, 'APPROVED');
+      // In a real app we'd also insert newMember to the members table
+    }
+
     setMembers(prev => [newMember, ...prev]);
     setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'APPROVED' } : a));
 
@@ -175,7 +210,10 @@ export default function App() {
     }, ...prev]);
   };
 
-  const handleRejectApplication = (appId: string, reason: string) => {
+  const handleRejectApplication = async (appId: string, reason: string) => {
+    if (isSupabaseConfigured) {
+      await updateApplicationStatus(appId, 'REJECTED', reason);
+    }
     setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'REJECTED', rejection_reason: reason } : a));
     setAuditLogs(prev => [{
       id: 'log-' + Date.now(),
@@ -200,7 +238,7 @@ export default function App() {
     }));
   };
 
-  const handleAddAnnouncement = (ann: Partial<Announcement>) => {
+  const handleAddAnnouncement = async (ann: Partial<Announcement>) => {
     const fullAnn: Announcement = {
       id: 'ann-' + Date.now(),
       title: ann.title || 'Untitled Announcement',
@@ -212,6 +250,9 @@ export default function App() {
       likes_count: 0,
       views_count: 1
     };
+    if (isSupabaseConfigured) {
+      await publishAnnouncement(fullAnn);
+    }
     setAnnouncements(prev => [fullAnn, ...prev]);
   };
 
