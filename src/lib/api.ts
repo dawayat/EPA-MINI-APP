@@ -193,29 +193,56 @@ export async function createCPDCourse(courseData: Partial<CPDCourse>) {
 }
 
 export async function uploadFile(file: File): Promise<string> {
-  // Always create a local preview URL immediately for the UI
-  const localUrl = URL.createObjectURL(file);
-  
-  if (!isSupabaseConfigured) return localUrl;
-  
-  const fileExt = file.name.split('.').pop() || 'bin';
-  const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-
-  try {
-    const { error: uploadError } = await supabase!.storage
-      .from('storage')
-      .upload(safeFileName, file, { upsert: true });
-
-    if (uploadError) {
-      console.error('[API] Storage upload error:', uploadError.message);
-      // Return local blob URL as fallback so UI still works
-      return localUrl;
-    }
-
-    const { data } = supabase!.storage.from('storage').getPublicUrl(safeFileName);
-    return data.publicUrl;
-  } catch (err) {
-    console.error('[API] Storage exception:', err);
-    return localUrl;
+  // ── IMAGES: compress + convert to base64 data URL ──────────────────────
+  // Stored directly in the database as a data URL — no storage bucket needed!
+  if (file.type.startsWith('image/')) {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        const MAX_DIM = 600; // max width or height in pixels
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          if (w > h) { h = Math.round(h * MAX_DIM / w); w = MAX_DIM; }
+          else       { w = Math.round(w * MAX_DIM / h); h = MAX_DIM; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(objectUrl);
+        // JPEG at 72% quality ≈ 30–80 KB — perfectly fine in a text column
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(objectUrl); // fallback: local blob URL
+      };
+      img.src = objectUrl;
+    });
   }
+
+  // ── DOCUMENTS (PDF, DOCX, etc.): try Supabase storage ─────────────────
+  if (isSupabaseConfigured) {
+    const fileExt = file.name.split('.').pop() || 'bin';
+    const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+    try {
+      const { error } = await supabase!.storage
+        .from('storage')
+        .upload(safeFileName, file, { upsert: true });
+      if (!error) {
+        const { data } = supabase!.storage.from('storage').getPublicUrl(safeFileName);
+        return data.publicUrl;
+      }
+      console.warn('[API] Storage upload failed, using local URL:', error.message);
+    } catch (e) {
+      console.warn('[API] Storage exception:', e);
+    }
+  }
+
+  // ── FALLBACK: local blob URL (works only for this browser session) ─────
+  return URL.createObjectURL(file);
 }
+
