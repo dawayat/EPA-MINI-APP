@@ -5,7 +5,8 @@ import {
   Search, Heart, Bookmark, GraduationCap, Building2, Briefcase,
   Star, Bell, TrendingUp, AlertCircle, Plus, Shield, Edit3, ChevronRight
 } from 'lucide-react';
-import { Member, CPDCourse, Announcement } from '../types';
+import { Member, CPDCourse, Announcement, ResearchArticle } from '../types';
+import { ResearchPortal } from './ResearchPortal';
 
 interface MemberPortalViewProps {
   member: Member;
@@ -283,9 +284,11 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
 const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
   member, lang, cpdCourses, announcements, onOpenIdCard, onOpenVoting, onOpenDirectory, onRegisterCPD, onToast
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'cpd' | 'announcements' | 'license'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'cpd' | 'announcements' | 'license' | 'research'>('overview');
   const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
   const [bookmarkedAnn, setBookmarkedAnn] = useState<Record<string, boolean>>({});
+  const [draftVotes, setDraftVotes] = useState<Record<string, 'approve' | 'adjust' | null>>({});
+  const [researchArticles, setResearchArticles] = useState<ResearchArticle[]>([]);
 
   const cpdTarget = 50;
   const cpdProgress = Math.min((member.cpd_points / cpdTarget) * 100, 100);
@@ -367,7 +370,8 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
         {[
           { id: 'overview', label: lang === 'EN' ? 'Dashboard Overview' : 'ዳሽቦርድ' },
           { id: 'cpd', label: lang === 'EN' ? 'CPD & Continuing Education' : 'CPD ማሻሻያ' },
-          { id: 'announcements', label: lang === 'EN' ? 'Research & News Feed' : 'ምርምርና ዜናዎች' },
+          { id: 'research', label: lang === 'EN' ? 'Research & Articles' : 'ምርምር' },
+          { id: 'announcements', label: lang === 'EN' ? 'News Feed' : 'ዜናዎች' },
           { id: 'license', label: lang === 'EN' ? 'License & Renewal' : 'ፈቃድ / ማደስ' },
         ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id as any)}
@@ -427,6 +431,34 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Research & Articles Tab */}
+      {activeTab === 'research' && (
+        <ResearchPortal
+          member={member}
+          articles={researchArticles}
+          lang={lang}
+          onPublishArticle={(article) => {
+            setResearchArticles(prev => [{ ...article, id: `art-${Date.now()}` } as ResearchArticle, ...prev]);
+          }}
+          onAddComment={(articleId, comment) => {
+            setResearchArticles(prev => prev.map(a => a.id === articleId ? {
+              ...a,
+              comments: [...a.comments, {
+                id: `c-${Date.now()}`,
+                author_name: `${member.first_name} ${member.father_name}`,
+                author_membership_number: member.membership_number,
+                content: comment,
+                created_at: new Date().toISOString()
+              }]
+            } : a));
+          }}
+          onLikeArticle={(articleId) => {
+            setResearchArticles(prev => prev.map(a => a.id === articleId ? { ...a, likes_count: a.likes_count + 1 } : a));
+          }}
+          onToast={onToast}
+        />
       )}
 
       {/* CPD Tab */}
@@ -494,8 +526,43 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
                 <span className="px-2.5 py-0.5 rounded-full bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/30 font-mono font-bold uppercase text-[10px]">{ann.category}</span>
                 <span className="text-neutral-600 dark:text-neutral-400 font-mono text-xs">{new Date(ann.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
               </div>
-              <h3 className="font-black text-base text-gray-900 dark:text-white uppercase mb-2">{lang === 'EN' ? ann.title : ann.amharic_title || ann.title}</h3>
+              <h3 className="font-black text-base text-gray-900 dark:text-white uppercase mb-2">
+                {lang === 'EN' ? ann.title : ann.amharic_title || ann.title}
+                {(ann as any).is_draft && <span className="ml-2 text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full">DRAFT</span>}
+              </h3>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed mb-4">{ann.content}</p>
+
+              {(ann as any).file_attachment_url && (
+                <a href={(ann as any).file_attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 mb-4 px-4 py-2.5 bg-black/5 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-xs font-bold text-gray-900 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
+                  <FileText className="w-4 h-4" />
+                  View Attached Document
+                </a>
+              )}
+
+              {(ann as any).is_draft && (
+                <div className="mt-2 mb-4 p-4 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/10 rounded-xl">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-500 mb-2">Cast your vote on this draft</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDraftVotes(p => ({ ...p, [ann.id]: p[ann.id] === 'approve' ? null : 'approve' }))}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase transition-all ${
+                        draftVotes[ann.id] === 'approve' ? 'bg-green-500 text-white' : 'bg-white dark:bg-black border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white'
+                      }`}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => setDraftVotes(p => ({ ...p, [ann.id]: p[ann.id] === 'adjust' ? null : 'adjust' }))}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase transition-all ${
+                        draftVotes[ann.id] === 'adjust' ? 'bg-amber-500 text-white' : 'bg-white dark:bg-black border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white'
+                      }`}
+                    >
+                      Needs Adjustment
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-white/10 text-xs text-neutral-600 dark:text-neutral-400 font-mono">
                 <span className="font-semibold text-neutral-700 dark:text-neutral-200">{ann.author}</span>
                 <div className="flex items-center gap-4">

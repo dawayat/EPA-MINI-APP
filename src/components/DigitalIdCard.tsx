@@ -60,7 +60,15 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
   };
 
   const handlePrint = () => {
-    window.print();
+    // Ensure we print the front face of the card
+    const wasFlipped = isFlipped;
+    if (isFlipped) setIsFlipped(false);
+    // Give time for the flip animation to settle before printing
+    setTimeout(() => {
+      window.print();
+      // Restore flip state after print dialog closes
+      if (wasFlipped) setIsFlipped(true);
+    }, 400);
   };
 
   return (

@@ -41,3 +41,40 @@
 .glow-accent {
   box-shadow: 0 0 30px rgba(212, 255, 0, 0.15);
 }
+
+/* ===== Safe area bottom padding for mobile bottom bar ===== */
+.pb-safe-or-2 {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+/* ===== No scrollbar utility ===== */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ===== Print styles — Digital ID Card ===== */
+@media print {
+  /* Hide all UI chrome */
+  header, footer, nav, .md\:hidden { display: none !important; }
+
+  /* Reset 3D transforms so the card prints flat */
+  [style*="rotateY"] {
+    transform: none !important;
+  }
+
+  /* Make front face always visible in print */
+  .backface-hidden {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    visibility: visible !important;
+  }
+
+  /* Hide the back face when printing */
+  .backface-hidden:last-of-type {
+    display: none !important;
+  }
+
+  /* Position the ID card for print layout */
+  body {
+    background: white !important;
+  }
+}

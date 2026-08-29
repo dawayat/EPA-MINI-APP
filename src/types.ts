@@ -234,3 +234,34 @@ export interface AuditLog {
   admin_username: string;
   created_at: string;
 }
+
+export interface ArticleComment {
+  id: string;
+  author_name: string;
+  author_membership_number?: string;
+  content: string;
+  created_at: string;
+}
+
+export interface ResearchArticle {
+  id: string;
+  member_id: string;
+  author_name: string;
+  author_membership_number: string;
+  title: string;
+  abstract: string;
+  content: string;
+  keywords: string[];
+  published_at: string;
+  comments: ArticleComment[];
+  likes_count: number;
+}
+
+export type DraftVoteChoice = 'APPROVE' | 'NEEDS_ADJUSTMENT';
+
+export interface DraftVote {
+  announcement_id: string;
+  member_id: string;
+  choice: DraftVoteChoice;
+  comment?: string;
+}

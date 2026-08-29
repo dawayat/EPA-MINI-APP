@@ -132,7 +132,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 hidden md:flex">
                 <span className="font-black text-lg tracking-wider text-gray-900 dark:text-white font-syne uppercase">
                   EPA Portal
                 </span>
@@ -140,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   V2.4
                 </span>
               </div>
-              <p className="text-xs text-neutral-600 dark:text-neutral-400 font-medium line-clamp-1">
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 font-medium line-clamp-1 hidden md:block">
                 {lang === 'EN' ? 'Psychology Practitioners of Ethiopia' : 'የኢትዮጵያ ስነ-ልቦና ባለሙያዎች ማኅበር'}
               </p>
             </div>
@@ -208,32 +208,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Mobile Sub-Navigation Scrolling Strip */}
-      <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-4 py-2.5 bg-gray-50 dark:bg-[#121214] border-t border-gray-200 dark:border-white/10 no-scrollbar">
-        {navItems.map((item) => {
-          const isActive = currentTab === item.id;
-          return (
-            <button
-              key={item.id}
-              id={`mobile-nav-${item.id}`}
-              onClick={() => setCurrentTab(item.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs whitespace-nowrap font-black uppercase tracking-wider transition-colors cursor-pointer ${
-                isActive 
-                  ? 'bg-[#d4ff00] text-black shadow-sm'
-                  : 'bg-gray-100 dark:bg-[#1a1a1c] text-neutral-700 dark:text-neutral-300 border border-gray-200 dark:border-white/10 hover:text-gray-900 dark:hover:text-gray-900 dark:text-white'
-              }`}
-            >
-              <span>{item.icon}</span>
-              <span>{item.label}</span>
-              {item.badge && (
-                <span className="text-[9px] px-1 bg-black text-green-700 dark:text-[#d4ff00] rounded-full font-bold">
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {/* Mobile Sub-Navigation is now in BottomBar.tsx */}
     </header>
   );
 };

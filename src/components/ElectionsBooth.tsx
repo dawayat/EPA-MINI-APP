@@ -7,7 +7,8 @@ import {
   ArrowLeft, 
   UserCheck, 
   Sparkles,
-  Lock
+  Lock,
+  Plus
 } from 'lucide-react';
 import { ElectionCandidate, Member } from '../types';
 
@@ -31,6 +32,11 @@ export const ElectionsBooth: React.FC<ElectionsBoothProps> = ({
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(null);
   const [hasVoted, setHasVoted] = useState<boolean>(false);
   const [isCasting, setIsCasting] = useState<boolean>(false);
+  
+  // Nomination State
+  const [showNominateForm, setShowNominateForm] = useState<boolean>(false);
+  const [nominateManifesto, setNominateManifesto] = useState<string>('');
+  const [hasNominated, setHasNominated] = useState<boolean>(false);
 
   const handleConfirmVote = () => {
     if (!selectedCandidate) {
@@ -51,6 +57,15 @@ export const ElectionsBooth: React.FC<ElectionsBoothProps> = ({
       );
     }, 1000);
   };
+
+  const handleNominateSubmit = () => {
+    if (!nominateManifesto) return;
+    setHasNominated(true);
+    setShowNominateForm(false);
+    onToast(lang === 'EN' ? 'Nomination submitted successfully!' : 'እጩነትዎ በተሳካ ሁኔታ ቀርቧል!', 'success');
+  };
+
+  const isFullMember = activeMember.membership_type === 'FULL';
 
   return (
     <div className="w-full max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -119,10 +134,48 @@ export const ElectionsBooth: React.FC<ElectionsBoothProps> = ({
         </div>
       ) : (
         <div className="space-y-6">
-          <h3 className="text-lg font-black text-gray-900 dark:text-white font-syne uppercase flex items-center gap-2">
-            <UserCheck className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
-            <span>{lang === 'EN' ? 'Nominated Candidates for President & Leadership' : 'የእጩ ፕሬዝዳንቶች ዝርዝር'}</span>
-          </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h3 className="text-lg font-black text-gray-900 dark:text-white font-syne uppercase flex items-center gap-2">
+              <UserCheck className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
+              <span>{lang === 'EN' ? 'Nominated Candidates' : 'የእጩ ፕሬዝዳንቶች ዝርዝር'}</span>
+            </h3>
+
+            {isFullMember && !hasNominated && (
+              <button
+                onClick={() => setShowNominateForm(!showNominateForm)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-[#d4ff00] hover:text-black hover:border-[#d4ff00] transition-colors text-xs font-bold uppercase cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{lang === 'EN' ? 'Nominate Myself' : 'እራሴን እጩ አድርግ'}</span>
+              </button>
+            )}
+          </div>
+
+          {showNominateForm && (
+            <div className="bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-[#d4ff00]/50 rounded-2xl p-6 shadow-xl animate-in slide-in-from-top-4">
+              <h4 className="text-sm font-black uppercase mb-4 text-[#d4ff00]">Submit Self-Nomination</h4>
+              <div className="grid gap-4">
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-neutral-500 mb-1 block">Full Name & Title</label>
+                  <input type="text" disabled value={`${activeMember.first_name} ${activeMember.father_name}`} className="w-full bg-black/5 dark:bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm opacity-70" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-neutral-500 mb-1 block">Your Manifesto / Vision</label>
+                  <textarea 
+                    value={nominateManifesto}
+                    onChange={(e) => setNominateManifesto(e.target.value)}
+                    rows={4}
+                    placeholder="Why should members vote for you? What is your vision for EPA?"
+                    className="w-full bg-white dark:bg-[#0a0a0c] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#d4ff00]"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 mt-2">
+                  <button onClick={() => setShowNominateForm(false)} className="px-4 py-2 text-xs font-bold hover:text-gray-400 cursor-pointer">Cancel</button>
+                  <button onClick={handleNominateSubmit} className="px-6 py-2 bg-[#d4ff00] text-black font-black uppercase tracking-wide text-xs rounded-xl cursor-pointer hover:bg-[#c2eb00]">Submit Nomination</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {candidates.map(candidate => {

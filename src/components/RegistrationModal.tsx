@@ -108,12 +108,12 @@ export default function RegistrationModal({
 
   const Input = ({ label, required = false, type = "text", ...props }: any) => (
     <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
+      <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <input 
         type={type}
-        className="w-full bg-white dark:bg-[#121214] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-700 dark:focus:ring-[#d4ff00] transition-colors"
+        className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] transition-all font-medium"
         {...props}
       />
     </div>
@@ -121,11 +121,11 @@ export default function RegistrationModal({
 
   const Select = ({ label, options, required = false, ...props }: any) => (
     <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
+      <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <select 
-        className="w-full bg-white dark:bg-[#121214] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-700 dark:focus:ring-[#d4ff00] transition-colors appearance-none"
+        className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] transition-all font-medium appearance-none"
         {...props}
       >
         <option value="" disabled>Select an option</option>
@@ -140,11 +140,11 @@ export default function RegistrationModal({
 
   const FileUpload = ({ label, hint, onChange }: any) => (
     <div className="mb-4">
-      <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">{label}</label>
-      <div className="border-2 border-dashed border-gray-200 dark:border-white/20 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer" onClick={() => onChange('uploaded_file.jpg')}>
-        <UploadCloud className="w-8 h-8 text-gray-400 dark:text-gray-500 mb-2" />
-        <span className="text-sm text-gray-900 dark:text-white font-medium">Click to upload file</span>
-        {hint && <span className="text-xs text-gray-500 mt-1">{hint}</span>}
+      <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">{label}</label>
+      <div className="border-2 border-dashed border-gray-300 dark:border-white/20 bg-black/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-6 flex flex-col items-center justify-center text-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer" onClick={() => onChange('uploaded_file.jpg')}>
+        <UploadCloud className="w-8 h-8 text-neutral-400 dark:text-neutral-500 mb-2" />
+        <span className="text-sm text-gray-900 dark:text-white font-bold">Click to upload file</span>
+        {hint && <span className="text-xs text-neutral-500 mt-1">{hint}</span>}
       </div>
     </div>
   );
@@ -268,7 +268,7 @@ export default function RegistrationModal({
             <User className="w-12 h-12 text-gray-400" />
           )}
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <Upload className="w-6 h-6 text-white" />
+            <Upload className="w-6 h-6 text-gray-900 dark:text-white" />
           </div>
         </div>
         <p className="text-sm text-gray-500">Tap to upload professional photo</p>
@@ -439,7 +439,7 @@ export default function RegistrationModal({
             <User className="w-8 h-8 text-gray-400" />
           )}
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <Upload className="w-5 h-5 text-white" />
+            <Upload className="w-5 h-5 text-gray-900 dark:text-white" />
           </div>
         </div>
       </div>
@@ -599,19 +599,19 @@ export default function RegistrationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-white dark:bg-[#080808] md:bg-black/80 flex md:items-center justify-center">
-      <div className="w-full h-full md:h-auto md:max-w-2xl bg-white dark:bg-[#080808] md:rounded-3xl flex flex-col shadow-2xl overflow-hidden relative">
+    <div className="fixed inset-0 z-50 bg-white dark:bg-[#080808]/40 md:bg-black/40 backdrop-blur-sm flex md:items-center justify-center">
+      <div className="w-full h-full md:h-auto md:max-w-2xl bg-white/95 dark:bg-[#080808]/95 backdrop-blur-2xl md:rounded-3xl flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.1)] dark:shadow-[0_0_60px_rgba(212,255,0,0.05)] overflow-hidden relative border border-white/40 dark:border-white/10">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10 flex justify-between items-center bg-gray-50 dark:bg-[#121214] sticky top-0 z-10">
+        <div className="px-6 py-5 border-b border-gray-200/50 dark:border-white/10 flex justify-between items-center bg-white/50 dark:bg-black/40 backdrop-blur-md sticky top-0 z-10">
           <div>
-            <h2 className="text-xl font-black text-gray-900 dark:text-white">Become a Member</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-xl font-black text-gray-900 dark:text-white font-syne uppercase tracking-tight">Become a Member</h2>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
               {tier ? `Step ${step} of ${maxSteps}` : 'Select your tier to begin'}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors">
-            <X className="w-6 h-6" />
+          <button onClick={onClose} className="p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-gray-500 dark:text-gray-300 transition-colors cursor-pointer">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -662,13 +662,13 @@ export default function RegistrationModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#121214] flex justify-between gap-4 sticky bottom-0 z-10">
+        <div className="px-6 py-4 border-t border-gray-200/50 dark:border-white/10 bg-white/50 dark:bg-black/40 backdrop-blur-md flex justify-between gap-4 sticky bottom-0 z-10">
           {step > 1 ? (
             <button 
               onClick={handlePrev}
-              className="px-6 py-3 rounded-xl font-bold text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 transition-colors flex items-center gap-2"
+              className="px-6 py-3 rounded-xl font-bold text-gray-700 dark:text-gray-300 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors flex items-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4" />
               Back
             </button>
           ) : (
@@ -678,10 +678,10 @@ export default function RegistrationModal({
           {tier && (
             <button 
               onClick={isLastStep ? handleSubmit : handleNext}
-              className="px-8 py-3 rounded-xl font-bold bg-green-700 text-white dark:bg-[#d4ff00] dark:text-black hover:opacity-90 transition-opacity flex items-center gap-2 ml-auto"
+              className="px-8 py-3 rounded-xl font-black bg-green-700 text-white dark:bg-[#d4ff00] dark:text-black hover:opacity-90 transition-opacity flex items-center gap-2 ml-auto text-xs uppercase tracking-wider shadow-lg shadow-green-700/20 dark:shadow-[#d4ff00]/20 cursor-pointer"
             >
               {isLastStep ? 'Submit Application' : 'Continue'}
-              {!isLastStep && <ChevronRight className="w-5 h-5" />}
+              {!isLastStep && <ChevronRight className="w-4 h-4" />}
             </button>
           )}
         </div>

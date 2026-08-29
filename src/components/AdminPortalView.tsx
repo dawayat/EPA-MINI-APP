@@ -38,7 +38,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   onAddUniversity,
   onToast,
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'members' | 'cpd' | 'elections' | 'universities' | 'audit'>('applications');
+  const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'members' | 'cpd' | 'elections' | 'universities' | 'audit' | 'announcements'>('applications');
   const [selectedAppFilter, setSelectedAppFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -60,8 +60,27 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     category: 'General' as Announcement['category'],
     content: '',
     author: 'EPA Executive Directorate',
-    cover_photo_url: ''
+    cover_photo_url: '',
+    is_draft: false,              // If true, opens voting before publishing
+    file_attachment_url: '',      // Optional PDF/doc attachment
+    target_audience: [] as string[]
   });
+
+  // Draft votes local state: announcementId -> { approve: number, adjust: number, userVote: string | null }
+  const [draftVotes, setDraftVotes] = useState<Record<string, { approve: number; adjust: number; userVote: string | null }>>({});
+
+  const toggleDraftVote = (annId: string, choice: 'approve' | 'adjust') => {
+    setDraftVotes(prev => {
+      const current = prev[annId] || { approve: 0, adjust: 0, userVote: null };
+      if (current.userVote === choice) {
+        // Undo vote
+        return { ...prev, [annId]: { ...current, [choice]: current[choice] - 1, userVote: null } };
+      }
+      // Switch or new vote
+      const undo = current.userVote ? { [current.userVote]: (current[current.userVote as 'approve' | 'adjust'] || 1) - 1 } : {};
+      return { ...prev, [annId]: { ...current, ...undo, [choice]: current[choice] + 1, userVote: choice } };
+    });
+  };
 
   const totalVotes = electionVotes.yonas + electionVotes.selamawit + electionVotes.dawit;
   const toggleMemberSelect = (id: string) => {
@@ -175,6 +194,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         {[
           { id: 'applications', label: `${lang === 'EN' ? 'Applications' : 'ማመልከቻዎች'} (${applications.length})` },
           { id: 'members', label: lang === 'EN' ? 'Members' : 'አባላት' },
+          { id: 'announcements', label: lang === 'EN' ? `Announcements (${announcements.length})` : 'ማስታወቂያዎች' },
           { id: 'cpd', label: 'CPD Manager' },
           { id: 'elections', label: lang === 'EN' ? 'Elections' : 'ምርጫ' },
           { id: 'universities', label: lang === 'EN' ? 'Universities' : 'ዩኒቨርሲቲዎች' },
@@ -517,6 +537,96 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       )}
 
+      {/* ════════ TAB: ANNOUNCEMENTS & DRAFTS ════════ */}
+      {activeAdminTab === 'announcements' && (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="font-black text-base text-gray-900 dark:text-white font-syne uppercase flex items-center gap-2">
+              <FileText className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />
+              {lang === 'EN' ? 'Published Announcements & Drafts' : 'ማስታወቂያዎች እና ረቂቆች'}
+            </h3>
+            <button
+              onClick={() => setShowAnnModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              {lang === 'EN' ? 'New' : 'አዲስ'}
+            </button>
+          </div>
+
+          {announcements.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 dark:bg-[#121214] border border-dashed border-gray-200 dark:border-white/10 rounded-2xl">
+              <p className="text-sm font-bold text-neutral-500">No announcements yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {announcements.map(ann => {
+                const votes = draftVotes[ann.id] || { approve: 0, adjust: 0, userVote: null };
+                const totalDraftVotes = votes.approve + votes.adjust;
+                return (
+                  <div key={ann.id} className="bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden">
+                    {/* Cover image */}
+                    {(ann.cover_image_url || ann.cover_photo_url) && (
+                      <img src={ann.cover_image_url || ann.cover_photo_url} alt={ann.title}
+                        className="w-full h-40 object-cover"
+                        onError={e => (e.currentTarget.style.display = 'none')} />
+                    )}
+                    <div className="p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[10px] font-mono font-bold uppercase text-green-700 dark:text-[#d4ff00] bg-[#d4ff00]/10 px-2 py-0.5 rounded-full border border-[#d4ff00]/30">{ann.category}</span>
+                          <h4 className="font-black text-gray-900 dark:text-white font-syne mt-2 mb-1">{ann.title}</h4>
+                          <p className="text-xs text-neutral-500 line-clamp-2">{ann.content}</p>
+                          <p className="text-[10px] font-mono text-neutral-400 mt-1">{ann.author} · {new Date(ann.published_at).toLocaleDateString()}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-[10px] font-mono text-neutral-400 block">{ann.views_count} views</span>
+                          <span className="text-[10px] font-mono text-green-700 dark:text-[#d4ff00] block">{ann.likes_count} likes</span>
+                        </div>
+                      </div>
+
+                      {/* Draft Voting Section */}
+                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-white/10">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-2">Member Vote on this draft</p>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => toggleDraftVote(ann.id, 'approve')}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase cursor-pointer transition-all ${
+                              votes.userVote === 'approve'
+                                ? 'bg-green-500 text-white'
+                                : 'bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-green-500/10 text-gray-900 dark:text-white'
+                            }`}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Approve ({votes.approve})
+                          </button>
+                          <button
+                            onClick={() => toggleDraftVote(ann.id, 'adjust')}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold uppercase cursor-pointer transition-all ${
+                              votes.userVote === 'adjust'
+                                ? 'bg-amber-500 text-white'
+                                : 'bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:bg-amber-500/10 text-gray-900 dark:text-white'
+                            }`}
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            Needs Adjustment ({votes.adjust})
+                          </button>
+                          {totalDraftVotes > 0 && (
+                            <span className="text-[10px] font-mono text-neutral-400 ml-auto">
+                              {Math.round((votes.approve / totalDraftVotes) * 100)}% approval
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ════════ TAB: AUDIT LOGS ════════ */}
       {activeAdminTab === 'audit' && (
         <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl border border-gray-200 dark:border-white/10 shadow-md p-6 space-y-4">
@@ -795,10 +905,54 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
             </div>
 
+            {/* File Attachment */}
+            <div>
+              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Attach File (PDF / DOCX) — Optional</label>
+              <input type="text" placeholder="https://... or paste a Google Drive share link"
+                value={newAnn.file_attachment_url} onChange={(e) => setNewAnn({ ...newAnn, file_attachment_url: e.target.value })}
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
+            </div>
+
+            {/* Target Audience */}
+            <div>
+              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-2">Target Audience</label>
+              <div className="flex gap-2 flex-wrap">
+                {(['Students', 'Full Members', 'Corporate Members', 'All Members'] as string[]).map(aud => (
+                  <button key={aud}
+                    onClick={() => setNewAnn(p => ({
+                      ...p,
+                      target_audience: p.target_audience.includes(aud)
+                        ? p.target_audience.filter(a => a !== aud)
+                        : [...p.target_audience, aud]
+                    }))}
+                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase border cursor-pointer transition-all ${
+                      newAnn.target_audience.includes(aud)
+                        ? 'bg-[#d4ff00] text-black border-[#d4ff00]'
+                        : 'bg-white dark:bg-black border-gray-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400'
+                    }`}
+                  >{aud}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Draft/Vote Toggle */}
+            <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
+              <input
+                type="checkbox"
+                id="draft-toggle"
+                checked={newAnn.is_draft}
+                onChange={e => setNewAnn(p => ({ ...p, is_draft: e.target.checked }))}
+                className="w-4 h-4 accent-[#d4ff00]"
+              />
+              <label htmlFor="draft-toggle" className="text-xs font-bold cursor-pointer text-amber-700 dark:text-amber-400">
+                Publish as a Draft — Allow members to vote (Approve / Needs Adjustment) before finalizing
+              </label>
+            </div>
+
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200 dark:border-white/10">
               <button
                 onClick={() => setShowAnnModal(false)}
-                className="px-4 py-2.5 rounded-xl text-xs font-mono font-bold uppercase text-neutral-600 dark:text-neutral-400 hover:bg-black/5 dark:bg-white/5"
+                className="px-4 py-2.5 rounded-xl text-xs font-mono font-bold uppercase text-neutral-600 dark:text-neutral-400 hover:bg-black/5 dark:bg-white/5 cursor-pointer"
               >
                 Cancel
               </button>
@@ -807,7 +961,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 className="px-5 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider shadow-sm cursor-pointer flex items-center gap-1.5"
               >
                 <Send className="w-4 h-4 text-black" />
-                <span>Publish Announcement</span>
+                <span>{newAnn.is_draft ? 'Publish as Draft for Voting' : 'Publish Announcement'}</span>
               </button>
             </div>
           </div>

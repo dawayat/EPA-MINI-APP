@@ -28,6 +28,7 @@ import { ElectionsBooth } from './components/ElectionsBooth';
 import RegistrationModal from './components/RegistrationModal';
 import { NotificationDrawer } from './components/NotificationDrawer';
 import { SplashScreen } from './components/SplashScreen';
+import { BottomBar } from './components/BottomBar';
 import { initTelegramApp, getTelegramColorScheme, isTelegramMiniApp } from './lib/telegram';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
@@ -91,16 +92,23 @@ export default function App() {
           setCpdCourses(fetchedCPDs);
           setAuditLogs(fetchedLogs);
           setCandidates(fetchedCandidates);
+
+          // Telegram Auto-Login
+          const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+          if (tgUser && tgUser.id) {
+            const matchedMember = fetchedMembers.find(m => m.telegram_id === tgUser.id || m.telegram_id?.toString() === tgUser.id.toString());
+            if (matchedMember) {
+              setActiveMemberId(matchedMember.id);
+            } else {
+              setActiveMemberId(null);
+            }
+          } else {
+            setActiveMemberId(null);
+          }
         } else {
-          // Fallback to mock data ONLY if env vars are completely missing (e.g. local dev without .env)
-          const mock = await import('./data/mockData');
-          setMembers(mock.INITIAL_MEMBERS);
-          setApplications(mock.INITIAL_APPLICATIONS);
-          setAnnouncements(mock.INITIAL_ANNOUNCEMENTS);
-          setUniversities(mock.INITIAL_UNIVERSITIES);
-          setCpdCourses(mock.INITIAL_CPD_COURSES);
-          setCandidates(mock.INITIAL_ELECTION_CANDIDATES);
-          setAuditLogs(mock.INITIAL_AUDIT_LOGS);
+          // If Supabase isn't configured, we leave the app empty!
+          // No more mock data demo mode.
+          setActiveMemberId(null);
         }
       } catch (err) {
         console.error("Error loading data:", err);
@@ -111,8 +119,8 @@ export default function App() {
     loadData();
   }, []);
 
-  // Active Logged-in Member (default to Dr. Selamawit Bekele)
-  const [activeMemberId, setActiveMemberId] = useState<string>('mem-001');
+  // Active Logged-in Member
+  const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
 
   // Modals and Drawers
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
@@ -122,7 +130,7 @@ export default function App() {
   // Toast notifications
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const activeMember = members.find(m => m.id === activeMemberId) || members[0];
+  const activeMember = members.find(m => m.id === activeMemberId);
 
   const showToast = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     if (!message) return;
@@ -311,7 +319,7 @@ export default function App() {
       />
 
       {/* Main Tab Content Display */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col pb-20 md:pb-0">
         {currentTab === 'welcome' && (
           <WelcomeView
             lang={lang}
@@ -439,6 +447,15 @@ export default function App() {
         onClose={() => setIsNotificationsOpen(false)}
         lang={lang}
         onNavigateTab={(tab) => setCurrentTab(tab)}
+      />
+
+      {/* Mobile Bottom Navigation Bar */}
+      <BottomBar 
+        currentTab={currentTab} 
+        setCurrentTab={setCurrentTab} 
+        lang={lang} 
+        activeMember={activeMember} 
+        pendingApplicationsCount={pendingAppsCount} 
       />
 
       {/* Toast Stack */}
