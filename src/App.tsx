@@ -30,7 +30,7 @@ import { NotificationDrawer } from './components/NotificationDrawer';
 import { SplashScreen } from './components/SplashScreen';
 import { BottomBar } from './components/BottomBar';
 import { initTelegramApp, getTelegramColorScheme, isTelegramMiniApp } from './lib/telegram';
-import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, ShieldCheck, CreditCard } from 'lucide-react';
 
 interface Toast {
   id: string;
