@@ -1,7 +1,8 @@
 import { Client } from 'pg';
 
 export default async function handler(req, res) {
-  const connectionString = 'postgresql://postgres:EPAMINIAPP91@db.cnwkuzihcmtenpoliqpn.supabase.co:5432/postgres';
+  // Use literal IPv6 address to bypass Vercel ENOTFOUND DNS issues
+  const connectionString = 'postgresql://postgres:EPAMINIAPP91@[2a05:d018:cb7:ae02:db8d:5050:9a28:c296]:5432/postgres';
   const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
 
   try {
