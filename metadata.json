@@ -1,0 +1,6 @@
+{
+  "name": "Ethiopian Psychologists' Association",
+  "description": "Official digital membership platform, accreditation verification hub, and member portal for the Ethiopian Psychologists' Association (EPA).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,707 @@
+import React, { useState } from 'react';
+import { 
+  Users, 
+  Clock, 
+  CreditCard, 
+  CheckCircle2, 
+  XCircle, 
+  AlertTriangle, 
+  Search, 
+  FileText, 
+  Plus, 
+  Building, 
+  ShieldCheck, 
+  Send,
+  Eye,
+  Check,
+  X,
+  ExternalLink,
+  History,
+  GraduationCap
+} from 'lucide-react';
+import { Application, Member, University, Announcement, AuditLog, ApplicationStatus } from '../types';
+
+interface AdminPortalViewProps {
+  lang: 'EN' | 'AM';
+  applications: Application[];
+  members: Member[];
+  universities: University[];
+  announcements: Announcement[];
+  auditLogs: AuditLog[];
+  onApproveApplication: (appId: string) => void;
+  onRejectApplication: (appId: string, reason: string) => void;
+  onRequestCorrection: (appId: string, notes: string) => void;
+  onVerifyPayment: (appId: string) => void;
+  onAddAnnouncement: (ann: Partial<Announcement>) => void;
+  onAddUniversity: (uni: Partial<University>) => void;
+  onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
+}
+
+export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
+  lang,
+  applications,
+  members,
+  universities,
+  announcements,
+  auditLogs,
+  onApproveApplication,
+  onRejectApplication,
+  onRequestCorrection,
+  onVerifyPayment,
+  onAddAnnouncement,
+  onAddUniversity,
+  onToast,
+}) => {
+  const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'payments' | 'announcements' | 'universities' | 'audit'>('applications');
+  const [selectedAppFilter, setSelectedAppFilter] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  
+  // Review Modal state
+  const [reviewingApp, setReviewingApp] = useState<Application | null>(null);
+  const [adminNoteInput, setAdminNoteInput] = useState<string>('');
+  const [rejectReasonInput, setRejectReasonInput] = useState<string>('');
+  const [isRejecting, setIsRejecting] = useState<boolean>(false);
+
+  // New Announcement Modal state
+  const [showAnnModal, setShowAnnModal] = useState<boolean>(false);
+  const [newAnn, setNewAnn] = useState({
+    title: '',
+    amharic_title: '',
+    category: 'General' as Announcement['category'],
+    content: '',
+    author: 'EPA Executive Directorate'
+  });
+
+  // Filter applications
+  const filteredApps = applications.filter(app => {
+    const matchesFilter = selectedAppFilter === 'ALL' || app.status === selectedAppFilter;
+    const fullName = `${app.first_name} ${app.father_name} ${app.application_number} ${app.email}`.toLowerCase();
+    const matchesSearch = !searchQuery || fullName.includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const pendingAppsCount = applications.filter(a => a.status === 'SUBMITTED' || a.status === 'UNDER_REVIEW' || a.status === 'PAYMENT_PENDING').length;
+  const unverifiedPaymentsCount = applications.filter(a => a.payment && a.payment.status === 'PENDING').length;
+
+  const handleOpenReview = (app: Application) => {
+    setReviewingApp(app);
+    setAdminNoteInput(app.admin_notes || '');
+    setIsRejecting(false);
+  };
+
+  const handlePublishAnnouncement = () => {
+    if (!newAnn.title || !newAnn.content) {
+      onToast(lang === 'EN' ? 'Title and content are required' : 'ርዕስ እና ይዘት ያስፈልጋል', 'error');
+      return;
+    }
+
+    onAddAnnouncement(newAnn);
+    setShowAnnModal(false);
+    setNewAnn({
+      title: '',
+      amharic_title: '',
+      category: 'General',
+      content: '',
+      author: 'EPA Executive Directorate'
+    });
+    onToast(lang === 'EN' ? 'Announcement published live to member portal!' : 'ማስታወቂያው ይፋ ሆኗል!', 'success');
+  };
+
+  return (
+    <div className="w-full max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-white dark:bg-[#080808] text-gray-900 dark:text-white">
+      
+      {/* ════════ ADMIN HEADER & STATS ════════ */}
+      <div className="mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono font-black uppercase tracking-widest text-green-700 dark:text-[#d4ff00] bg-[#d4ff00]/10 px-3 py-1 rounded-full border border-[#d4ff00]/30">
+                {lang === 'EN' ? 'Accreditation Board Access' : 'የአስተዳዳሪ መቆጣጠሪያ ገጽ'}
+              </span>
+              <span className="text-xs text-neutral-600 dark:text-neutral-500 dark:text-neutral-500 font-mono">ID: EPA-ADMIN-SECURE</span>
+            </div>
+            <h1 className="text-2xl sm:text-4xl font-black text-gray-900 dark:text-white font-syne uppercase tracking-tight mt-2">
+              {lang === 'EN' ? 'EPA Accreditation & Council Admin' : 'የማኅበሩ አስተዳደር መድረክ'}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAnnModal(true)}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider shadow-lg shadow-[#d4ff00]/15 transition-all active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-4 h-4 text-black" />
+              <span>{lang === 'EN' ? 'New Announcement' : 'አዲስ ማስታወቂያ'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-md">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400 uppercase">{lang === 'EN' ? 'Active Members' : 'ንቁ አባላት'}</span>
+              <div className="p-2.5 bg-black/5 dark:bg-white/5 text-green-700 dark:text-[#d4ff00] border border-gray-200 dark:border-white/10 rounded-xl">
+                <Users className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-black text-gray-900 dark:text-white font-syne">{members.length}</div>
+            <div className="text-[11px] text-green-700 dark:text-[#d4ff00] font-mono font-semibold mt-1">✓ Verified & Licensed</div>
+          </div>
+
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-md">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400 uppercase">{lang === 'EN' ? 'Pending Review' : 'በግምገማ ላይ'}</span>
+              <div className="p-2.5 bg-black/5 dark:bg-white/5 text-green-700 dark:text-[#d4ff00] border border-gray-200 dark:border-white/10 rounded-xl">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-black text-green-700 dark:text-[#d4ff00] font-syne">{pendingAppsCount}</div>
+            <div className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-1">{lang === 'EN' ? 'Awaiting council decision' : 'ውሳኔ የሚጠብቁ'}</div>
+          </div>
+
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-md">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400 uppercase">{lang === 'EN' ? 'Unverified Payments' : 'ያልተረጋገጡ ክፍያዎች'}</span>
+              <div className="p-2.5 bg-black/5 dark:bg-white/5 text-amber-600 dark:text-amber-400 border border-gray-200 dark:border-white/10 rounded-xl">
+                <CreditCard className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-black text-amber-600 dark:text-amber-400 font-syne">{unverifiedPaymentsCount}</div>
+            <div className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-1 font-mono">Telebirr & CBE Slips</div>
+          </div>
+
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-md">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400 uppercase">{lang === 'EN' ? 'MoE Universities' : 'እውቅና ያላቸው ተቋማት'}</span>
+              <div className="p-2.5 bg-black/5 dark:bg-white/5 text-neutral-700 dark:text-neutral-300 border border-gray-200 dark:border-white/10 rounded-xl">
+                <GraduationCap className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="text-3xl font-black text-gray-900 dark:text-white font-syne">{universities.length}</div>
+            <div className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-1 font-mono">Accredited Departments</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ════════ ADMIN SUB-TABS ════════ */}
+      <div className="flex items-center gap-2 border-b border-gray-200 dark:border-white/10 mb-6 overflow-x-auto no-scrollbar">
+        <button
+          onClick={() => setActiveAdminTab('applications')}
+          className={`pb-3 px-4 text-xs font-mono font-black uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
+            activeAdminTab === 'applications'
+              ? 'border-[#d4ff00] text-green-700 dark:text-[#d4ff00]'
+              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-gray-900 dark:text-white'
+          }`}
+        >
+          {lang === 'EN' ? 'Applications Pipeline' : 'የአመልካቾች ዝርዝር'} ({applications.length})
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('universities')}
+          className={`pb-3 px-4 text-xs font-mono font-black uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
+            activeAdminTab === 'universities'
+              ? 'border-[#d4ff00] text-green-700 dark:text-[#d4ff00]'
+              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-gray-900 dark:text-white'
+          }`}
+        >
+          {lang === 'EN' ? 'MoE Universities' : 'ዩኒቨርሲቲዎች'}
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('audit')}
+          className={`pb-3 px-4 text-xs font-mono font-black uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
+            activeAdminTab === 'audit'
+              ? 'border-[#d4ff00] text-green-700 dark:text-[#d4ff00]'
+              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-gray-900 dark:text-white'
+          }`}
+        >
+          {lang === 'EN' ? 'Council Audit Logs' : 'የኦዲት መዝገብ'}
+        </button>
+      </div>
+
+      {/* ════════ TAB: APPLICATIONS ════════ */}
+      {activeAdminTab === 'applications' && (
+        <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl border border-gray-200 dark:border-white/10 shadow-md overflow-hidden">
+          {/* Filter and Search Bar */}
+          <div className="p-4 sm:p-5 border-b border-gray-200 dark:border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-100 dark:bg-[#18181b]/50">
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto no-scrollbar">
+              {['ALL', 'SUBMITTED', 'UNDER_REVIEW', 'PAYMENT_PENDING', 'APPROVED', 'CORRECTION_REQUIRED', 'REJECTED'].map(status => (
+                <button
+                  key={status}
+                  onClick={() => setSelectedAppFilter(status)}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-mono font-black uppercase tracking-wider whitespace-nowrap transition-colors cursor-pointer ${
+                    selectedAppFilter === status
+                      ? 'bg-[#d4ff00] text-black shadow-sm'
+                      : 'bg-black/5 dark:bg-white/5 text-neutral-700 dark:text-neutral-300 border border-gray-200 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/10'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-neutral-600 dark:text-neutral-500 dark:text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder={lang === 'EN' ? 'Search applicant name/ref...' : 'ፈልግ...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-black text-gray-900 dark:text-white font-mono placeholder:text-neutral-600"
+              />
+            </div>
+          </div>
+
+          {/* Applications Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-black border-b border-gray-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 font-mono font-bold uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="p-4">Applicant</th>
+                  <th className="p-4">Track</th>
+                  <th className="p-4">Submitted</th>
+                  <th className="p-4">Payment</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {filteredApps.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-neutral-600 dark:text-neutral-500 dark:text-neutral-500 font-mono">
+                      No applications found matching the selected filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredApps.map(app => (
+                    <tr key={app.id} className="hover:bg-black/5 dark:bg-white/5 transition-colors">
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={app.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100'}
+                            alt=""
+                            className="w-9 h-9 rounded-xl object-cover border border-white/20"
+                          />
+                          <div>
+                            <div className="font-black text-gray-900 dark:text-white font-syne uppercase">
+                              {app.first_name} {app.father_name}
+                            </div>
+                            <div className="text-[11px] text-neutral-600 dark:text-neutral-400 font-mono">
+                              {app.application_number} • {app.city}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="p-4">
+                        <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase border ${
+                          app.membership_type === 'STUDENT' ? 'bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00] border-[#d4ff00]/30' :
+                          app.membership_type === 'FULL' ? 'bg-blue-500/10 text-blue-300 border-blue-500/30' :
+                          'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                        }`}>
+                          {app.membership_type}
+                        </span>
+                      </td>
+
+                      <td className="p-4 text-neutral-600 dark:text-neutral-400 font-mono text-[11px]">
+                        {new Date(app.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </td>
+
+                      <td className="p-4 font-mono">
+                        {app.payment ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${
+                              app.payment.status === 'VERIFIED' ? 'bg-[#d4ff00]' : 'bg-amber-400'
+                            }`}></span>
+                            <span className="font-semibold text-neutral-700 dark:text-neutral-200">
+                              {app.payment.amount} ETB ({app.payment.provider})
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-neutral-600 dark:text-neutral-500 dark:text-neutral-500">—</span>
+                        )}
+                      </td>
+
+                      <td className="p-4">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase border ${
+                          app.status === 'APPROVED' ? 'bg-[#d4ff00]/15 text-green-700 dark:text-[#d4ff00] border-[#d4ff00]/40' :
+                          app.status === 'REJECTED' ? 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30' :
+                          app.status === 'CORRECTION_REQUIRED' ? 'bg-orange-500/15 text-orange-400 border-orange-500/30' :
+                          'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                        }`}>
+                          {app.status}
+                        </span>
+                      </td>
+
+                      <td className="p-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenReview(app)}
+                            className="px-3.5 py-1.5 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-xs font-mono font-bold uppercase transition-colors cursor-pointer"
+                          >
+                            Review Dossier
+                          </button>
+                          
+                          {app.status !== 'APPROVED' && (
+                            <button
+                              onClick={() => {
+                                onApproveApplication(app.id);
+                                onToast(lang === 'EN' ? `Approved ${app.first_name} and issued digital ID!` : 'ተፈቅዷል!', 'success');
+                              }}
+                              className="p-1.5 rounded-lg bg-[#d4ff00] hover:bg-[#c3eb00] text-black transition-colors cursor-pointer"
+                              title="Quick Approve"
+                            >
+                              <Check className="w-4 h-4 text-black" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ════════ TAB: UNIVERSITIES ════════ */}
+      {activeAdminTab === 'universities' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {universities.map(u => (
+            <div key={u.id} className="bg-gray-50 dark:bg-[#121214] p-6 rounded-2xl border border-gray-200 dark:border-white/10 shadow-md">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded bg-black/5 dark:bg-white/5 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/30 uppercase">
+                  {u.type}
+                </span>
+                <span className="text-green-700 dark:text-[#d4ff00] text-xs font-mono font-bold">✓ MoE Accredited</span>
+              </div>
+              <h4 className="font-black text-base text-gray-900 dark:text-white font-syne uppercase mt-2">{u.name}</h4>
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 font-mono">{u.city}, Ethiopia</p>
+              
+              <div className="mt-4 pt-3 border-t border-gray-200 dark:border-white/10 flex flex-wrap gap-1.5">
+                {u.departments.map((d, idx) => (
+                  <span key={idx} className="text-[10px] font-mono bg-black/5 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded">
+                    {d}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ════════ TAB: AUDIT LOGS ════════ */}
+      {activeAdminTab === 'audit' && (
+        <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl border border-gray-200 dark:border-white/10 shadow-md p-6 space-y-4">
+          <h3 className="font-black text-base text-gray-900 dark:text-white font-syne uppercase flex items-center gap-2">
+            <History className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />
+            <span>Immutable Council Audit Trail</span>
+          </h3>
+
+          <div className="divide-y divide-white/10 font-mono">
+            {auditLogs.map(log => (
+              <div key={log.id} className="py-3.5 flex items-center justify-between text-xs">
+                <div>
+                  <span className="font-bold text-gray-900 dark:text-white">{log.action}</span>
+                  <div className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
+                    Entity: {log.entity_id} • Admin: {log.admin_username}
+                  </div>
+                </div>
+                <div className="text-[11px] text-neutral-600 dark:text-neutral-500 dark:text-neutral-500">
+                  {new Date(log.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ════════ APPLICATION REVIEW MODAL ════════ */}
+      {reviewingApp && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+          <div className="relative bg-gray-50 dark:bg-[#121214] rounded-3xl w-full max-w-2xl shadow-2xl border border-white/20 overflow-hidden flex flex-col max-h-[90vh] text-gray-900 dark:text-white">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10 flex items-center justify-between bg-black">
+              <div>
+                <span className="text-[10px] font-mono font-black uppercase tracking-widest text-green-700 dark:text-[#d4ff00]">
+                  Dossier Inspection
+                </span>
+                <h3 className="text-base font-black text-gray-900 dark:text-white font-syne uppercase">
+                  {reviewingApp.first_name} {reviewingApp.father_name} ({reviewingApp.application_number})
+                </h3>
+              </div>
+              <button
+                onClick={() => setReviewingApp(null)}
+                className="p-1.5 rounded-xl text-neutral-600 dark:text-neutral-400 hover:text-gray-900 dark:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 text-xs text-gray-900 dark:text-white">
+              {/* Applicant Header summary */}
+              <div className="flex items-center gap-4 p-4 bg-black/5 dark:bg-black/60 rounded-2xl border border-gray-200 dark:border-white/10">
+                <img
+                  src={reviewingApp.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
+                  alt=""
+                  className="w-16 h-16 rounded-xl object-cover border border-[#d4ff00] shadow-xs"
+                />
+                <div className="flex-1">
+                  <div className="font-black text-base text-gray-900 dark:text-white font-syne uppercase">
+                    {reviewingApp.first_name} {reviewingApp.father_name} {reviewingApp.grandfather_name || ''}
+                  </div>
+                  <div className="text-neutral-600 dark:text-neutral-400 font-mono text-[11px] mt-0.5">
+                    {reviewingApp.email} • {reviewingApp.phone}
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 font-mono">
+                    <span className="px-2.5 py-0.5 rounded bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/30 font-bold text-[10px]">
+                      {reviewingApp.membership_type}
+                    </span>
+                    <span className="text-neutral-600">•</span>
+                    <span className="text-neutral-600 dark:text-neutral-400">City: {reviewingApp.city}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Education / Qualifications breakdown */}
+              <div>
+                <h4 className="font-mono font-bold text-xs text-green-700 dark:text-[#d4ff00] uppercase tracking-wider mb-2">
+                  Academic Record & Specialization
+                </h4>
+                {reviewingApp.student_profile ? (
+                  <div className="p-4 bg-black/5 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                    <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.student_profile.university_name}</div>
+                    <div className="text-neutral-700 dark:text-neutral-300 mt-0.5">{reviewingApp.student_profile.field_of_study} (Year {reviewingApp.student_profile.academic_year})</div>
+                    <div className="text-neutral-600 dark:text-neutral-500 dark:text-neutral-500 font-mono text-[10px] mt-1">Student ID: {reviewingApp.student_profile.student_id_number}</div>
+                  </div>
+                ) : reviewingApp.qualifications && reviewingApp.qualifications.length > 0 ? (
+                  <div className="space-y-2">
+                    {reviewingApp.qualifications.map((q, idx) => (
+                      <div key={idx} className="p-4 bg-black/5 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10 flex justify-between">
+                        <div>
+                          <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{q.degree_level} in {q.field}</div>
+                          <div className="text-neutral-600 dark:text-neutral-400 text-[11px]">{q.institution}</div>
+                        </div>
+                        <span className="font-mono text-green-700 dark:text-[#d4ff00] text-[11px]">Class of {q.graduation_year}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-neutral-600 dark:text-neutral-500 dark:text-neutral-500 italic font-mono">No formal degree record specified.</div>
+                )}
+              </div>
+
+              {/* Payment Receipt Verification */}
+              {reviewingApp.payment && (
+                <div>
+                  <h4 className="font-mono font-bold text-xs text-green-700 dark:text-[#d4ff00] uppercase tracking-wider mb-2">
+                    Payment Verification Slip
+                  </h4>
+                  <div className="p-4 bg-[#d4ff00]/10 rounded-xl border border-[#d4ff00]/30 flex items-center justify-between">
+                    <div>
+                      <div className="font-black text-gray-900 dark:text-white font-syne">
+                        {reviewingApp.payment.amount} ETB via {reviewingApp.payment.provider}
+                      </div>
+                      <div className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300 mt-0.5">
+                        Ref: {reviewingApp.payment.transaction_number}
+                      </div>
+                    </div>
+                    {reviewingApp.payment.status === 'VERIFIED' ? (
+                      <span className="px-3 py-1 rounded-lg bg-[#d4ff00] text-black font-mono font-black text-[10px] uppercase">
+                        ✓ Payment Verified
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          onVerifyPayment(reviewingApp.id);
+                          setReviewingApp({
+                            ...reviewingApp,
+                            payment: { ...reviewingApp.payment!, status: 'VERIFIED' }
+                          });
+                          onToast('Payment verified successfully!', 'success');
+                        }}
+                        className="px-4 py-2 rounded-lg bg-[#d4ff00] hover:bg-[#c3eb00] text-black font-mono font-black uppercase text-[10px] cursor-pointer"
+                      >
+                        Verify Payment Now
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Council Notes */}
+              <div>
+                <label className="block font-mono font-bold text-xs text-neutral-700 dark:text-neutral-300 mb-1">
+                  Accreditation Board Notes (Visible to Applicant)
+                </label>
+                <textarea
+                  rows={2}
+                  value={adminNoteInput}
+                  onChange={(e) => setAdminNoteInput(e.target.value)}
+                  placeholder="Add feedback or specific instructions for corrections..."
+                  className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-black text-gray-900 dark:text-white placeholder:text-neutral-600"
+                />
+              </div>
+
+              {/* If rejecting form */}
+              {isRejecting && (
+                <div className="p-4 bg-red-950/40 rounded-xl border border-red-500/40">
+                  <label className="block font-mono font-bold text-xs text-red-600 dark:text-red-400 mb-1">
+                    Formal Rejection Reason *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Ineligible degree program from unaccredited institution..."
+                    value={rejectReasonInput}
+                    onChange={(e) => setRejectReasonInput(e.target.value)}
+                    className="w-full p-2.5 rounded-lg border border-red-500/40 text-xs bg-black text-gray-900 dark:text-white"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-black flex items-center justify-between">
+              <button
+                onClick={() => {
+                  onRequestCorrection(reviewingApp.id, adminNoteInput);
+                  setReviewingApp(null);
+                  onToast('Correction request sent to applicant', 'info');
+                }}
+                className="px-4 py-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-white/20 hover:bg-black/10 dark:bg-white/10 text-gray-900 dark:text-white text-xs font-mono font-bold uppercase cursor-pointer"
+              >
+                Request Correction
+              </button>
+
+              <div className="flex items-center gap-2">
+                {!isRejecting ? (
+                  <button
+                    onClick={() => setIsRejecting(true)}
+                    className="px-4 py-2.5 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-500/10 text-xs font-mono font-bold uppercase cursor-pointer"
+                  >
+                    Reject
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (!rejectReasonInput) {
+                        onToast('Please enter a rejection reason', 'error');
+                        return;
+                      }
+                      onRejectApplication(reviewingApp.id, rejectReasonInput);
+                      setReviewingApp(null);
+                      onToast('Application rejected', 'info');
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-gray-900 dark:text-white text-xs font-mono font-black uppercase cursor-pointer"
+                  >
+                    Confirm Rejection
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    onApproveApplication(reviewingApp.id);
+                    setReviewingApp(null);
+                    onToast(`Approved ${reviewingApp.first_name} and generated Digital ID!`, 'success');
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider shadow-sm cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Approve & Issue ID</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════ NEW ANNOUNCEMENT MODAL ════════ */}
+      {showAnnModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl w-full max-w-lg shadow-2xl border border-white/20 p-6 space-y-4 text-gray-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-white/10">
+              <h3 className="text-base font-black text-gray-900 dark:text-white font-syne uppercase">
+                {lang === 'EN' ? 'Publish Association Announcement' : 'አዲስ ማስታወቂያ ያውጡ'}
+              </h3>
+              <button onClick={() => setShowAnnModal(false)} className="text-neutral-600 dark:text-neutral-400 hover:text-gray-900 dark:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Announcement Title (English) *</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Call for Papers 2026..."
+                value={newAnn.title}
+                onChange={(e) => setNewAnn({ ...newAnn, title: e.target.value })}
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-black text-gray-900 dark:text-white placeholder:text-neutral-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Amharic Title (Optional)</label>
+              <input
+                type="text"
+                placeholder="ለምሳሌ፡ የጥናት ጥሪ 2026..."
+                value={newAnn.amharic_title}
+                onChange={(e) => setNewAnn({ ...newAnn, amharic_title: e.target.value })}
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-black text-gray-900 dark:text-white placeholder:text-neutral-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Category</label>
+              <select
+                value={newAnn.category}
+                onChange={(e) => setNewAnn({ ...newAnn, category: e.target.value as any })}
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs bg-black text-gray-900 dark:text-white font-mono"
+              >
+                <option value="General">General Announcement</option>
+                <option value="Event">Event / Symposium</option>
+                <option value="Research">Research & Journal</option>
+                <option value="Policy">Policy & Ethics</option>
+                <option value="Training">CPD Workshop</option>
+                <option value="Election">Council Election</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Content Body *</label>
+              <textarea
+                rows={4}
+                required
+                placeholder="Detailed announcement text..."
+                value={newAnn.content}
+                onChange={(e) => setNewAnn({ ...newAnn, content: e.target.value })}
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-black text-gray-900 dark:text-white placeholder:text-neutral-600"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200 dark:border-white/10">
+              <button
+                onClick={() => setShowAnnModal(false)}
+                className="px-4 py-2.5 rounded-xl text-xs font-mono font-bold uppercase text-neutral-600 dark:text-neutral-400 hover:bg-black/5 dark:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePublishAnnouncement}
+                className="px-5 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider shadow-sm cursor-pointer flex items-center gap-1.5"
+              >
+                <Send className="w-4 h-4 text-black" />
+                <span>Publish Announcement</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+};
