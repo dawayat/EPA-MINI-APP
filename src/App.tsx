@@ -188,6 +188,7 @@ export default function App() {
       id: 'mem-' + Date.now(),
       membership_number: newMembershipNum,
       verification_token: newVerificationToken,
+      telegram_id: app.telegram_id,
       first_name: app.first_name,
       father_name: app.father_name,
       grandfather_name: app.grandfather_name,
