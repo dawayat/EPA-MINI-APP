@@ -145,21 +145,21 @@ export default function App() {
   const handleApplicationSubmit = async (newApp: Partial<Application>) => {
     const fullApp: Application = {
       ...newApp,
-      id: 'app-' + Date.now(),
-      application_number: newApp.application_number || ('APP-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000)),
+      // Preserve id and application_number from modal if provided, else generate
+      id: newApp.id || ('app-' + Date.now()),
+      application_number: newApp.application_number || ('EPA-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000)),
+      membership_type: (newApp.membership_type || 'STUDENT') as any,
       status: 'SUBMITTED',
-      submitted_at: new Date().toISOString()
+      submitted_at: newApp.submitted_at || new Date().toISOString()
     };
 
-    if (isSupabaseConfigured) {
-      const result = await submitApplication(fullApp);
-      if (!result.success) {
-        console.error('[App] Application submission failed:', result.error);
-        showToast(`Database error: ${result.error}`, 'error');
-        // Still add locally so admin can see it in this session
-      } else {
-        showToast('Application submitted and saved to database!', 'success');
-      }
+    // Always try to save to Supabase (isSupabaseConfigured is now always true)
+    const result = await submitApplication(fullApp);
+    if (!result.success) {
+      console.error('[App] Application submission failed:', result.error);
+      showToast(`Submission error: ${result.error}`, 'error');
+    } else {
+      showToast('Application submitted and saved successfully!', 'success');
     }
 
     setApplications(prev => [fullApp, ...prev]);
@@ -174,6 +174,7 @@ export default function App() {
       created_at: new Date().toISOString()
     }, ...prev]);
   };
+
 
   // Handler: Admin approves application -> generates Member Record & Digital ID
   const handleApproveApplication = async (appId: string) => {

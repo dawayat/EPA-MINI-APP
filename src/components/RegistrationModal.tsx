@@ -137,7 +137,8 @@ export default function RegistrationModal({
   isOpen, onClose, lang, initialTier, universities = [], onSubmitApplication, onToast
 }: RegistrationModalProps) {
   const [tier, setTier] = useState<MembershipTypeCode | null>(initialTier || null);
-  const [step, setStep] = useState(1);
+  // step 0 = tier selection, step 1+ = form steps
+  const [step, setStep] = useState(initialTier ? 1 : 0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [appNumber, setAppNumber] = useState('');
 
@@ -152,8 +153,11 @@ export default function RegistrationModal({
 
   if (!isOpen) return null;
 
-  const maxSteps = tier === 'FULL' ? 5 : 4;
-  const isLastStep = step === maxSteps;
+  // STUDENT: 4 form steps (personal, academic, photo, payment)
+  // FULL: 5 form steps (personal, qualifications, professional, documents, ethics+payment)
+  // CORPORATE: 4 form steps (org info, contact, services, docs+payment)
+  const maxFormSteps = tier === 'FULL' ? 5 : 4;
+  const isLastStep = step === maxFormSteps;
 
   const updateForm = (key: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [key]: value }));
@@ -167,28 +171,30 @@ export default function RegistrationModal({
   };
 
   const handleNext = () => {
-    if (!tier) return onToast('Please select a membership tier first.', 'error');
+    if (step === 0) {
+      if (!tier) return onToast('Please select a membership tier first.', 'error');
+      return setStep(1);
+    }
     setStep(s => s + 1);
   };
 
   const handlePrev = () => {
-    setStep(s => s - 1);
+    setStep(s => Math.max(0, s - 1));
   };
 
   const handleSubmit = () => {
-    // Generate a mock application number
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const generatedAppNum = `EPA-${new Date().getFullYear()}-${randomNum}`;
     
     setAppNumber(generatedAppNum);
     setIsSuccess(true);
     
-    // Pass back to parent
     onSubmitApplication({
       ...formData,
       membership_type: tier,
       application_number: generatedAppNum,
-      status: 'UNDER_REVIEW',
+      id: `app-${Date.now()}`,
+      status: 'SUBMITTED',
       submitted_at: new Date().toISOString()
     });
   };
@@ -238,39 +244,37 @@ export default function RegistrationModal({
     </div>
   );
 
-  const renderStudentStep1 = () => (
-    <div className="space-y-4">
-      {renderTierSelection()}
-      {tier === 'STUDENT' && (
-        <div className="animate-in fade-in slide-in-from-bottom-4">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Personal Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="First Name" required value={formData.first_name || ''} onChange={(e: any) => updateForm('first_name', e.target.value)} />
-            <Input label="Father's Name" required value={formData.father_name || ''} onChange={(e: any) => updateForm('father_name', e.target.value)} />
-            <Input label="Grandfather's Name" value={formData.grandfather_name || ''} onChange={(e: any) => updateForm('grandfather_name', e.target.value)} />
-            <Input label="Amharic Full Name" value={formData.amharic_full_name || ''} onChange={(e: any) => updateForm('amharic_full_name', e.target.value)} />
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Gender *</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-gray-900 dark:text-white">
-                  <input type="radio" name="gender" value="M" checked={formData.gender === 'M'} onChange={() => updateForm('gender', 'M')} className="accent-green-700 dark:accent-[#d4ff00]" />
-                  Male
-                </label>
-                <label className="flex items-center gap-2 text-gray-900 dark:text-white">
-                  <input type="radio" name="gender" value="F" checked={formData.gender === 'F'} onChange={() => updateForm('gender', 'F')} className="accent-green-700 dark:accent-[#d4ff00]" />
-                  Female
-                </label>
-              </div>
-            </div>
-            
-            <Input label="Date of Birth" type="date" required value={formData.date_of_birth || ''} onChange={(e: any) => updateForm('date_of_birth', e.target.value)} />
-            <Input label="Email Address" type="email" required value={formData.email || ''} onChange={(e: any) => updateForm('email', e.target.value)} />
-            <Input label="Phone Number" type="tel" required value={formData.phone || ''} onChange={(e: any) => updateForm('phone', e.target.value)} />
-            <Select label="City" options={CITIES} required value={formData.city} onChange={(e: any) => updateForm('city', e.target.value)} />
+  const renderPersonalInfoStep = () => (
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Personal Information</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input label="First Name" required value={formData.first_name || ''} onChange={(e: any) => updateForm('first_name', e.target.value)} />
+        <Input label="Father's Name" required value={formData.father_name || ''} onChange={(e: any) => updateForm('father_name', e.target.value)} />
+        <Input label="Grandfather's Name" value={formData.grandfather_name || ''} onChange={(e: any) => updateForm('grandfather_name', e.target.value)} />
+        <Input label="Amharic Full Name" value={formData.amharic_full_name || ''} onChange={(e: any) => updateForm('amharic_full_name', e.target.value)} />
+        
+        <div className="mb-4">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-2">Gender <span className="text-red-500">*</span></label>
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2 text-gray-900 dark:text-white font-medium text-sm">
+              <input type="radio" name="gender" value="M" checked={formData.gender === 'M'} onChange={() => updateForm('gender', 'M')} className="accent-green-700 dark:accent-[#d4ff00]" />
+              Male
+            </label>
+            <label className="flex items-center gap-2 text-gray-900 dark:text-white font-medium text-sm">
+              <input type="radio" name="gender" value="F" checked={formData.gender === 'F'} onChange={() => updateForm('gender', 'F')} className="accent-green-700 dark:accent-[#d4ff00]" />
+              Female
+            </label>
           </div>
         </div>
-      )}
+        
+        <Input label="Date of Birth" type="date" required value={formData.date_of_birth || ''} onChange={(e: any) => updateForm('date_of_birth', e.target.value)} />
+        <Input label="Email Address" type="email" required value={formData.email || ''} onChange={(e: any) => updateForm('email', e.target.value)} />
+        <Input label="Phone Number" type="tel" required value={formData.phone || ''} onChange={(e: any) => updateForm('phone', e.target.value)} />
+        <Select label="City" options={CITIES} required value={formData.city} onChange={(e: any) => updateForm('city', e.target.value)} />
+        {tier !== 'STUDENT' && (
+          <Input label="National ID Number" required value={formData.national_id_number || ''} onChange={(e: any) => updateForm('national_id_number', e.target.value)} />
+        )}
+      </div>
     </div>
   );
 
@@ -370,8 +374,8 @@ export default function RegistrationModal({
     </div>
   );
 
-  // Full Member Flow Steps
-  const renderFullStep1 = () => (
+  // Full Member Flow Steps - step 1 is now renderPersonalInfoStep()
+  const renderFullStep1_unused = () => (
     <div className="space-y-4">
       {renderTierSelection()}
       {tier === 'FULL' && (
@@ -513,24 +517,19 @@ export default function RegistrationModal({
     </div>
   );
 
-  // Corporate Flow Steps
+  // Corporate Flow Steps - step 1 is now renderPersonalInfoStep()
   const renderCorporateStep1 = () => (
-    <div className="space-y-4">
-      {renderTierSelection()}
-      {tier === 'CORPORATE' && (
-        <div className="animate-in fade-in slide-in-from-bottom-4">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Organization Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input label="Organization Name" required value={formData.corporate_profile?.organization_name || ''} onChange={(e: any) => updateNested('corporate_profile', 'organization_name', e.target.value)} />
-            <Select label="Organization Type" options={ORG_TYPES} required value={formData.corporate_profile?.org_type || ''} onChange={(e: any) => updateNested('corporate_profile', 'org_type', e.target.value)} />
-            <Input label="TIN Number" required value={formData.corporate_profile?.tin_number || ''} onChange={(e: any) => updateNested('corporate_profile', 'tin_number', e.target.value)} />
-            <Select label="Headquarters City" options={CITIES} required value={formData.corporate_profile?.headquarters_city || ''} onChange={(e: any) => updateNested('corporate_profile', 'headquarters_city', e.target.value)} />
-            <div className="col-span-1 md:col-span-2">
-              <Input label="Website URL (Optional)" type="url" placeholder="https://" value={formData.corporate_profile?.website || ''} onChange={(e: any) => updateNested('corporate_profile', 'website', e.target.value)} />
-            </div>
-          </div>
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Organization Information</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input label="Organization Name" required value={formData.corporate_profile?.organization_name || ''} onChange={(e: any) => updateNested('corporate_profile', 'organization_name', e.target.value)} />
+        <Select label="Organization Type" options={ORG_TYPES} required value={formData.corporate_profile?.org_type || ''} onChange={(e: any) => updateNested('corporate_profile', 'org_type', e.target.value)} />
+        <Input label="TIN Number" required value={formData.corporate_profile?.tin_number || ''} onChange={(e: any) => updateNested('corporate_profile', 'tin_number', e.target.value)} />
+        <Select label="Headquarters City" options={CITIES} required value={formData.corporate_profile?.headquarters_city || ''} onChange={(e: any) => updateNested('corporate_profile', 'headquarters_city', e.target.value)} />
+        <div className="col-span-1 md:col-span-2">
+          <Input label="Website URL (Optional)" type="url" placeholder="https://" value={formData.corporate_profile?.website || ''} onChange={(e: any) => updateNested('corporate_profile', 'website', e.target.value)} />
         </div>
-      )}
+      </div>
     </div>
   );
 
@@ -654,7 +653,7 @@ export default function RegistrationModal({
           <div>
             <h2 className="text-xl font-black text-gray-900 dark:text-white font-syne uppercase tracking-tight">Become a Member</h2>
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-              {tier ? `Step ${step} of ${maxSteps}` : 'Select your tier to begin'}
+              {step === 0 ? 'Select your membership tier' : `Step ${step} of ${maxFormSteps} — ${tier} Member`}
             </p>
           </div>
           <button onClick={onClose} className="p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-gray-500 dark:text-gray-300 transition-colors cursor-pointer">
@@ -662,12 +661,12 @@ export default function RegistrationModal({
           </button>
         </div>
 
-        {/* Progress Bar */}
-        {tier && (
-          <div className="px-6 pt-6 pb-2">
-            <div className="flex justify-between items-center">
-              {Array.from({ length: maxSteps }).map((_, i) => (
-                <div key={i} className={`flex-1 h-1.5 mx-1 rounded-full transition-colors ${
+        {/* Progress Bar - only show when in form steps */}
+        {step > 0 && tier && (
+          <div className="px-6 pt-4 pb-0">
+            <div className="flex justify-between items-center gap-1">
+              {Array.from({ length: maxFormSteps }).map((_, i) => (
+                <div key={i} className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
                   i + 1 <= step ? 'bg-green-700 dark:bg-[#d4ff00]' : 'bg-gray-200 dark:bg-white/10'
                 }`} />
               ))}
@@ -677,20 +676,23 @@ export default function RegistrationModal({
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
-          {!tier && renderTierSelection()}
+          {/* Step 0: Tier Selection */}
+          {step === 0 && renderTierSelection()}
           
-          {tier === 'STUDENT' && (
+          {/* STUDENT FLOW */}
+          {tier === 'STUDENT' && step > 0 && (
             <>
-              {step === 1 && renderStudentStep1()}
+              {step === 1 && renderPersonalInfoStep()}
               {step === 2 && renderStudentStep2()}
               {step === 3 && renderStudentStep3()}
               {step === 4 && renderPaymentStep('ETB 150')}
             </>
           )}
 
-          {tier === 'FULL' && (
+          {/* FULL MEMBER FLOW */}
+          {tier === 'FULL' && step > 0 && (
             <>
-              {step === 1 && renderFullStep1()}
+              {step === 1 && renderPersonalInfoStep()}
               {step === 2 && renderFullStep2()}
               {step === 3 && renderFullStep3()}
               {step === 4 && renderFullStep4()}
@@ -698,11 +700,12 @@ export default function RegistrationModal({
             </>
           )}
 
-          {tier === 'CORPORATE' && (
+          {/* CORPORATE FLOW */}
+          {tier === 'CORPORATE' && step > 0 && (
             <>
-              {step === 1 && renderCorporateStep1()}
-              {step === 2 && renderCorporateStep2()}
-              {step === 3 && renderCorporateStep3()}
+              {step === 1 && renderPersonalInfoStep()}
+              {step === 2 && renderCorporateStep1()}
+              {step === 3 && renderCorporateStep2()}
               {step === 4 && renderCorporateStep4()}
             </>
           )}
@@ -710,7 +713,7 @@ export default function RegistrationModal({
 
         {/* Footer Actions */}
         <div className="px-6 py-4 border-t border-gray-200/50 dark:border-white/10 bg-white/50 dark:bg-black/40 backdrop-blur-md flex justify-between gap-4 sticky bottom-0 z-10">
-          {step > 1 ? (
+          {step > 0 ? (
             <button 
               onClick={handlePrev}
               className="px-6 py-3 rounded-xl font-bold text-gray-700 dark:text-gray-300 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors flex items-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
@@ -719,18 +722,16 @@ export default function RegistrationModal({
               Back
             </button>
           ) : (
-            <div /> // Spacer
+            <div />
           )}
           
-          {tier && (
-            <button 
-              onClick={isLastStep ? handleSubmit : handleNext}
-              className="px-8 py-3 rounded-xl font-black bg-green-700 text-white dark:bg-[#d4ff00] dark:text-black hover:opacity-90 transition-opacity flex items-center gap-2 ml-auto text-xs uppercase tracking-wider shadow-lg shadow-green-700/20 dark:shadow-[#d4ff00]/20 cursor-pointer"
-            >
-              {isLastStep ? 'Submit Application' : 'Continue'}
-              {!isLastStep && <ChevronRight className="w-4 h-4" />}
-            </button>
-          )}
+          <button 
+            onClick={step === 0 ? handleNext : (isLastStep ? handleSubmit : handleNext)}
+            className="px-8 py-3 rounded-xl font-black bg-green-700 text-white dark:bg-[#d4ff00] dark:text-black hover:opacity-90 transition-opacity flex items-center gap-2 ml-auto text-xs uppercase tracking-wider shadow-lg shadow-green-700/20 dark:shadow-[#d4ff00]/20 cursor-pointer"
+          >
+            {step === 0 ? 'Continue' : isLastStep ? 'Submit Application' : 'Continue'}
+            {!(step > 0 && isLastStep) && <ChevronRight className="w-4 h-4" />}
+          </button>
         </div>
 
       </div>
