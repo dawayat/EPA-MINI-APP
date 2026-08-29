@@ -679,7 +679,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-6 text-xs text-gray-900 dark:text-white">
               {/* Applicant Header summary */}
-              <div className="flex items-center gap-4 p-4 bg-black/5 dark:bg-black/60 rounded-2xl border border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-black/60 rounded-2xl border border-gray-200 dark:border-white/10">
                 <img
                   src={reviewingApp.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
                   alt=""
@@ -689,7 +689,12 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                   <div className="font-black text-base text-gray-900 dark:text-white font-syne uppercase">
                     {reviewingApp.first_name} {reviewingApp.father_name} {reviewingApp.grandfather_name || ''}
                   </div>
-                  <div className="text-neutral-600 dark:text-neutral-400 font-mono text-[11px] mt-0.5">
+                  {reviewingApp.amharic_full_name && (
+                    <div className="text-sm font-bold text-gray-900 dark:text-white/80 mt-0.5">
+                      {reviewingApp.amharic_full_name}
+                    </div>
+                  )}
+                  <div className="text-neutral-600 dark:text-neutral-400 font-mono text-[11px] mt-1">
                     {reviewingApp.email} • {reviewingApp.phone}
                   </div>
                   <div className="mt-1 flex items-center gap-2 font-mono">
@@ -699,6 +704,45 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     <span className="text-neutral-600">•</span>
                     <span className="text-neutral-600 dark:text-neutral-400">City: {reviewingApp.city}</span>
                   </div>
+                </div>
+              </div>
+
+              {/* Detailed Personal & Professional Info */}
+              <div>
+                <h4 className="font-mono font-bold text-xs text-green-700 dark:text-[#d4ff00] uppercase tracking-wider mb-2">
+                  Personal & Professional Details
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Gender</div>
+                    <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.gender === 'M' ? 'Male' : reviewingApp.gender === 'F' ? 'Female' : 'N/A'}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Date of Birth</div>
+                    <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.date_of_birth || 'N/A'}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">National ID</div>
+                    <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.national_id_number || 'N/A'}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Current Workplace</div>
+                    <div className="font-mono text-gray-900 dark:text-white mt-1 truncate" title={reviewingApp.current_workplace || ''}>{reviewingApp.current_workplace || 'N/A'}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Specialty</div>
+                    <div className="font-mono text-gray-900 dark:text-white mt-1 truncate" title={reviewingApp.current_specialty || ''}>{reviewingApp.current_specialty || 'N/A'}</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                    <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Experience</div>
+                    <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.years_of_experience ? `${reviewingApp.years_of_experience} years` : 'N/A'}</div>
+                  </div>
+                  {reviewingApp.license_number && (
+                    <div className="col-span-2 sm:col-span-3 p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                      <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider">Existing License Number</div>
+                      <div className="font-mono text-gray-900 dark:text-white mt-1">{reviewingApp.license_number}</div>
+                    </div>
+                  )}
                 </div>
               </div>
 
