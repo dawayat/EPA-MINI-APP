@@ -210,11 +210,16 @@ export default function App() {
 
     if (isSupabaseConfigured) {
       await updateApplicationStatus(appId, 'APPROVED');
-      // In a real app we'd also insert newMember to the members table
+      await createMember(newMember); // Save to database!
     }
 
     setMembers(prev => [newMember, ...prev]);
     setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'APPROVED' } : a));
+    
+    // For testing/demo purposes, log the user in as the newly approved member 
+    // so they can immediately see their digital ID
+    setActiveMemberId(newMember.id);
+    setCurrentTab('id');
 
     setAuditLogs(prev => [{
       id: 'log-' + Date.now(),

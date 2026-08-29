@@ -657,9 +657,9 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       {/* ════════ APPLICATION REVIEW MODAL ════════ */}
       {reviewingApp && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
-          <div className="relative bg-gray-50 dark:bg-[#121214] rounded-3xl w-full max-w-2xl shadow-2xl border border-white/20 overflow-hidden flex flex-col max-h-[90vh] text-gray-900 dark:text-white">
+          <div className="relative bg-white dark:bg-[#121214] rounded-3xl w-full max-w-2xl shadow-2xl border border-gray-200 dark:border-white/20 overflow-hidden flex flex-col max-h-[90vh] text-gray-900 dark:text-white">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10 flex items-center justify-between bg-black">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10 flex items-center justify-between bg-gray-50 dark:bg-black">
               <div>
                 <span className="text-[10px] font-mono font-black uppercase tracking-widest text-green-700 dark:text-[#d4ff00]">
                   Dossier Inspection
@@ -703,32 +703,72 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </div>
 
               {/* Education / Qualifications breakdown */}
-              <div>
-                <h4 className="font-mono font-bold text-xs text-green-700 dark:text-[#d4ff00] uppercase tracking-wider mb-2">
-                  Academic Record & Specialization
-                </h4>
-                {reviewingApp.student_profile ? (
-                  <div className="p-4 bg-black/5 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
-                    <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.student_profile.university_name}</div>
-                    <div className="text-neutral-700 dark:text-neutral-300 mt-0.5">{reviewingApp.student_profile.field_of_study} (Year {reviewingApp.student_profile.academic_year})</div>
-                    <div className="text-neutral-600 dark:text-neutral-500 dark:text-neutral-500 font-mono text-[10px] mt-1">Student ID: {reviewingApp.student_profile.student_id_number}</div>
-                  </div>
-                ) : reviewingApp.qualifications && reviewingApp.qualifications.length > 0 ? (
-                  <div className="space-y-2">
-                    {reviewingApp.qualifications.map((q, idx) => (
-                      <div key={idx} className="p-4 bg-black/5 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10 flex justify-between">
-                        <div>
-                          <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{q.degree_level} in {q.field}</div>
-                          <div className="text-neutral-600 dark:text-neutral-400 text-[11px]">{q.institution}</div>
+              {(reviewingApp.student_profile || (reviewingApp.qualifications && reviewingApp.qualifications.length > 0) || reviewingApp.corporate_profile) && (
+                <div>
+                  <h4 className="font-mono font-bold text-xs text-green-700 dark:text-[#d4ff00] uppercase tracking-wider mb-2">
+                    {reviewingApp.membership_type === 'CORPORATE' ? 'Corporate Profile' : 'Academic Record & Specialization'}
+                  </h4>
+                  {reviewingApp.membership_type === 'CORPORATE' && reviewingApp.corporate_profile ? (
+                    <div className="p-4 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                      <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.corporate_profile.organization_name}</div>
+                      <div className="text-neutral-700 dark:text-neutral-300 mt-0.5">Type: {reviewingApp.corporate_profile.org_type}</div>
+                      <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px] mt-1">TIN: {reviewingApp.corporate_profile.tin_number} | HQ: {reviewingApp.corporate_profile.headquarters_city}</div>
+                      {reviewingApp.corporate_profile.website && (
+                        <div className="text-blue-500 text-[10px] mt-1 break-all">{reviewingApp.corporate_profile.website}</div>
+                      )}
+                    </div>
+                  ) : reviewingApp.student_profile ? (
+                    <div className="p-4 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                      <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.student_profile.university_name}</div>
+                      <div className="text-neutral-700 dark:text-neutral-300 mt-0.5">{reviewingApp.student_profile.field_of_study} (Year {reviewingApp.student_profile.academic_year})</div>
+                      <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px] mt-1">Student ID: {reviewingApp.student_profile.student_id_number}</div>
+                    </div>
+                  ) : reviewingApp.qualifications && reviewingApp.qualifications.length > 0 ? (
+                    <div className="space-y-2">
+                      {reviewingApp.qualifications.map((q: any, idx: number) => (
+                        <div key={idx} className="p-4 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10 flex justify-between">
+                          <div>
+                            <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{q.degree_level} in {q.field}</div>
+                            <div className="text-neutral-600 dark:text-neutral-400 text-[11px]">{q.institution}</div>
+                          </div>
+                          <span className="font-mono text-green-700 dark:text-[#d4ff00] text-[11px]">Class of {q.graduation_year}</span>
                         </div>
-                        <span className="font-mono text-green-700 dark:text-[#d4ff00] text-[11px]">Class of {q.graduation_year}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              {/* Uploaded Documents */}
+              {(reviewingApp.degree_certificate_url || reviewingApp.id_document_url) && (
+                <div>
+                  <h4 className="font-mono font-bold text-xs text-green-700 dark:text-[#d4ff00] uppercase tracking-wider mb-2">
+                    Attached Documents
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {reviewingApp.degree_certificate_url && (
+                      <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                        <div className="font-bold text-gray-900 dark:text-white mb-2">Degree Certificate</div>
+                        {reviewingApp.degree_certificate_url.startsWith('data:image') || reviewingApp.degree_certificate_url.match(/\.(jpeg|jpg|gif|png)$/) != null ? (
+                          <img src={reviewingApp.degree_certificate_url} alt="Degree" className="w-full max-h-40 object-contain rounded bg-black/5" />
+                        ) : (
+                          <a href={reviewingApp.degree_certificate_url} target="_blank" rel="noreferrer" className="text-blue-500 underline break-all">View Document</a>
+                        )}
                       </div>
-                    ))}
+                    )}
+                    {reviewingApp.id_document_url && (
+                      <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                        <div className="font-bold text-gray-900 dark:text-white mb-2">ID Document</div>
+                        {reviewingApp.id_document_url.startsWith('data:image') || reviewingApp.id_document_url.match(/\.(jpeg|jpg|gif|png)$/) != null ? (
+                          <img src={reviewingApp.id_document_url} alt="ID" className="w-full max-h-40 object-contain rounded bg-black/5" />
+                        ) : (
+                          <a href={reviewingApp.id_document_url} target="_blank" rel="noreferrer" className="text-blue-500 underline break-all">View Document</a>
+                        )}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="text-neutral-600 dark:text-neutral-500 dark:text-neutral-500 italic font-mono">No formal degree record specified.</div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Payment Receipt Verification */}
               {reviewingApp.payment && (
@@ -778,13 +818,13 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                   value={adminNoteInput}
                   onChange={(e) => setAdminNoteInput(e.target.value)}
                   placeholder="Add feedback or specific instructions for corrections..."
-                  className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-black text-gray-900 dark:text-white placeholder:text-neutral-600"
+                  className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400 dark:placeholder:text-neutral-600"
                 />
               </div>
 
               {/* If rejecting form */}
               {isRejecting && (
-                <div className="p-4 bg-red-950/40 rounded-xl border border-red-500/40">
+                <div className="p-4 bg-red-50 dark:bg-red-950/40 rounded-xl border border-red-200 dark:border-red-500/40">
                   <label className="block font-mono font-bold text-xs text-red-600 dark:text-red-400 mb-1">
                     Formal Rejection Reason *
                   </label>
@@ -794,14 +834,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     placeholder="e.g. Ineligible degree program from unaccredited institution..."
                     value={rejectReasonInput}
                     onChange={(e) => setRejectReasonInput(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-red-500/40 text-xs bg-black text-gray-900 dark:text-white"
+                    className="w-full p-2.5 rounded-lg border border-red-200 dark:border-red-500/40 text-xs bg-white dark:bg-black text-gray-900 dark:text-white"
                   />
                 </div>
               )}
             </div>
 
             {/* Modal Actions */}
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-black flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-black flex items-center justify-between">
               <button
                 onClick={() => {
                   onRequestCorrection(reviewingApp.id, adminNoteInput);
