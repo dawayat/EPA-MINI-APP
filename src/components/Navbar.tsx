@@ -80,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-40 w-full bg-white dark:bg-[#080808]/95 backdrop-blur-md border-b border-gray-200 dark:border-white/10 shadow-lg">
       {/* Top micro bar for Ethiopian Psychologists Association Banner */}
-      <div className="bg-[#000000] border-b border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-xs px-4 py-1.5 flex items-center justify-between">
+      <div className="bg-gray-50 dark:bg-black border-b border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-xs px-4 py-1.5 flex items-center justify-between">
         <div className="flex items-center gap-2 max-w-7xl mx-auto w-full">
           <span className="flex h-2 w-2 rounded-full bg-[#d4ff00] animate-pulse"></span>
           <span className="font-black tracking-widest text-[11px] text-gray-900 dark:text-white uppercase font-syne">

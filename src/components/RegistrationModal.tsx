@@ -44,6 +44,69 @@ const SPECIALTIES = ['Clinical Psychology', 'Counseling', 'Neuropsychology', 'Ed
 const ORG_TYPES = ['Hospital', 'Clinic', 'NGO', 'University/College', 'Government Agency', 'Corporate Employer', 'Mental Health Center', 'Other'];
 const FOCUS_AREAS = ['Workplace Mental Health', 'Clinical Services', 'Research', 'Training', 'Child Services', 'Crisis Intervention'];
 
+// ---------------- UI COMPONENTS ---------------- //
+
+const Input = ({ label, required = false, type = "text", ...props }: any) => (
+  <div className="mb-4">
+    <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
+    <input 
+      type={type}
+      className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] transition-all font-medium"
+      {...props}
+    />
+  </div>
+);
+
+const Select = ({ label, options, required = false, ...props }: any) => (
+  <div className="mb-4">
+    <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
+    <select 
+      className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] transition-all font-medium appearance-none"
+      {...props}
+    >
+      <option value="" disabled>Select an option</option>
+      {options.map((opt: any) => (
+        <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
+          {typeof opt === 'string' ? opt : opt.label}
+        </option>
+      ))}
+    </select>
+  </div>
+);
+
+const FileUpload = ({ label, hint, onChange }: any) => {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  
+  return (
+    <div className="mb-4">
+      <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">{label}</label>
+      <div 
+        className="border-2 border-dashed border-gray-300 dark:border-white/20 bg-black/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-6 flex flex-col items-center justify-center text-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer" 
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <input 
+          type="file" 
+          ref={fileInputRef}
+          className="hidden" 
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              onChange(file.name);
+            }
+          }} 
+        />
+        <UploadCloud className="w-8 h-8 text-neutral-400 dark:text-neutral-500 mb-2" />
+        <span className="text-sm text-gray-900 dark:text-white font-bold">Click to upload file</span>
+        {hint && <span className="text-xs text-neutral-500 mt-1">{hint}</span>}
+      </div>
+    </div>
+  );
+};
+
 export default function RegistrationModal({
   isOpen, onClose, lang, initialTier, universities = [], onSubmitApplication, onToast
 }: RegistrationModalProps) {
@@ -104,50 +167,6 @@ export default function RegistrationModal({
     });
   };
 
-  // ---------------- UI COMPONENTS ---------------- //
-
-  const Input = ({ label, required = false, type = "text", ...props }: any) => (
-    <div className="mb-4">
-      <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <input 
-        type={type}
-        className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] transition-all font-medium"
-        {...props}
-      />
-    </div>
-  );
-
-  const Select = ({ label, options, required = false, ...props }: any) => (
-    <div className="mb-4">
-      <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <select 
-        className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] transition-all font-medium appearance-none"
-        {...props}
-      >
-        <option value="" disabled>Select an option</option>
-        {options.map((opt: any) => (
-          <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
-            {typeof opt === 'string' ? opt : opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
-  const FileUpload = ({ label, hint, onChange }: any) => (
-    <div className="mb-4">
-      <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">{label}</label>
-      <div className="border-2 border-dashed border-gray-300 dark:border-white/20 bg-black/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-6 flex flex-col items-center justify-center text-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer" onClick={() => onChange('uploaded_file.jpg')}>
-        <UploadCloud className="w-8 h-8 text-neutral-400 dark:text-neutral-500 mb-2" />
-        <span className="text-sm text-gray-900 dark:text-white font-bold">Click to upload file</span>
-        {hint && <span className="text-xs text-neutral-500 mt-1">{hint}</span>}
-      </div>
-    </div>
-  );
 
   // ---------------- STEP RENDERERS ---------------- //
 
@@ -220,6 +239,7 @@ export default function RegistrationModal({
             </div>
             
             <Input label="Date of Birth" type="date" required value={formData.date_of_birth || ''} onChange={(e: any) => updateForm('date_of_birth', e.target.value)} />
+            <Input label="Email Address" type="email" required value={formData.email || ''} onChange={(e: any) => updateForm('email', e.target.value)} />
             <Input label="Phone Number" type="tel" required value={formData.phone || ''} onChange={(e: any) => updateForm('phone', e.target.value)} />
             <Select label="City" options={CITIES} required value={formData.city} onChange={(e: any) => updateForm('city', e.target.value)} />
           </div>
@@ -352,6 +372,7 @@ export default function RegistrationModal({
             </div>
             
             <Input label="Date of Birth" type="date" required value={formData.date_of_birth || ''} onChange={(e: any) => updateForm('date_of_birth', e.target.value)} />
+            <Input label="Email Address" type="email" required value={formData.email || ''} onChange={(e: any) => updateForm('email', e.target.value)} />
             <Input label="Phone Number" type="tel" required value={formData.phone || ''} onChange={(e: any) => updateForm('phone', e.target.value)} />
             <Select label="City" options={CITIES} required value={formData.city} onChange={(e: any) => updateForm('city', e.target.value)} />
             <Input label="National ID Number" required value={formData.national_id_number || ''} onChange={(e: any) => updateForm('national_id_number', e.target.value)} />

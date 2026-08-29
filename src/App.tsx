@@ -155,6 +155,15 @@ export default function App() {
       submitted_at: new Date().toISOString()
     };
 
+    if (isSupabaseConfigured) {
+      try {
+        await submitApplication(fullApp);
+      } catch (err) {
+        console.error("Failed to submit application to database:", err);
+        showToast('Submission failed, but saved locally for demo.', 'error');
+      }
+    }
+
     setApplications(prev => [fullApp, ...prev]);
 
     // Add audit log
