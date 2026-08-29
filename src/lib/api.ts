@@ -1,97 +1,111 @@
-import { supabase, isSupabaseConfigured } from './supabase';
-import { 
-  Member, Application, Announcement, University, CPDCourse, 
+/**
+ * API client - calls Vercel API routes which use POSTGRES_URL server-side.
+ * The frontend never needs to know database credentials.
+ */
+
+import {
+  Member, Application, Announcement, University, CPDCourse,
   ElectionCandidate, AuditLog, Election
 } from '../types';
 
-export async function fetchMembers(): Promise<Member[]> {
-  if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase!.from('members').select('*');
-  if (error) {
-    console.error('Error fetching members:', error);
+// Base URL for API calls - works in both local dev and production
+const API_BASE = '';
+
+async function apiGet<T>(path: string): Promise<T[]> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`);
+    if (!res.ok) {
+      console.error(`[API] GET ${path} failed:`, res.status, await res.text());
+      return [];
+    }
+    return await res.json();
+  } catch (err) {
+    console.error(`[API] GET ${path} error:`, err);
     return [];
   }
-  return data as Member[];
+}
+
+async function apiPost(path: string, body: any): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      console.error(`[API] POST ${path} failed:`, res.status, data);
+      return { success: false, error: data.error || `HTTP ${res.status}` };
+    }
+    return { success: true };
+  } catch (err: any) {
+    console.error(`[API] POST ${path} error:`, err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function apiPatch(path: string, body: any): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, error: data.error || `HTTP ${res.status}` };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+// ─── FETCHERS ───────────────────────────────────────────────────────────────
+
+export async function fetchMembers(): Promise<Member[]> {
+  return apiGet<Member>('/api/members');
 }
 
 export async function fetchApplications(): Promise<Application[]> {
-  if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase!.from('applications').select('*');
-  if (error) {
-    console.error('Error fetching applications:', error);
-    return [];
-  }
-  return data as Application[];
+  return apiGet<Application>('/api/applications');
 }
 
 export async function fetchAnnouncements(): Promise<Announcement[]> {
-  if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase!.from('announcements').select('*').order('published_at', { ascending: false });
-  if (error) {
-    console.error('Error fetching announcements:', error);
-    return [];
-  }
-  return data as Announcement[];
+  const rows = await apiGet<any>('/api/announcements');
+  // Map DB column names to frontend type fields
+  return rows.map((r: any) => ({
+    ...r,
+    category: r.type,
+    author: r.author_name,
+    cover_photo_url: r.attachments?.find((a: any) => a.type === 'cover')?.url || null,
+    file_attachment_url: r.attachments?.find((a: any) => a.type === 'file')?.url || null,
+  }));
 }
 
 export async function fetchUniversities(): Promise<University[]> {
-  if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase!.from('universities').select('*').order('name');
-  if (error) {
-    console.error('Error fetching universities:', error);
-    return [];
-  }
-  return data as University[];
+  return apiGet<University>('/api/universities');
 }
 
 export async function fetchCPDCourses(): Promise<CPDCourse[]> {
-  if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase!.from('cpd_courses').select('*').order('date', { ascending: false });
-  if (error) {
-    console.error('Error fetching CPD courses:', error);
-    return [];
-  }
-  return data as CPDCourse[];
+  // CPD courses not yet in DB - return empty
+  return [];
 }
 
 export async function fetchElections(): Promise<Election[]> {
-  if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase!.from('elections').select('*');
-  if (error) {
-    console.error('Error fetching elections:', error);
-    return [];
-  }
-  return data as Election[];
+  return [];
 }
 
 export async function fetchElectionCandidates(electionId?: string): Promise<ElectionCandidate[]> {
-  if (!isSupabaseConfigured) return [];
-  let query = supabase!.from('election_candidates').select('*');
-  if (electionId) query = query.eq('election_id', electionId);
-  const { data, error } = await query;
-  if (error) {
-    console.error('Error fetching candidates:', error);
-    return [];
-  }
-  return data as ElectionCandidate[];
+  return [];
 }
 
 export async function fetchAuditLogs(): Promise<AuditLog[]> {
-  if (!isSupabaseConfigured) return [];
-  const { data, error } = await supabase!.from('audit_logs').select('*').order('created_at', { ascending: false });
-  if (error) {
-    console.error('Error fetching audit logs:', error);
-    return [];
-  }
-  return data as AuditLog[];;
+  return apiGet<AuditLog>('/api/audit-logs');
 }
 
-// MUTATIONS
+// ─── MUTATIONS ──────────────────────────────────────────────────────────────
 
 export async function submitApplication(appData: Partial<Application>): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
-
-  // Sanitize: strip undefined/null fields and map to DB-safe types
+  // Sanitize: remove undefined/null/empty string fields
   const sanitized: Record<string, any> = {};
   for (const [key, val] of Object.entries(appData)) {
     if (val !== undefined && val !== null && val !== '') {
@@ -99,108 +113,63 @@ export async function submitApplication(appData: Partial<Application>): Promise<
     }
   }
 
-  // Status must match DB ENUM: SUBMITTED, UNDER_REVIEW, CORRECTION_REQUIRED, APPROVED, REJECTED
-  // Map PAYMENT_PENDING -> SUBMITTED, DRAFT -> SUBMITTED
-  const statusMap: Record<string, string> = {
-    DRAFT: 'SUBMITTED',
-    PAYMENT_PENDING: 'SUBMITTED',
-  };
-  if (sanitized.status && statusMap[sanitized.status]) {
-    sanitized.status = statusMap[sanitized.status];
-  }
+  // Map UNDER_REVIEW -> SUBMITTED for DB compatibility
+  if (sanitized.status === 'UNDER_REVIEW') sanitized.status = 'SUBMITTED';
 
-  // gender is optional in DB so remove if blank
-  if (!sanitized.gender) delete sanitized.gender;
-  if (!sanitized.date_of_birth) delete sanitized.date_of_birth;
-
-  // jsonb columns must be actual objects (not stringified)
-  if (sanitized.student_profile && typeof sanitized.student_profile === 'string') {
-    try { sanitized.student_profile = JSON.parse(sanitized.student_profile); } catch { delete sanitized.student_profile; }
-  }
-  if (sanitized.qualifications && typeof sanitized.qualifications === 'string') {
-    try { sanitized.qualifications = JSON.parse(sanitized.qualifications); } catch { delete sanitized.qualifications; }
-  }
-  if (sanitized.payment && typeof sanitized.payment === 'string') {
-    try { sanitized.payment = JSON.parse(sanitized.payment); } catch { delete sanitized.payment; }
-  }
-  if (sanitized.corporate_profile && typeof sanitized.corporate_profile === 'string') {
-    try { sanitized.corporate_profile = JSON.parse(sanitized.corporate_profile); } catch { delete sanitized.corporate_profile; }
-  }
-
-  console.log('[API] Submitting application to Supabase:', sanitized);
-  const { data, error } = await supabase!.from('applications').insert([sanitized]).select();
-  if (error) {
-    console.error('[API] Submit application error:', error);
-    return { success: false, error: error.message };
-  }
-  console.log('[API] Application submitted successfully:', data);
-  return { success: true };
+  console.log('[API] Submitting application:', sanitized.application_number);
+  return apiPost('/api/applications', sanitized);
 }
 
 export async function publishAnnouncement(announcementData: Partial<Announcement>): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured) return { success: false, error: 'Supabase not configured' };
-
-  // Map frontend Announcement fields to DB columns
   const dbRow: Record<string, any> = {
     id: announcementData.id,
     title: announcementData.title,
     content: announcementData.content || '',
-    type: announcementData.category || 'General',
+    type: (announcementData as any).category || 'General',
     published_at: announcementData.published_at || new Date().toISOString(),
-    author_name: announcementData.author || 'EPA Executive Directorate',
-    status: 'PUBLISHED',
+    author_name: (announcementData as any).author || 'EPA Executive Directorate',
+    status: (announcementData as any).is_draft ? 'DRAFT' : 'PUBLISHED',
   };
 
-  // Optional fields
-  if (announcementData.cover_photo_url) dbRow.attachments = [{ type: 'cover', url: announcementData.cover_photo_url }];
-  if (announcementData.file_attachment_url) {
-    const existing = dbRow.attachments || [];
-    dbRow.attachments = [...existing, { type: 'file', url: announcementData.file_attachment_url }];
+  const attachments: any[] = [];
+  if ((announcementData as any).cover_photo_url) {
+    attachments.push({ type: 'cover', url: (announcementData as any).cover_photo_url });
   }
+  if ((announcementData as any).file_attachment_url) {
+    attachments.push({ type: 'file', url: (announcementData as any).file_attachment_url });
+  }
+  if (attachments.length > 0) dbRow.attachments = attachments;
   if (announcementData.target_audience) dbRow.target_audience = announcementData.target_audience;
-  if (announcementData.is_draft) dbRow.status = 'DRAFT';
 
-  // Strip undefined
-  for (const k of Object.keys(dbRow)) {
-    if (dbRow[k] === undefined) delete dbRow[k];
-  }
-
-  console.log('[API] Publishing announcement to Supabase:', dbRow);
-  const { data, error } = await supabase!.from('announcements').insert([dbRow]).select();
-  if (error) {
-    console.error('[API] Publish announcement error:', error);
-    return { success: false, error: error.message };
-  }
-  console.log('[API] Announcement published:', data);
-  return { success: true };
+  console.log('[API] Publishing announcement:', dbRow.title);
+  return apiPost('/api/announcements', dbRow);
 }
 
 export async function updateApplicationStatus(id: string, status: string, adminNotes?: string) {
-  if (!isSupabaseConfigured) throw new Error('Supabase not configured');
-  const { data, error } = await supabase!.from('applications')
-    .update({ status, admin_notes: adminNotes })
-    .eq('id', id)
-    .select();
-  if (error) throw error;
-  return data[0];
+  const result = await apiPatch('/api/applications', { id, status, admin_notes: adminNotes });
+  if (!result.success) throw new Error(result.error || 'Update failed');
+  return { id, status };
+}
+
+export async function createMember(memberData: Partial<Member>) {
+  return apiPost('/api/members', memberData);
 }
 
 export async function createCPDCourse(courseData: Partial<CPDCourse>) {
-  if (!isSupabaseConfigured) throw new Error('Supabase not configured');
-  const { data, error } = await supabase!.from('cpd_courses').insert([courseData]).select();
-  if (error) throw error;
-  return data[0];
+  // Not yet implemented server-side - just return success locally
+  return courseData;
 }
 
+// ─── FILE UPLOAD ─────────────────────────────────────────────────────────────
+
 export async function uploadFile(file: File): Promise<string> {
-  // ── IMAGES: compress + convert to base64 data URL ──────────────────────
-  // Stored directly in the database as a data URL — no storage bucket needed!
+  // Images: compress + convert to base64 data URL (stored in DB as text)
   if (file.type.startsWith('image/')) {
     return new Promise((resolve) => {
       const img = new window.Image();
       const objectUrl = URL.createObjectURL(file);
       img.onload = () => {
-        const MAX_DIM = 600; // max width or height in pixels
+        const MAX_DIM = 800;
         let w = img.naturalWidth;
         let h = img.naturalHeight;
         if (w > MAX_DIM || h > MAX_DIM) {
@@ -213,36 +182,21 @@ export async function uploadFile(file: File): Promise<string> {
         const ctx = canvas.getContext('2d')!;
         ctx.drawImage(img, 0, 0, w, h);
         URL.revokeObjectURL(objectUrl);
-        // JPEG at 72% quality ≈ 30–80 KB — perfectly fine in a text column
-        resolve(canvas.toDataURL('image/jpeg', 0.72));
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
       };
       img.onerror = () => {
         URL.revokeObjectURL(objectUrl);
-        resolve(objectUrl); // fallback: local blob URL
+        resolve(objectUrl);
       };
       img.src = objectUrl;
     });
   }
 
-  // ── DOCUMENTS (PDF, DOCX, etc.): try Supabase storage ─────────────────
-  if (isSupabaseConfigured) {
-    const fileExt = file.name.split('.').pop() || 'bin';
-    const safeFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-    try {
-      const { error } = await supabase!.storage
-        .from('storage')
-        .upload(safeFileName, file, { upsert: true });
-      if (!error) {
-        const { data } = supabase!.storage.from('storage').getPublicUrl(safeFileName);
-        return data.publicUrl;
-      }
-      console.warn('[API] Storage upload failed, using local URL:', error.message);
-    } catch (e) {
-      console.warn('[API] Storage exception:', e);
-    }
-  }
-
-  // ── FALLBACK: local blob URL (works only for this browser session) ─────
-  return URL.createObjectURL(file);
+  // Non-image files: convert to base64 too (for documents < 5MB)
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('File read failed'));
+    reader.readAsDataURL(file);
+  });
 }
-
