@@ -14,6 +14,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'No POSTGRES_URL environment variable found.' });
   }
 
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
   const pool = new Pool({
     connectionString,
     ssl: { rejectUnauthorized: false }
