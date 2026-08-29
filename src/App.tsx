@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   INITIAL_MEMBERS, 
   INITIAL_APPLICATIONS, 
@@ -15,6 +15,7 @@ import {
   University, 
   CPDCourse, 
   ElectionCandidate, 
+  Election,
   AuditLog, 
   MembershipTypeCode 
 } from './types';
@@ -27,19 +28,11 @@ import { AdminPortalView } from './components/AdminPortalView';
 import { PublicVerifyView } from './components/PublicVerifyView';
 import { PsychologistDirectory } from './components/PsychologistDirectory';
 import { ElectionsBooth } from './components/ElectionsBooth';
-import { RegistrationModal } from './components/RegistrationModal';
+import RegistrationModal from './components/RegistrationModal';
 import { NotificationDrawer } from './components/NotificationDrawer';
-import { 
-  CheckCircle2, 
-  AlertCircle, 
-  Info, 
-  UserCheck, 
-  Sparkles, 
-  Globe, 
-  ShieldCheck,
-  CreditCard,
-  Building
-} from 'lucide-react';
+import { SplashScreen } from './components/SplashScreen';
+import { initTelegramApp, getTelegramColorScheme, isTelegramMiniApp } from './lib/telegram';
+import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 interface Toast {
   id: string;
@@ -48,10 +41,28 @@ interface Toast {
 }
 
 export default function App() {
+  // Splash screen
+  const [showSplash, setShowSplash] = useState(true);
+
   // App Global State
   const [lang, setLang] = useState<'EN' | 'AM'>('EN');
   const [currentTab, setCurrentTab] = useState<string>('welcome');
   const [activeVerifyToken, setActiveVerifyToken] = useState<string>('epa_tok_9942a17b');
+
+  // Initialize Telegram Mini App
+  useEffect(() => {
+    initTelegramApp();
+    // Sync theme with Telegram if inside Mini App
+    if (isTelegramMiniApp()) {
+      const tgScheme = getTelegramColorScheme();
+      const html = document.documentElement;
+      if (tgScheme === 'dark') {
+        html.classList.add('dark');
+      } else {
+        html.classList.remove('dark');
+      }
+    }
+  }, []);
 
   // Core Data Stores
   const [members, setMembers] = useState<Member[]>(INITIAL_MEMBERS);
@@ -239,6 +250,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-[#080808] text-gray-900 dark:text-white selection:bg-[#d4ff00] selection:text-black font-sans">
+      {/* Animated Splash Screen */}
+      {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
       
       {/* Primary Navigation Header */}
       <Navbar
@@ -343,56 +356,30 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Persona Switcher for Instant Evaluation */}
-      <div className="fixed bottom-4 right-4 z-40 bg-gray-50 dark:bg-[#121214]/95 backdrop-blur-md text-gray-900 dark:text-white p-2.5 rounded-2xl shadow-2xl border border-gray-200 dark:border-white/10 flex items-center gap-2">
-        <span className="text-[10px] font-mono font-black uppercase text-green-700 dark:text-[#d4ff00] tracking-wider hidden sm:inline pl-1">
-          PERSONA:
-        </span>
-        
-        <button
-          onClick={() => {
-            setActiveMemberId('mem-001'); // Dr. Selamawit (Full member)
-            setCurrentTab('portal');
-            showToast('Switched persona to: Dr. Selamawit Bekele (Full Clinical Member)', 'info');
-          }}
-          className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-            activeMemberId === 'mem-001' && currentTab === 'portal'
-              ? 'bg-[#d4ff00] text-black shadow-md' 
-              : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-gray-100 dark:border-white/5'
-          }`}
-        >
-          Full Member
-        </button>
-
-        <button
-          onClick={() => {
-            setActiveMemberId('mem-002'); // Yonas (Student member)
-            setCurrentTab('idcard');
-            showToast('Switched persona to: Yonas Alemu (Student Member)', 'info');
-          }}
-          className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-            activeMemberId === 'mem-002' 
-              ? 'bg-[#d4ff00] text-black shadow-md' 
-              : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-gray-100 dark:border-white/5'
-          }`}
-        >
-          Student
-        </button>
-
-        <button
-          onClick={() => {
-            setCurrentTab('admin');
-            showToast('Switched to EPA Council Admin Management View', 'info');
-          }}
-          className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-            currentTab === 'admin'
-              ? 'bg-amber-400 text-black shadow-md' 
-              : 'bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-gray-100 dark:border-white/5'
-          }`}
-        >
-          Council Admin
-        </button>
-      </div>
+      {/* Demo Mode Switcher — hidden in production Telegram env */}
+      {!isTelegramMiniApp() && (
+        <div className="fixed bottom-4 right-4 z-40 bg-white/90 dark:bg-[#121214]/95 backdrop-blur-md text-gray-900 dark:text-white p-2 rounded-2xl shadow-2xl border border-gray-200 dark:border-white/10 flex items-center gap-1.5">
+          <span className="text-[9px] font-mono font-black uppercase text-green-700 dark:text-[#d4ff00] tracking-wider hidden sm:inline pl-1">DEMO:</span>
+          {[
+            { id: 'mem-001', label: 'Full', tab: 'portal' },
+            { id: 'mem-002', label: 'Student', tab: 'portal' },
+            { id: 'mem-003', label: 'Corp', tab: 'portal' },
+          ].map(p => (
+            <button key={p.id}
+              onClick={() => { setActiveMemberId(p.id); setCurrentTab(p.tab); }}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                activeMemberId === p.id ? 'bg-[#d4ff00] text-black' : 'bg-black/5 dark:bg-white/5 text-neutral-700 dark:text-neutral-300 border border-gray-100 dark:border-white/5'
+              }`}
+            >{p.label}</button>
+          ))}
+          <button
+            onClick={() => setCurrentTab('admin')}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+              currentTab === 'admin' ? 'bg-amber-400 text-black' : 'bg-black/5 dark:bg-white/5 text-neutral-700 dark:text-neutral-300 border border-gray-100 dark:border-white/5'
+            }`}
+          >Admin</button>
+        </div>
+      )}
 
       {/* Registration Wizard Modal */}
       <RegistrationModal

@@ -1,711 +1,692 @@
 import React, { useState } from 'react';
 import { 
-  X, 
-  Check, 
-  ArrowRight, 
-  ArrowLeft, 
-  Upload, 
-  Camera, 
-  GraduationCap, 
-  UserCheck, 
-  Building2, 
-  CreditCard, 
-  ShieldCheck, 
-  CheckCircle2, 
-  FileText,
-  AlertCircle
+  X, ChevronLeft, ChevronRight, CheckCircle, Upload, Plus, Trash2, 
+  User, GraduationCap, Building2, UploadCloud, FileText, Check
 } from 'lucide-react';
-import { MembershipTypeCode, Application, University } from '../types';
-import { MEMBERSHIP_TYPES } from '../data/mockData';
+import { Application, MembershipTypeCode, University } from '../types';
 
 interface RegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  lang: 'EN' | 'AM';
-  initialTier?: MembershipTypeCode;
-  universities: University[];
+  lang: 'en' | 'am';
+  initialTier?: MembershipTypeCode | null;
+  universities?: University[];
   onSubmitApplication: (app: Partial<Application>) => void;
-  onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
+  onToast: (msg: string, type: 'success' | 'error') => void;
 }
 
-export const RegistrationModal: React.FC<RegistrationModalProps> = ({
-  isOpen,
-  onClose,
-  lang,
-  initialTier = 'FULL',
-  universities,
-  onSubmitApplication,
-  onToast,
-}) => {
-  const [step, setStep] = useState<number>(1);
-  const [selectedTier, setSelectedTier] = useState<MembershipTypeCode>(initialTier);
-  
-  // Form State
-  const [formData, setFormData] = useState({
-    firstName: '',
-    fatherName: '',
-    grandfatherName: '',
-    amharicName: '',
-    gender: 'M' as 'M' | 'F',
-    email: '',
-    phone: '',
-    dateOfBirth: '1998-05-15',
+const TIER_CARDS = [
+  {
+    code: 'STUDENT' as MembershipTypeCode,
+    name: 'Student Member',
+    fee: 'ETB 150',
+    icon: <GraduationCap className="w-8 h-8" />,
+    benefits: ['Access to digital library', 'Student networking events']
+  },
+  {
+    code: 'FULL' as MembershipTypeCode,
+    name: 'Full Member',
+    fee: 'ETB 1,500',
+    icon: <User className="w-8 h-8" />,
+    benefits: ['Professional licensing support', 'Voting rights in EPA']
+  },
+  {
+    code: 'CORPORATE' as MembershipTypeCode,
+    name: 'Corporate Member',
+    fee: 'ETB 10,000',
+    icon: <Building2 className="w-8 h-8" />,
+    benefits: ['Organization listing in directory', 'Job board postings']
+  }
+];
+
+const CITIES = ['Addis Ababa', 'Hawassa', 'Jimma', 'Bahir Dar', 'Mekelle', 'Dire Dawa', 'Gondar', 'Other'];
+const SPECIALTIES = ['Clinical Psychology', 'Counseling', 'Neuropsychology', 'Educational', 'Organizational/Industrial', 'Research', 'Child/Adolescent', 'Trauma', 'Other'];
+const ORG_TYPES = ['Hospital', 'Clinic', 'NGO', 'University/College', 'Government Agency', 'Corporate Employer', 'Mental Health Center', 'Other'];
+const FOCUS_AREAS = ['Workplace Mental Health', 'Clinical Services', 'Research', 'Training', 'Child Services', 'Crisis Intervention'];
+
+export default function RegistrationModal({
+  isOpen, onClose, lang, initialTier, universities = [], onSubmitApplication, onToast
+}: RegistrationModalProps) {
+  const [tier, setTier] = useState<MembershipTypeCode | null>(initialTier || null);
+  const [step, setStep] = useState(1);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [appNumber, setAppNumber] = useState('');
+
+  const [formData, setFormData] = useState<any>({
+    gender: 'M',
     city: 'Addis Ababa',
-    
-    // Academic & Professional
-    universityName: universities[0]?.name || 'Addis Ababa University',
-    degreeLevel: 'BSc',
-    fieldOfStudy: 'Clinical Psychology',
-    graduationYear: 2024,
-    studentIdNumber: '',
-    academicYear: 4,
-
-    // Corporate
-    orgName: '',
-    tinNumber: '',
-
-    // Payment Proof
-    paymentProvider: 'Telebirr' as 'Telebirr' | 'CBE',
-    transactionNumber: 'TB' + Math.floor(1000000000 + Math.random() * 9000000000),
-    photoPreview: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
+    qualifications: [{ degree_level: 'BSc', field: '', institution: '', graduation_year: new Date().getFullYear() }],
+    student_profile: { academic_year: 1 },
+    corporate_profile: { focus_areas: [] },
+    payment: { provider: 'Telebirr' }
   });
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [completedAppNumber, setCompletedAppNumber] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const currentTierObj = MEMBERSHIP_TYPES.find(t => t.code === selectedTier) || MEMBERSHIP_TYPES[1];
+  const maxSteps = tier === 'FULL' ? 5 : 4;
+  const isLastStep = step === maxSteps;
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setFormData(prev => ({ ...prev, photoPreview: event.target!.result as string }));
-          onToast(lang === 'EN' ? 'Digital ID photo uploaded!' : 'የመታወቂያ ፎቶ ተጭኗል!', 'info');
-        }
-      };
-      reader.readAsDataURL(e.target.files[0]);
-    }
+  const updateForm = (key: string, value: any) => {
+    setFormData((prev: any) => ({ ...prev, [key]: value }));
   };
 
-  const handleFinalSubmit = () => {
-    if (!formData.firstName || !formData.fatherName || !formData.phone || !formData.email) {
-      onToast(lang === 'EN' ? 'Please complete all required fields.' : 'እባክዎን ሁሉንም አስፈላጊ መረጃዎች ይሙሉ::', 'error');
-      return;
-    }
+  const updateNested = (parent: string, key: string, value: any) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      [parent]: { ...prev[parent], [key]: value }
+    }));
+  };
 
-    setIsSubmitting(true);
+  const handleNext = () => {
+    if (!tier) return onToast('Please select a membership tier first.', 'error');
+    setStep(s => s + 1);
+  };
 
-    setTimeout(() => {
-      const generatedAppNum = `APP-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+  const handlePrev = () => {
+    setStep(s => s - 1);
+  };
+
+  const handleSubmit = () => {
+    // Generate a mock application number
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const generatedAppNum = `EPA-${new Date().getFullYear()}-${randomNum}`;
+    
+    setAppNumber(generatedAppNum);
+    setIsSuccess(true);
+    
+    // Pass back to parent
+    onSubmitApplication({
+      ...formData,
+      membership_type: tier,
+      application_number: generatedAppNum,
+      status: 'UNDER_REVIEW',
+      submitted_at: new Date().toISOString()
+    });
+  };
+
+  // ---------------- UI COMPONENTS ---------------- //
+
+  const Input = ({ label, required = false, type = "text", ...props }: any) => (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <input 
+        type={type}
+        className="w-full bg-white dark:bg-[#121214] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-700 dark:focus:ring-[#d4ff00] transition-colors"
+        {...props}
+      />
+    </div>
+  );
+
+  const Select = ({ label, options, required = false, ...props }: any) => (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      <select 
+        className="w-full bg-white dark:bg-[#121214] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-700 dark:focus:ring-[#d4ff00] transition-colors appearance-none"
+        {...props}
+      >
+        <option value="" disabled>Select an option</option>
+        {options.map((opt: any) => (
+          <option key={typeof opt === 'string' ? opt : opt.value} value={typeof opt === 'string' ? opt : opt.value}>
+            {typeof opt === 'string' ? opt : opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  const FileUpload = ({ label, hint, onChange }: any) => (
+    <div className="mb-4">
+      <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">{label}</label>
+      <div className="border-2 border-dashed border-gray-200 dark:border-white/20 rounded-xl p-6 flex flex-col items-center justify-center text-center hover:bg-gray-50 dark:hover:bg-white/5 transition-colors cursor-pointer" onClick={() => onChange('uploaded_file.jpg')}>
+        <UploadCloud className="w-8 h-8 text-gray-400 dark:text-gray-500 mb-2" />
+        <span className="text-sm text-gray-900 dark:text-white font-medium">Click to upload file</span>
+        {hint && <span className="text-xs text-gray-500 mt-1">{hint}</span>}
+      </div>
+    </div>
+  );
+
+  // ---------------- STEP RENDERERS ---------------- //
+
+  const renderTierSelection = () => (
+    <div className="mb-8">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Select Membership Tier</h3>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {TIER_CARDS.map(card => {
+          const isSelected = tier === card.code;
+          return (
+            <div 
+              key={card.code}
+              onClick={() => {
+                setTier(card.code);
+                // Reset step to 1 when changing tiers to avoid invalid states
+                setStep(1);
+              }}
+              className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                isSelected 
+                  ? 'border-green-700 dark:border-[#d4ff00] bg-green-50 dark:bg-[#d4ff00]/10' 
+                  : 'border-gray-200 dark:border-white/10 hover:border-green-700/50 dark:hover:border-[#d4ff00]/50'
+              }`}
+            >
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
+                isSelected ? 'bg-green-700 text-white dark:bg-[#d4ff00] dark:text-black' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300'
+              }`}>
+                {card.icon}
+              </div>
+              <h4 className="font-bold text-gray-900 dark:text-white text-lg">{card.name}</h4>
+              <div className="text-green-700 dark:text-[#d4ff00] font-bold mt-1 mb-3">{card.fee}</div>
+              <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-2">
+                {card.benefits.map((b, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <Check className="w-4 h-4 text-green-700 dark:text-[#d4ff00] shrink-0 mt-0.5" />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const renderStudentStep1 = () => (
+    <div className="space-y-4">
+      {renderTierSelection()}
+      {tier === 'STUDENT' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Personal Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input label="First Name" required value={formData.first_name || ''} onChange={(e: any) => updateForm('first_name', e.target.value)} />
+            <Input label="Father's Name" required value={formData.father_name || ''} onChange={(e: any) => updateForm('father_name', e.target.value)} />
+            <Input label="Grandfather's Name" value={formData.grandfather_name || ''} onChange={(e: any) => updateForm('grandfather_name', e.target.value)} />
+            <Input label="Amharic Full Name" value={formData.amharic_full_name || ''} onChange={(e: any) => updateForm('amharic_full_name', e.target.value)} />
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Gender *</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-gray-900 dark:text-white">
+                  <input type="radio" name="gender" value="M" checked={formData.gender === 'M'} onChange={() => updateForm('gender', 'M')} className="accent-green-700 dark:accent-[#d4ff00]" />
+                  Male
+                </label>
+                <label className="flex items-center gap-2 text-gray-900 dark:text-white">
+                  <input type="radio" name="gender" value="F" checked={formData.gender === 'F'} onChange={() => updateForm('gender', 'F')} className="accent-green-700 dark:accent-[#d4ff00]" />
+                  Female
+                </label>
+              </div>
+            </div>
+            
+            <Input label="Date of Birth" type="date" required value={formData.date_of_birth || ''} onChange={(e: any) => updateForm('date_of_birth', e.target.value)} />
+            <Input label="Phone Number" type="tel" required value={formData.phone || ''} onChange={(e: any) => updateForm('phone', e.target.value)} />
+            <Select label="City" options={CITIES} required value={formData.city} onChange={(e: any) => updateForm('city', e.target.value)} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderStudentStep2 = () => (
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Academic Information</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">University *</label>
+          <input 
+            list="universities-list"
+            className="w-full bg-white dark:bg-[#121214] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-700 dark:focus:ring-[#d4ff00]"
+            value={formData.student_profile?.university_name || ''}
+            onChange={(e) => updateNested('student_profile', 'university_name', e.target.value)}
+            placeholder="Search university..."
+          />
+          <datalist id="universities-list">
+            {universities.map(u => <option key={u.id} value={u.name} />)}
+          </datalist>
+        </div>
+        
+        <Input label="Field of Study" required value={formData.student_profile?.field_of_study || ''} onChange={(e: any) => updateNested('student_profile', 'field_of_study', e.target.value)} />
+        <Select label="Current Academic Year" options={['1', '2', '3', '4', '5', '6']} required value={formData.student_profile?.academic_year || '1'} onChange={(e: any) => updateNested('student_profile', 'academic_year', parseInt(e.target.value))} />
+        <Input label="Student ID Number" required value={formData.student_profile?.student_id_number || ''} onChange={(e: any) => updateNested('student_profile', 'student_id_number', e.target.value)} />
+        <Input label="Expected Graduation Year" type="number" required value={formData.student_profile?.expected_graduation_year || ''} onChange={(e: any) => updateNested('student_profile', 'expected_graduation_year', parseInt(e.target.value))} />
+      </div>
+      <FileUpload label="Upload Student ID Photo *" hint="JPEG, PNG up to 5MB" onChange={(url: string) => updateNested('student_profile', 'student_id_url', url)} />
+      {formData.student_profile?.student_id_url && <div className="text-sm text-green-600 dark:text-[#d4ff00]">✓ Document uploaded</div>}
+    </div>
+  );
+
+  const renderStudentStep3 = () => (
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Profile Photo & Social</h3>
       
-      const newApp: Partial<Application> = {
-        application_number: generatedAppNum,
-        first_name: formData.firstName,
-        father_name: formData.fatherName,
-        grandfather_name: formData.grandfatherName,
-        amharic_full_name: formData.amharicName,
-        gender: formData.gender,
-        email: formData.email,
-        phone: formData.phone,
-        date_of_birth: formData.dateOfBirth,
-        city: formData.city,
-        membership_type: selectedTier,
-        status: 'SUBMITTED',
-        photo_url: formData.photoPreview,
-        submitted_at: new Date().toISOString(),
-        payment: {
-          id: 'pay-' + Date.now(),
-          amount: currentTierObj.fee,
-          currency: 'ETB',
-          provider: formData.paymentProvider,
-          transaction_number: formData.transactionNumber,
-          payment_date: new Date().toISOString(),
-          status: 'PENDING'
-        },
-        student_profile: selectedTier === 'STUDENT' ? {
-          university_name: formData.universityName,
-          field_of_study: formData.fieldOfStudy,
-          academic_year: formData.academicYear,
-          student_id_number: formData.studentIdNumber || 'UGR/5512/15',
-          expected_graduation_year: 2026
-        } : undefined,
-        qualifications: selectedTier === 'FULL' ? [{
-          degree_level: formData.degreeLevel,
-          field: formData.fieldOfStudy,
-          institution: formData.universityName,
-          graduation_year: formData.graduationYear
-        }] : undefined,
-      };
+      <div className="flex flex-col items-center justify-center mb-6">
+        <div className="w-32 h-32 rounded-full border-4 border-gray-100 dark:border-white/10 overflow-hidden mb-4 bg-gray-50 dark:bg-white/5 flex items-center justify-center relative group cursor-pointer" onClick={() => updateForm('photo_url', 'profile_pic.jpg')}>
+          {formData.photo_url ? (
+            <img src="https://ui-avatars.com/api/?name=User&background=random" alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            <User className="w-12 h-12 text-gray-400" />
+          )}
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <Upload className="w-6 h-6 text-white" />
+          </div>
+        </div>
+        <p className="text-sm text-gray-500">Tap to upload professional photo</p>
+      </div>
 
-      onSubmitApplication(newApp);
-      setIsSubmitting(false);
-      setCompletedAppNumber(generatedAppNum);
-      setStep(5); // Success step
-      onToast(lang === 'EN' ? 'Application submitted successfully!' : 'ማመልከቻዎ በተሳካ ሁኔታ ገብቷል!', 'success');
-    }, 1200);
+      <Input label="Telegram Username (Optional)" placeholder="@username" value={formData.telegram_username || ''} onChange={(e: any) => updateForm('telegram_username', e.target.value)} />
+    </div>
+  );
+
+  const renderPaymentStep = (fee: string) => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Payment & Review</h3>
+      
+      <div className="bg-gray-50 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/10">
+        <h4 className="font-bold text-gray-900 dark:text-white mb-2">Registration Fee</h4>
+        <div className="text-3xl font-black text-green-700 dark:text-[#d4ff00]">{fee}</div>
+        <p className="text-sm text-gray-500 mt-1">Non-refundable application processing fee.</p>
+      </div>
+
+      <div className="space-y-4">
+        <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">Payment Method *</label>
+        <div className="grid grid-cols-2 gap-4">
+          <div 
+            onClick={() => updateNested('payment', 'provider', 'Telebirr')}
+            className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center gap-2 ${formData.payment?.provider === 'Telebirr' ? 'border-green-700 dark:border-[#d4ff00] bg-green-50 dark:bg-[#d4ff00]/10' : 'border-gray-200 dark:border-white/10'}`}
+          >
+            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs">TB</div>
+            <span className="font-medium text-gray-900 dark:text-white">Telebirr</span>
+          </div>
+          <div 
+            onClick={() => updateNested('payment', 'provider', 'CBE')}
+            className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center gap-2 ${formData.payment?.provider === 'CBE' ? 'border-green-700 dark:border-[#d4ff00] bg-green-50 dark:bg-[#d4ff00]/10' : 'border-gray-200 dark:border-white/10'}`}
+          >
+            <div className="w-10 h-10 bg-purple-700 rounded-full flex items-center justify-center text-white font-bold text-xs">CBE</div>
+            <span className="font-medium text-gray-900 dark:text-white">CBE Birr</span>
+          </div>
+        </div>
+
+        <Input label="Transaction Reference Number *" value={formData.payment?.transaction_number || ''} onChange={(e: any) => updateNested('payment', 'transaction_number', e.target.value)} />
+        <FileUpload label="Upload Payment Receipt *" hint="Screenshot of successful transfer" onChange={(url: string) => updateNested('payment', 'receipt_url', url)} />
+        {formData.payment?.receipt_url && <div className="text-sm text-green-600 dark:text-[#d4ff00]">✓ Receipt uploaded</div>}
+      </div>
+
+      <div className="bg-gray-100 dark:bg-[#080808] p-4 rounded-xl mt-6">
+        <h4 className="font-bold text-gray-900 dark:text-white mb-2 text-sm flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" /> 
+          Ready to Submit
+        </h4>
+        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+          By submitting this application, you confirm that all provided information is accurate. False information may result in rejection of your application.
+        </p>
+      </div>
+    </div>
+  );
+
+  // Full Member Flow Steps
+  const renderFullStep1 = () => (
+    <div className="space-y-4">
+      {renderTierSelection()}
+      {tier === 'FULL' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Personal Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input label="First Name" required value={formData.first_name || ''} onChange={(e: any) => updateForm('first_name', e.target.value)} />
+            <Input label="Father's Name" required value={formData.father_name || ''} onChange={(e: any) => updateForm('father_name', e.target.value)} />
+            <Input label="Grandfather's Name" value={formData.grandfather_name || ''} onChange={(e: any) => updateForm('grandfather_name', e.target.value)} />
+            <Input label="Amharic Full Name" value={formData.amharic_full_name || ''} onChange={(e: any) => updateForm('amharic_full_name', e.target.value)} />
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Gender *</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-gray-900 dark:text-white">
+                  <input type="radio" name="gender" value="M" checked={formData.gender === 'M'} onChange={() => updateForm('gender', 'M')} className="accent-green-700 dark:accent-[#d4ff00]" />
+                  Male
+                </label>
+                <label className="flex items-center gap-2 text-gray-900 dark:text-white">
+                  <input type="radio" name="gender" value="F" checked={formData.gender === 'F'} onChange={() => updateForm('gender', 'F')} className="accent-green-700 dark:accent-[#d4ff00]" />
+                  Female
+                </label>
+              </div>
+            </div>
+            
+            <Input label="Date of Birth" type="date" required value={formData.date_of_birth || ''} onChange={(e: any) => updateForm('date_of_birth', e.target.value)} />
+            <Input label="Phone Number" type="tel" required value={formData.phone || ''} onChange={(e: any) => updateForm('phone', e.target.value)} />
+            <Select label="City" options={CITIES} required value={formData.city} onChange={(e: any) => updateForm('city', e.target.value)} />
+            <Input label="National ID Number" required value={formData.national_id_number || ''} onChange={(e: any) => updateForm('national_id_number', e.target.value)} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderFullStep2 = () => {
+    const quals = formData.qualifications || [];
+    
+    return (
+      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Educational Qualifications</h3>
+          {quals.length < 3 && (
+            <button 
+              onClick={() => updateForm('qualifications', [...quals, { degree_level: 'BSc', field: '', institution: '', graduation_year: new Date().getFullYear() }])}
+              className="text-sm flex items-center gap-1 text-green-700 dark:text-[#d4ff00] font-medium"
+            >
+              <Plus className="w-4 h-4" /> Add Degree
+            </button>
+          )}
+        </div>
+        
+        {quals.map((q: any, i: number) => (
+          <div key={i} className="bg-gray-50 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/10 mb-4 relative">
+            {quals.length > 1 && (
+              <button 
+                onClick={() => updateForm('qualifications', quals.filter((_: any, index: number) => index !== i))}
+                className="absolute top-4 right-4 text-red-500 hover:text-red-600"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            )}
+            <h4 className="font-bold text-gray-900 dark:text-white mb-3 text-sm">Degree {i + 1}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Select label="Level" options={['BSc', 'BA', 'MSc', 'MA', 'PhD', 'Other']} required value={q.degree_level} onChange={(e: any) => {
+                const newQ = [...quals]; newQ[i].degree_level = e.target.value; updateForm('qualifications', newQ);
+              }} />
+              <Input label="Field of Study" required value={q.field} onChange={(e: any) => {
+                const newQ = [...quals]; newQ[i].field = e.target.value; updateForm('qualifications', newQ);
+              }} />
+              <Input label="Institution Name" required value={q.institution} onChange={(e: any) => {
+                const newQ = [...quals]; newQ[i].institution = e.target.value; updateForm('qualifications', newQ);
+              }} />
+              <Input label="Graduation Year" type="number" required value={q.graduation_year} onChange={(e: any) => {
+                const newQ = [...quals]; newQ[i].graduation_year = parseInt(e.target.value); updateForm('qualifications', newQ);
+              }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
-  const stepsTitles = [
-    lang === 'EN' ? 'Select Tier' : 'የአባልነት ዘርፍ',
-    lang === 'EN' ? 'Personal Details' : 'የግል መረጃ',
-    lang === 'EN' ? 'Accreditation & Education' : 'ትምህርትና ሙያ',
-    lang === 'EN' ? 'Photo & Payment Proof' : 'ፎቶና ክፍያ',
-  ];
+  const renderFullStep3 = () => (
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Professional Information</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input label="Current Workplace" required value={formData.current_workplace || ''} onChange={(e: any) => updateForm('current_workplace', e.target.value)} />
+        <Select label="Primary Specialty" options={SPECIALTIES} required value={formData.current_specialty || ''} onChange={(e: any) => updateForm('current_specialty', e.target.value)} />
+        <Input label="Years of Experience" type="number" required value={formData.years_of_experience || ''} onChange={(e: any) => updateForm('years_of_experience', parseInt(e.target.value))} />
+        <Input label="Existing License Number (Optional)" value={formData.license_number || ''} onChange={(e: any) => updateForm('license_number', e.target.value)} />
+      </div>
+    </div>
+  );
+
+  const renderFullStep4 = () => (
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Upload Documents</h3>
+      <FileUpload label="Degree Certificate(s) *" hint="Upload a combined PDF or image of your highest degree" onChange={(url: string) => updateForm('degree_certificate_url', url)} />
+      {formData.degree_certificate_url && <div className="text-sm text-green-600 dark:text-[#d4ff00] mb-4">✓ Degree uploaded</div>}
+      
+      <FileUpload label="National ID / Passport *" hint="Clear photo of your official ID" onChange={(url: string) => updateForm('id_document_url', url)} />
+      {formData.id_document_url && <div className="text-sm text-green-600 dark:text-[#d4ff00] mb-4">✓ ID uploaded</div>}
+      
+      <div className="flex flex-col mb-6">
+        <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Profile Photo (Optional)</label>
+        <div className="w-24 h-24 rounded-full border-4 border-gray-100 dark:border-white/10 overflow-hidden bg-gray-50 dark:bg-white/5 flex items-center justify-center relative group cursor-pointer" onClick={() => updateForm('photo_url', 'profile_pic.jpg')}>
+          {formData.photo_url ? (
+            <img src="https://ui-avatars.com/api/?name=User&background=random" alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            <User className="w-8 h-8 text-gray-400" />
+          )}
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <Upload className="w-5 h-5 text-white" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderFullStep5 = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+      <div className="bg-gray-50 dark:bg-white/5 p-5 rounded-xl border border-gray-200 dark:border-white/10">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+          <FileText className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" /> 
+          EPA Code of Ethics
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
+          As a member of the Ethiopian Psychologists' Association, you are required to abide by our strict Code of Ethics. This includes maintaining client confidentiality, practicing within your boundaries of competence, and upholding the integrity of the profession.
+        </p>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" className="mt-1 w-4 h-4 accent-green-700 dark:accent-[#d4ff00]" checked={formData.agreed_to_ethics || false} onChange={(e) => updateForm('agreed_to_ethics', e.target.checked)} />
+          <span className="text-sm font-medium text-gray-900 dark:text-white">I agree to uphold the EPA Code of Ethics</span>
+        </label>
+      </div>
+
+      {renderPaymentStep('ETB 1,500')}
+    </div>
+  );
+
+  // Corporate Flow Steps
+  const renderCorporateStep1 = () => (
+    <div className="space-y-4">
+      {renderTierSelection()}
+      {tier === 'CORPORATE' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Organization Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input label="Organization Name" required value={formData.corporate_profile?.organization_name || ''} onChange={(e: any) => updateNested('corporate_profile', 'organization_name', e.target.value)} />
+            <Select label="Organization Type" options={ORG_TYPES} required value={formData.corporate_profile?.org_type || ''} onChange={(e: any) => updateNested('corporate_profile', 'org_type', e.target.value)} />
+            <Input label="TIN Number" required value={formData.corporate_profile?.tin_number || ''} onChange={(e: any) => updateNested('corporate_profile', 'tin_number', e.target.value)} />
+            <Select label="Headquarters City" options={CITIES} required value={formData.corporate_profile?.headquarters_city || ''} onChange={(e: any) => updateNested('corporate_profile', 'headquarters_city', e.target.value)} />
+            <div className="col-span-1 md:col-span-2">
+              <Input label="Website URL (Optional)" type="url" placeholder="https://" value={formData.corporate_profile?.website || ''} onChange={(e: any) => updateNested('corporate_profile', 'website', e.target.value)} />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderCorporateStep2 = () => (
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Contact Person Details</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input label="Full Name" required value={formData.corporate_profile?.contact_person || ''} onChange={(e: any) => updateNested('corporate_profile', 'contact_person', e.target.value)} />
+        <Input label="Title/Position" required value={formData.corporate_profile?.contact_title || ''} onChange={(e: any) => updateNested('corporate_profile', 'contact_title', e.target.value)} />
+        <Input label="Email Address" type="email" required value={formData.corporate_profile?.contact_email || ''} onChange={(e: any) => updateNested('corporate_profile', 'contact_email', e.target.value)} />
+        <Input label="Phone Number" type="tel" required value={formData.corporate_profile?.contact_phone || ''} onChange={(e: any) => updateNested('corporate_profile', 'contact_phone', e.target.value)} />
+      </div>
+    </div>
+  );
+
+  const renderCorporateStep3 = () => {
+    const selectedAreas = formData.corporate_profile?.focus_areas || [];
+    
+    const toggleArea = (area: string) => {
+      const newAreas = selectedAreas.includes(area) 
+        ? selectedAreas.filter((a: string) => a !== area)
+        : [...selectedAreas, area];
+      updateNested('corporate_profile', 'focus_areas', newAreas);
+    };
+
+    return (
+      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Mental Health Services</h3>
+        
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">Description of Programs/Services *</label>
+          <textarea 
+            rows={4}
+            className="w-full bg-white dark:bg-[#121214] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-700 dark:focus:ring-[#d4ff00]"
+            value={formData.corporate_profile?.services_description || ''}
+            onChange={(e) => updateNested('corporate_profile', 'services_description', e.target.value)}
+          />
+        </div>
+        
+        <Input label="Number of Psychology Staff Employed" type="number" required value={formData.corporate_profile?.staff_count || ''} onChange={(e: any) => updateNested('corporate_profile', 'staff_count', parseInt(e.target.value))} />
+        
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-900 dark:text-white mb-2">Focus Areas *</label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {FOCUS_AREAS.map(area => (
+              <label key={area} className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-white/10 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5">
+                <input 
+                  type="checkbox" 
+                  className="w-4 h-4 accent-green-700 dark:accent-[#d4ff00]" 
+                  checked={selectedAreas.includes(area)}
+                  onChange={() => toggleArea(area)}
+                />
+                <span className="text-sm text-gray-900 dark:text-white">{area}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCorporateStep4 = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Documents & Payment</h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+          <FileUpload label="Commercial Reg. Certificate *" onChange={(url: string) => updateNested('corporate_profile', 'registration_cert_url', url)} />
+          {formData.corporate_profile?.registration_cert_url && <div className="text-sm text-green-600 dark:text-[#d4ff00]">✓ Uploaded</div>}
+        </div>
+        <div>
+          <FileUpload label="TIN Certificate *" onChange={(url: string) => updateForm('tin_cert_url', url)} />
+          {formData.tin_cert_url && <div className="text-sm text-green-600 dark:text-[#d4ff00]">✓ Uploaded</div>}
+        </div>
+      </div>
+      
+      <FileUpload label="Organization Logo (Optional)" hint="Square image preferred" onChange={(url: string) => updateNested('corporate_profile', 'logo_url', url)} />
+      {formData.corporate_profile?.logo_url && <div className="text-sm text-green-600 dark:text-[#d4ff00] mb-4">✓ Logo uploaded</div>}
+
+      {renderPaymentStep('ETB 10,000')}
+    </div>
+  );
+
+  // ---------------- MAIN RENDER ---------------- //
+
+  if (isSuccess) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white dark:bg-[#080808] flex flex-col items-center justify-center p-6 animate-in fade-in">
+        <div className="w-full max-w-md bg-gray-50 dark:bg-[#121214] p-8 rounded-3xl border border-gray-200 dark:border-white/10 text-center">
+          <div className="w-20 h-20 bg-green-100 dark:bg-[#d4ff00]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-10 h-10 text-green-700 dark:text-[#d4ff00]" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Application Submitted!</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Your application has been received and is currently under review.
+          </p>
+          <div className="bg-white dark:bg-black/50 p-4 rounded-xl border border-gray-200 dark:border-white/10 mb-8 inline-block">
+            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Application Reference</p>
+            <p className="text-xl font-mono font-bold text-gray-900 dark:text-white">{appNumber}</p>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-8">
+            You will be notified via Telegram or email once your application is processed.
+          </p>
+          <button 
+            onClick={onClose}
+            className="w-full bg-green-700 text-white dark:bg-[#d4ff00] dark:text-black font-bold py-4 rounded-xl hover:opacity-90 transition-opacity"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
-      <div className="relative bg-gray-50 dark:bg-[#121214] rounded-3xl w-full max-w-2xl shadow-2xl border border-gray-200 dark:border-white/10 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-white dark:bg-[#080808] md:bg-black/80 flex md:items-center justify-center">
+      <div className="w-full h-full md:h-auto md:max-w-2xl bg-white dark:bg-[#080808] md:rounded-3xl flex flex-col shadow-2xl overflow-hidden relative">
         
-        {/* Modal Header */}
-        <div className="px-6 py-5 border-b border-gray-200 dark:border-white/10 flex items-center justify-between bg-gray-100 dark:bg-[#18181b]/70">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10 flex justify-between items-center bg-gray-50 dark:bg-[#121214] sticky top-0 z-10">
           <div>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-green-700 dark:text-[#d4ff00]">
-              {lang === 'EN' ? 'EPA Membership Portal' : 'የኢሳይባ አባልነት ማመልከቻ'}
-            </span>
-            <h2 className="text-xl font-black text-gray-900 dark:text-white font-syne uppercase tracking-wide mt-0.5">
-              {lang === 'EN' ? 'Apply for Accreditation' : 'የሙያ ምዝገባ ማመልከቻ'}
-            </h2>
+            <h2 className="text-xl font-black text-gray-900 dark:text-white">Become a Member</h2>
+            <p className="text-sm text-gray-500">
+              {tier ? `Step ${step} of ${maxSteps}` : 'Select your tier to begin'}
+            </p>
           </div>
-
-          <button
-            id="close-registration-modal-btn"
-            onClick={onClose}
-            className="p-2 rounded-xl text-stone-600 dark:text-stone-400 hover:text-gray-900 dark:text-white hover:bg-black/10 dark:bg-white/10 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 text-gray-500 dark:text-gray-400 transition-colors">
+            <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Step Progress bar (if not completed) */}
-        {step <= 4 && (
-          <div className="px-6 pt-4 pb-3 bg-gray-50 dark:bg-[#0d0d0f] border-b border-gray-100 dark:border-white/5">
-            <div className="flex items-center justify-between">
-              {stepsTitles.map((t, idx) => {
-                const stepNum = idx + 1;
-                const isPassed = step > stepNum;
-                const isCurrent = step === stepNum;
-                return (
-                  <div key={idx} className="flex items-center gap-2">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-mono font-black transition-all ${
-                      isPassed 
-                        ? 'bg-[#d4ff00] text-black' 
-                        : isCurrent 
-                        ? 'bg-white text-black ring-4 ring-white/20' 
-                        : 'bg-black/10 dark:bg-white/10 text-stone-600 dark:text-stone-400 border border-gray-200 dark:border-white/10'
-                    }`}>
-                      {isPassed ? <Check className="w-3.5 h-3.5" /> : stepNum}
-                    </div>
-                    <span className={`text-[11px] font-mono uppercase tracking-wider hidden sm:inline ${
-                      isCurrent ? 'text-gray-900 dark:text-white font-bold' : 'text-stone-600 dark:text-stone-500'
-                    }`}>
-                      {t}
-                    </span>
-                    {idx < stepsTitles.length - 1 && (
-                      <div className="w-6 sm:w-12 h-0.5 bg-black/10 dark:bg-white/10 mx-1"></div>
-                    )}
-                  </div>
-                );
-              })}
+        {/* Progress Bar */}
+        {tier && (
+          <div className="px-6 pt-6 pb-2">
+            <div className="flex justify-between items-center">
+              {Array.from({ length: maxSteps }).map((_, i) => (
+                <div key={i} className={`flex-1 h-1.5 mx-1 rounded-full transition-colors ${
+                  i + 1 <= step ? 'bg-green-700 dark:bg-[#d4ff00]' : 'bg-gray-200 dark:bg-white/10'
+                }`} />
+              ))}
             </div>
           </div>
         )}
 
-        {/* Modal Scrollable Content Area */}
-        <div className="p-6 overflow-y-auto flex-1 text-stone-700 dark:text-stone-200">
+        {/* Content Body */}
+        <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+          {!tier && renderTierSelection()}
           
-          {/* ════════ STEP 1: SELECT MEMBERSHIP TIER ════════ */}
-          {step === 1 && (
-            <div className="space-y-4">
-              <div className="text-center mb-6">
-                <h3 className="text-lg font-black text-gray-900 dark:text-white font-syne uppercase">
-                  {lang === 'EN' ? 'Choose Membership Classification' : 'የአባልነት ዘርፍዎን ይምረጡ'}
-                </h3>
-                <p className="text-xs text-stone-600 dark:text-stone-400 mt-1">
-                  {lang === 'EN'
-                    ? 'Fees are paid annually and include digital ID issuing, CPD point accreditation, and national registry listing.'
-                    : 'ክፍያው በዓመት አንድ ጊዜ የሚፈጸም ሲሆን ዲጂታል መታወቂያንና የCPD ነጥቦችን ያካትታል።'}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3.5">
-                {MEMBERSHIP_TYPES.map((type) => {
-                  const isSelected = selectedTier === type.code;
-                  return (
-                    <div
-                      key={type.code}
-                      id={`select-tier-opt-${type.code}`}
-                      onClick={() => setSelectedTier(type.code)}
-                      className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                        isSelected 
-                          ? 'border-[#d4ff00] bg-[#d4ff00]/10 shadow-lg ring-1 ring-[#d4ff00]/30' 
-                          : 'border-gray-200 dark:border-white/10 hover:border-white/20 bg-white/5'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3.5">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                          type.code === 'STUDENT' ? 'bg-[#d4ff00]/20 text-green-700 dark:text-[#d4ff00]' :
-                          type.code === 'FULL' ? 'bg-black/10 dark:bg-white/10 text-gray-900 dark:text-white' :
-                          'bg-amber-400/20 text-amber-300'
-                        }`}>
-                          {type.code === 'STUDENT' && <GraduationCap className="w-5 h-5" />}
-                          {type.code === 'FULL' && <UserCheck className="w-5 h-5" />}
-                          {type.code === 'CORPORATE' && <Building2 className="w-5 h-5" />}
-                        </div>
-                        <div>
-                          <div className="font-bold text-sm text-gray-900 dark:text-white font-syne">
-                            {lang === 'EN' ? type.name : type.amharicName}
-                          </div>
-                          <div className="text-[11px] text-stone-600 dark:text-stone-400 line-clamp-1">
-                            {lang === 'EN' ? type.description : type.amharicDescription}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="text-right pl-3 shrink-0">
-                        <div className="font-black text-base text-green-700 dark:text-[#d4ff00] font-mono">
-                          {type.fee.toLocaleString()} {type.currency}
-                        </div>
-                        <div className="text-[10px] text-stone-600 dark:text-stone-400 font-mono">/ year</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+          {tier === 'STUDENT' && (
+            <>
+              {step === 1 && renderStudentStep1()}
+              {step === 2 && renderStudentStep2()}
+              {step === 3 && renderStudentStep3()}
+              {step === 4 && renderPaymentStep('ETB 150')}
+            </>
           )}
 
-          {/* ════════ STEP 2: PERSONAL DETAILS ════════ */}
-          {step === 2 && (
-            <div className="space-y-4">
-              <div className="text-center mb-6">
-                <h3 className="text-lg font-black text-gray-900 dark:text-white font-syne uppercase">
-                  {lang === 'EN' ? 'Personal Information' : 'የግል መረጃዎን ያስገቡ'}
-                </h3>
-                <p className="text-xs text-stone-600 dark:text-stone-400 mt-1">
-                  {lang === 'EN'
-                    ? 'As it will appear on your official EPA accredited digital identification card.'
-                    : 'በይፋዊው የኢሳይባ ዲጂታል መታወቂያ ላይ የሚታተም መረጃ።'}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    {lang === 'EN' ? 'First Name (English) *' : 'ስም (በእንግሊዝኛ) *'}
-                  </label>
-                  <input
-                    id="input-reg-firstname"
-                    type="text"
-                    required
-                    placeholder="e.g. Dawit"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    {lang === 'EN' ? 'Father\'s Name *' : 'የአባት ስም *'}
-                  </label>
-                  <input
-                    id="input-reg-fathername"
-                    type="text"
-                    required
-                    placeholder="e.g. Mekonnen"
-                    value={formData.fatherName}
-                    onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    {lang === 'EN' ? 'Grandfather\'s Name' : 'የአያት ስም'}
-                  </label>
-                  <input
-                    id="input-reg-grandname"
-                    type="text"
-                    placeholder="e.g. Haile"
-                    value={formData.grandfatherName}
-                    onChange={(e) => setFormData({ ...formData, grandfatherName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    {lang === 'EN' ? 'Full Name in Amharic' : 'ሙሉ ስም በአማርኛ'}
-                  </label>
-                  <input
-                    id="input-reg-amharicname"
-                    type="text"
-                    placeholder="ለምሳሌ፡ ዶ/ር ዳዊት መኮንን"
-                    value={formData.amharicName}
-                    onChange={(e) => setFormData({ ...formData, amharicName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    {lang === 'EN' ? 'Phone (Telebirr Registered) *' : 'ስልክ ቁጥር *'}
-                  </label>
-                  <input
-                    id="input-reg-phone"
-                    type="tel"
-                    required
-                    placeholder="+251 91 123 4567"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    {lang === 'EN' ? 'Email Address *' : 'ኢሜይል አድራሻ *'}
-                  </label>
-                  <input
-                    id="input-reg-email"
-                    type="email"
-                    required
-                    placeholder="psychologist@aau.edu.et"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    {lang === 'EN' ? 'Primary City / Region *' : 'ከተማ / ክልል *'}
-                  </label>
-                  <select
-                    id="select-reg-city"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white"
-                  >
-                    <option value="Addis Ababa" className="bg-gray-50 dark:bg-[#121214]">Addis Ababa (አዲስ አበባ)</option>
-                    <option value="Hawassa" className="bg-gray-50 dark:bg-[#121214]">Hawassa (ሀዋሳ)</option>
-                    <option value="Bahir Dar" className="bg-gray-50 dark:bg-[#121214]">Bahir Dar (ባሕር ዳር)</option>
-                    <option value="Jimma" className="bg-gray-50 dark:bg-[#121214]">Jimma (ጅማ)</option>
-                    <option value="Gondar" className="bg-gray-50 dark:bg-[#121214]">Gondar (ጎንደር)</option>
-                    <option value="Mekelle" className="bg-gray-50 dark:bg-[#121214]">Mekelle (መቀሌ)</option>
-                    <option value="Adama" className="bg-gray-50 dark:bg-[#121214]">Adama (አዳማ / ናዝሬት)</option>
-                    <option value="Dire Dawa" className="bg-gray-50 dark:bg-[#121214]">Dire Dawa (ድሬዳዋ)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    {lang === 'EN' ? 'Gender' : 'ጾታ'}
-                  </label>
-                  <div className="flex gap-4 pt-2">
-                    <label className="flex items-center gap-2 text-xs font-medium cursor-pointer text-stone-700 dark:text-stone-300">
-                      <input
-                        type="radio"
-                        name="gender"
-                        checked={formData.gender === 'M'}
-                        onChange={() => setFormData({ ...formData, gender: 'M' })}
-                        className="accent-[#d4ff00]"
-                      />
-                      <span>{lang === 'EN' ? 'Male (ወንድ)' : 'ወንድ'}</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-xs font-medium cursor-pointer text-stone-700 dark:text-stone-300">
-                      <input
-                        type="radio"
-                        name="gender"
-                        checked={formData.gender === 'F'}
-                        onChange={() => setFormData({ ...formData, gender: 'F' })}
-                        className="accent-[#d4ff00]"
-                      />
-                      <span>{lang === 'EN' ? 'Female (ሴት)' : 'ሴት'}</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {tier === 'FULL' && (
+            <>
+              {step === 1 && renderFullStep1()}
+              {step === 2 && renderFullStep2()}
+              {step === 3 && renderFullStep3()}
+              {step === 4 && renderFullStep4()}
+              {step === 5 && renderFullStep5()}
+            </>
           )}
 
-          {/* ════════ STEP 3: ACCREDITATION & UNIVERSITY ════════ */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <div className="text-center mb-6">
-                <h3 className="text-lg font-black text-gray-900 dark:text-white font-syne uppercase">
-                  {selectedTier === 'STUDENT'
-                    ? (lang === 'EN' ? 'University Student Profile' : 'የዩኒቨርሲቲ ተማሪ መረጃ')
-                    : (lang === 'EN' ? 'Academic Degree & Qualifications' : 'የትምህርት ደረጃና እውቅና')}
-                </h3>
-                <p className="text-xs text-stone-600 dark:text-stone-400 mt-1">
-                  {lang === 'EN'
-                    ? 'All academic credentials will be cross-referenced against Ministry of Education accredited programs.'
-                    : 'የትምህርት ማስረጃዎች በትምህርት ሚኒስቴር እውቅና ከተሰጣቸው ተቋማት ጋር ይረጋገጣሉ።'}
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                    {lang === 'EN' ? 'Institution / University *' : 'ዩኒቨርሲቲ / ተቋም *'}
-                  </label>
-                  <select
-                    id="select-reg-university"
-                    value={formData.universityName}
-                    onChange={(e) => setFormData({ ...formData, universityName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white"
-                  >
-                    {universities.map(u => (
-                      <option key={u.id} value={u.name} className="bg-gray-50 dark:bg-[#121214]">
-                        {u.name} ({u.city})
-                      </option>
-                    ))}
-                    <option value="Other Accredited Institution" className="bg-gray-50 dark:bg-[#121214]">Other MoE Accredited Institution</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      {lang === 'EN' ? 'Field of Psychology Specialization *' : 'የስነ-ልቦና ትምህርት ዘርፍ *'}
-                    </label>
-                    <select
-                      id="select-reg-specialization"
-                      value={formData.fieldOfStudy}
-                      onChange={(e) => setFormData({ ...formData, fieldOfStudy: e.target.value })}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white"
-                    >
-                      <option value="Clinical Psychology" className="bg-gray-50 dark:bg-[#121214]">Clinical Psychology (ክሊኒካል ሳይኮሎጂ)</option>
-                      <option value="Counseling Psychology" className="bg-gray-50 dark:bg-[#121214]">Counseling Psychology (የምክር ሳይኮሎጂ)</option>
-                      <option value="Educational & Developmental" className="bg-gray-50 dark:bg-[#121214]">Educational & Developmental (የትምህርት ስነ-ልቦና)</option>
-                      <option value="Neuropsychology" className="bg-gray-50 dark:bg-[#121214]">Neuropsychology (ኒውሮሳይኮሎጂ)</option>
-                      <option value="Trauma & Health Psychology" className="bg-gray-50 dark:bg-[#121214]">Trauma & Community Health (የአደጋና ማህበረሰብ ስነ-ልቦና)</option>
-                      <option value="Industrial & Organizational" className="bg-gray-50 dark:bg-[#121214]">Industrial & Organizational (የስራ ቦታና ድርጅት ስነ-ልቦና)</option>
-                    </select>
-                  </div>
-
-                  {selectedTier === 'STUDENT' ? (
-                    <div>
-                      <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                        {lang === 'EN' ? 'Student ID Number *' : 'የተማሪ መታወቂያ ቁጥር *'}
-                      </label>
-                      <input
-                        id="input-reg-studentid"
-                        type="text"
-                        placeholder="e.g. UGR/1234/15"
-                        value={formData.studentIdNumber}
-                        onChange={(e) => setFormData({ ...formData, studentIdNumber: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white font-mono"
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                        {lang === 'EN' ? 'Degree Level *' : 'የትምህርት ደረጃ *'}
-                      </label>
-                      <select
-                        id="select-reg-degree"
-                        value={formData.degreeLevel}
-                        onChange={(e) => setFormData({ ...formData, degreeLevel: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white"
-                      >
-                        <option value="PhD" className="bg-gray-50 dark:bg-[#121214]">PhD / Doctorate (የዶክትሬት ዲግሪ)</option>
-                        <option value="MSc" className="bg-gray-50 dark:bg-[#121214]">MSc / MA / Master's (የማስተርስ ዲግሪ)</option>
-                        <option value="BSc" className="bg-gray-50 dark:bg-[#121214]">BSc / BA / Bachelor's (የመጀመሪያ ዲግሪ)</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+          {tier === 'CORPORATE' && (
+            <>
+              {step === 1 && renderCorporateStep1()}
+              {step === 2 && renderCorporateStep2()}
+              {step === 3 && renderCorporateStep3()}
+              {step === 4 && renderCorporateStep4()}
+            </>
           )}
-
-          {/* ════════ STEP 4: PHOTO & TELEBIRR / CBE PROOF ════════ */}
-          {step === 4 && (
-            <div className="space-y-5">
-              <div className="text-center mb-4">
-                <h3 className="text-lg font-black text-gray-900 dark:text-white font-syne uppercase">
-                  {lang === 'EN' ? 'ID Photo & Fee Payment Verification' : 'ፎቶ እና የክፍያ ማረጋገጫ'}
-                </h3>
-                <p className="text-xs text-stone-600 dark:text-stone-400 mt-1">
-                  {lang === 'EN'
-                    ? 'Upload your passport-size photo for the digital ID and enter your Telebirr / CBE payment reference.'
-                    : 'ለመታወቂያ የሚሆን ፎቶ ይጫኑ እና የቴሌብር/ንግድ ባንክ ክፍያ ማረጋገጫ ቁጥር ያስገቡ።'}
-                </p>
-              </div>
-
-              {/* Photo Upload Box */}
-              <div className="p-4 rounded-2xl border border-gray-200 dark:border-white/10 bg-black/5 dark:bg-white/5 flex flex-col sm:flex-row items-center gap-4">
-                <img
-                  src={formData.photoPreview}
-                  alt="Preview"
-                  className="w-20 h-20 rounded-2xl object-cover border-2 border-[#d4ff00] shadow-md bg-stone-100 dark:bg-stone-900"
-                />
-                <div className="flex-1 text-center sm:text-left">
-                  <div className="font-bold text-xs text-gray-900 dark:text-white font-syne">
-                    {lang === 'EN' ? 'Digital ID Passport Photo' : 'የመታወቂያ ፎቶግራፍ'}
-                  </div>
-                  <p className="text-[11px] text-stone-600 dark:text-stone-400 mt-0.5">
-                    {lang === 'EN' ? 'Clear front face photo with neutral background.' : 'ግልጽ የሆነ የፊት ፎቶ።'}
-                  </p>
-                  <label className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-xl bg-black/10 dark:bg-white/10 border border-gray-200 dark:border-white/15 text-gray-900 dark:text-white hover:bg-black/20 dark:hover:bg-white/20 text-xs font-mono font-bold cursor-pointer transition-colors">
-                    <Camera className="w-3.5 h-3.5 text-green-700 dark:text-[#d4ff00]" />
-                    <span>{lang === 'EN' ? 'Choose Image' : 'ፎቶ ምረጥ'}</span>
-                    <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
-                  </label>
-                </div>
-              </div>
-
-              {/* Payment details */}
-              <div className="p-5 rounded-2xl border border-[#d4ff00]/30 bg-[#d4ff00]/5 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-white/10">
-                  <span className="text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300">
-                    {lang === 'EN' ? 'Annual Membership Fee Due' : 'የሚከፈለው ዓመታዊ የአባልነት ክፍያ'}
-                  </span>
-                  <span className="font-black text-xl text-green-700 dark:text-[#d4ff00] font-mono">
-                    {currentTierObj.fee.toLocaleString()} ETB
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      {lang === 'EN' ? 'Payment Method' : 'የክፍያ ዘዴ'}
-                    </label>
-                    <select
-                      id="select-reg-payprovider"
-                      value={formData.paymentProvider}
-                      onChange={(e) => setFormData({ ...formData, paymentProvider: e.target.value as any })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 text-xs font-mono font-semibold bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white"
-                    >
-                      <option value="Telebirr" className="bg-gray-50 dark:bg-[#121214]">Telebirr (ቴሌብር 127889)</option>
-                      <option value="CBE" className="bg-gray-50 dark:bg-[#121214]">CBE Birr / CBE Acc 10002991048</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-mono uppercase font-bold text-stone-700 dark:text-stone-300 mb-1">
-                      {lang === 'EN' ? 'Transaction / Ref No. *' : 'የደረሰኝ / ትራንዛክሽን ቁጥር *'}
-                    </label>
-                    <input
-                      id="input-reg-transaction"
-                      type="text"
-                      required
-                      placeholder="e.g. TB9912048819"
-                      value={formData.transactionNumber}
-                      onChange={(e) => setFormData({ ...formData, transactionNumber: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 text-xs font-mono font-bold bg-gray-50 dark:bg-[#0c0c0e] text-gray-900 dark:text-white focus:border-[#d4ff00] focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-stone-600 dark:text-stone-400 flex items-start gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 text-green-700 dark:text-[#d4ff00] shrink-0 mt-0.5" />
-                  <span>
-                    {lang === 'EN'
-                      ? 'EPA Finance team automatically validates transaction references within 24 hours of submission.'
-                      : 'የማኅበሩ የሂሳብ ክፍል በ24 ሰዓታት ውስጥ ክፍያውን አረጋግጦ መታወቂያዎን ያረጋግጣል።'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ════════ STEP 5: SUCCESS CONFIRMATION ════════ */}
-          {step === 5 && (
-            <div className="text-center py-6 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-[#d4ff00]/20 text-green-700 dark:text-[#d4ff00] flex items-center justify-center mx-auto border border-[#d4ff00]/40">
-                <CheckCircle2 className="w-10 h-10" />
-              </div>
-
-              <h3 className="text-2xl font-black text-gray-900 dark:text-white font-syne uppercase">
-                {lang === 'EN' ? 'Application Successfully Submitted!' : 'ማመልከቻዎ በተሳካ ሁኔታ ገብቷል!'}
-              </h3>
-
-              <div className="p-4 bg-black/5 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-2xl max-w-sm mx-auto">
-                <div className="text-xs text-stone-600 dark:text-stone-400 uppercase font-mono font-semibold">
-                  {lang === 'EN' ? 'Your Tracking Reference' : 'የማመልከቻ መለያ ቁጥር'}
-                </div>
-                <div className="text-2xl font-black text-green-700 dark:text-[#d4ff00] font-mono mt-1">
-                  {completedAppNumber}
-                </div>
-                <div className="text-[11px] text-stone-600 dark:text-stone-400 mt-2 font-mono">
-                  {lang === 'EN' 
-                    ? 'Status: UNDER REVIEW • EPA Council' 
-                    : 'ሁኔታ፡ በግምገማ ላይ'}
-                </div>
-              </div>
-
-              <p className="text-xs text-stone-600 dark:text-stone-400 max-w-md mx-auto leading-relaxed">
-                {lang === 'EN'
-                  ? 'Thank you for registering with the Ethiopian Psychologists’ Association. Your credentials have been routed to the Accreditation & Ethics Board.'
-                  : 'የኢትዮጵያ ሳይኮሎጂ ባለሙያዎች ማኅበርን ስለተቀላቀሉ እናመሰግናለን። ሰነዶችዎ ለግምገማ ቀርበዋል።'}
-              </p>
-
-              <div className="pt-4">
-                <button
-                  id="btn-done-app"
-                  onClick={onClose}
-                  className="px-8 py-3 rounded-2xl bg-[#d4ff00] hover:bg-[#c2eb00] text-black text-xs font-black uppercase tracking-wider shadow-lg cursor-pointer transition-colors"
-                >
-                  {lang === 'EN' ? 'Return to Portal' : 'ወደ መነሻ ገጽ ተመለስ'}
-                </button>
-              </div>
-            </div>
-          )}
-
         </div>
 
-        {/* Modal Footer Buttons */}
-        {step <= 4 && (
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-gray-100 dark:bg-[#18181b]/70 flex items-center justify-between">
-            {step > 1 ? (
-              <button
-                id="btn-step-prev"
-                onClick={() => setStep(step - 1)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-mono uppercase font-bold text-stone-600 dark:text-stone-400 hover:text-gray-900 dark:text-white hover:bg-black/10 dark:bg-white/10 transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>{lang === 'EN' ? 'Back' : 'ተመለስ'}</span>
-              </button>
-            ) : (
-              <div></div>
-            )}
-
-            {step < 4 ? (
-              <button
-                id="btn-step-next"
-                onClick={() => setStep(step + 1)}
-                className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c2eb00] text-black text-xs font-black uppercase tracking-wider shadow-lg cursor-pointer transition-colors"
-              >
-                <span>{lang === 'EN' ? 'Continue' : 'ቀጣይ'}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <button
-                id="btn-submit-registration"
-                onClick={handleFinalSubmit}
-                disabled={isSubmitting}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c2eb00] text-black text-xs font-black uppercase tracking-wider shadow-lg cursor-pointer disabled:opacity-50 transition-colors"
-              >
-                {isSubmitting ? (
-                  <span>{lang === 'EN' ? 'Submitting Application...' : 'በማስገባት ላይ...'}</span>
-                ) : (
-                  <>
-                    <ShieldCheck className="w-4 h-4 text-black" />
-                    <span>{lang === 'EN' ? 'Submit Application' : 'ማመልከቻውን አስገባ'}</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        )}
+        {/* Footer Actions */}
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#121214] flex justify-between gap-4 sticky bottom-0 z-10">
+          {step > 1 ? (
+            <button 
+              onClick={handlePrev}
+              className="px-6 py-3 rounded-xl font-bold text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-white/10 hover:bg-gray-300 dark:hover:bg-white/20 transition-colors flex items-center gap-2"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              Back
+            </button>
+          ) : (
+            <div /> // Spacer
+          )}
+          
+          {tier && (
+            <button 
+              onClick={isLastStep ? handleSubmit : handleNext}
+              className="px-8 py-3 rounded-xl font-bold bg-green-700 text-white dark:bg-[#d4ff00] dark:text-black hover:opacity-90 transition-opacity flex items-center gap-2 ml-auto"
+            >
+              {isLastStep ? 'Submit Application' : 'Continue'}
+              {!isLastStep && <ChevronRight className="w-5 h-5" />}
+            </button>
+          )}
+        </div>
 
       </div>
     </div>
   );
-};
+}

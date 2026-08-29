@@ -1,23 +1,9 @@
 import React, { useState } from 'react';
 import { 
-  Users, 
-  Clock, 
-  CreditCard, 
-  CheckCircle2, 
-  XCircle, 
-  AlertTriangle, 
-  Search, 
-  FileText, 
-  Plus, 
-  Building, 
-  ShieldCheck, 
-  Send,
-  Eye,
-  Check,
-  X,
-  ExternalLink,
-  History,
-  GraduationCap
+  Users, Clock, CreditCard, CheckCircle2, XCircle, AlertTriangle,
+  Search, FileText, Plus, Building, ShieldCheck, Send, Eye, Check,
+  X, ExternalLink, History, GraduationCap, Vote, BookOpen, BarChart2,
+  Award, ChevronDown, Trash2, Image, TrendingUp
 } from 'lucide-react';
 import { Application, Member, University, Announcement, AuditLog, ApplicationStatus } from '../types';
 
@@ -52,10 +38,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   onAddUniversity,
   onToast,
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'payments' | 'announcements' | 'universities' | 'audit'>('applications');
+  const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'members' | 'cpd' | 'elections' | 'universities' | 'audit'>('applications');
   const [selectedAppFilter, setSelectedAppFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [bulkAction, setBulkAction] = useState<string>('Send Reminder');
+  const [electionOpen, setElectionOpen] = useState<boolean>(false);
+  const [electionVotes, setElectionVotes] = useState({ yonas: 34, selamawit: 51, dawit: 22 });
+
   // Review Modal state
   const [reviewingApp, setReviewingApp] = useState<Application | null>(null);
   const [adminNoteInput, setAdminNoteInput] = useState<string>('');
@@ -69,8 +59,18 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     amharic_title: '',
     category: 'General' as Announcement['category'],
     content: '',
-    author: 'EPA Executive Directorate'
+    author: 'EPA Executive Directorate',
+    cover_photo_url: ''
   });
+
+  const totalVotes = electionVotes.yonas + electionVotes.selamawit + electionVotes.dawit;
+  const toggleMemberSelect = (id: string) => {
+    setSelectedMembers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const selectAllMembers = () => {
+    if (selectedMembers.length === members.length) setSelectedMembers([]);
+    else setSelectedMembers(members.map(m => m.id));
+  };
 
   // Filter applications
   const filteredApps = applications.filter(app => {
@@ -94,16 +94,9 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       onToast(lang === 'EN' ? 'Title and content are required' : 'ርዕስ እና ይዘት ያስፈልጋል', 'error');
       return;
     }
-
     onAddAnnouncement(newAnn);
     setShowAnnModal(false);
-    setNewAnn({
-      title: '',
-      amharic_title: '',
-      category: 'General',
-      content: '',
-      author: 'EPA Executive Directorate'
-    });
+    setNewAnn({ title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '' });
     onToast(lang === 'EN' ? 'Announcement published live to member portal!' : 'ማስታወቂያው ይፋ ሆኗል!', 'success');
   };
 
@@ -137,87 +130,63 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400 uppercase">{lang === 'EN' ? 'Active Members' : 'ንቁ አባላት'}</span>
-              <div className="p-2.5 bg-black/5 dark:bg-white/5 text-green-700 dark:text-[#d4ff00] border border-gray-200 dark:border-white/10 rounded-xl">
-                <Users className="w-4 h-4" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+          {[
+            { label: lang === 'EN' ? 'Active Members' : 'ንቁ አባላት', value: members.length, sub: '✓ Verified & Licensed', icon: <Users className="w-4 h-4" />, color: 'text-green-700 dark:text-[#d4ff00]' },
+            { label: lang === 'EN' ? 'Pending Review' : 'በግምገማ ላይ', value: pendingAppsCount, sub: lang === 'EN' ? 'Awaiting council' : 'ውሳኔ የሚጠብቁ', icon: <Clock className="w-4 h-4" />, color: 'text-green-700 dark:text-[#d4ff00]' },
+            { label: lang === 'EN' ? 'Unverified Payments' : 'ያልተረጋገጡ ክፍያዎች', value: unverifiedPaymentsCount, sub: 'Telebirr & CBE Slips', icon: <CreditCard className="w-4 h-4" />, color: 'text-amber-600 dark:text-amber-400' },
+            { label: lang === 'EN' ? 'MoE Universities' : 'ተቋማት', value: universities.length, sub: 'Accredited Departments', icon: <GraduationCap className="w-4 h-4" />, color: 'text-gray-900 dark:text-white' },
+          ].map((s, i) => (
+            <div key={i} className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-md">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400 uppercase">{s.label}</span>
+                <div className={`p-2.5 bg-black/5 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl ${s.color}`}>{s.icon}</div>
               </div>
+              <div className={`text-3xl font-black font-syne ${s.color}`}>{s.value}</div>
+              <div className="text-[11px] text-neutral-600 dark:text-neutral-400 font-mono mt-1">{s.sub}</div>
             </div>
-            <div className="text-3xl font-black text-gray-900 dark:text-white font-syne">{members.length}</div>
-            <div className="text-[11px] text-green-700 dark:text-[#d4ff00] font-mono font-semibold mt-1">✓ Verified & Licensed</div>
-          </div>
+          ))}
+        </div>
 
-          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400 uppercase">{lang === 'EN' ? 'Pending Review' : 'በግምገማ ላይ'}</span>
-              <div className="p-2.5 bg-black/5 dark:bg-white/5 text-green-700 dark:text-[#d4ff00] border border-gray-200 dark:border-white/10 rounded-xl">
-                <Clock className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-3xl font-black text-green-700 dark:text-[#d4ff00] font-syne">{pendingAppsCount}</div>
-            <div className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-1">{lang === 'EN' ? 'Awaiting council decision' : 'ውሳኔ የሚጠብቁ'}</div>
+        {/* Analytics mini bar chart */}
+        <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-5 border border-gray-200 dark:border-white/10">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart2 className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />
+            <span className="text-xs font-black uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'Member Distribution by Tier' : 'አባላት ስርጭት'}</span>
           </div>
-
-          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400 uppercase">{lang === 'EN' ? 'Unverified Payments' : 'ያልተረጋገጡ ክፍያዎች'}</span>
-              <div className="p-2.5 bg-black/5 dark:bg-white/5 text-amber-600 dark:text-amber-400 border border-gray-200 dark:border-white/10 rounded-xl">
-                <CreditCard className="w-4 h-4" />
+          <div className="flex items-end gap-4">
+            {[
+              { label: 'Full', count: members.filter(m => m.membership_type === 'FULL').length, max: members.length, color: 'bg-[#d4ff00]' },
+              { label: 'Student', count: members.filter(m => m.membership_type === 'STUDENT').length, max: members.length, color: 'bg-blue-500' },
+              { label: 'Corporate', count: members.filter(m => m.membership_type === 'CORPORATE').length, max: members.length, color: 'bg-amber-500' },
+            ].map((bar, i) => (
+              <div key={i} className="flex-1 text-center">
+                <div className="text-xs font-black text-gray-900 dark:text-white mb-1">{bar.count}</div>
+                <div className="w-full rounded-t-lg" style={{ height: `${Math.max(8, Math.round((bar.count / (bar.max || 1)) * 80))}px`, background: bar.color === 'bg-[#d4ff00]' ? '#d4ff00' : bar.color === 'bg-blue-500' ? '#3b82f6' : '#f59e0b' }} />
+                <div className="text-[10px] font-mono text-neutral-500 mt-1">{bar.label}</div>
               </div>
-            </div>
-            <div className="text-3xl font-black text-amber-600 dark:text-amber-400 font-syne">{unverifiedPaymentsCount}</div>
-            <div className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-1 font-mono">Telebirr & CBE Slips</div>
-          </div>
-
-          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-md">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-mono font-bold text-neutral-600 dark:text-neutral-400 uppercase">{lang === 'EN' ? 'MoE Universities' : 'እውቅና ያላቸው ተቋማት'}</span>
-              <div className="p-2.5 bg-black/5 dark:bg-white/5 text-neutral-700 dark:text-neutral-300 border border-gray-200 dark:border-white/10 rounded-xl">
-                <GraduationCap className="w-4 h-4" />
-              </div>
-            </div>
-            <div className="text-3xl font-black text-gray-900 dark:text-white font-syne">{universities.length}</div>
-            <div className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-1 font-mono">Accredited Departments</div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* ════════ ADMIN SUB-TABS ════════ */}
       <div className="flex items-center gap-2 border-b border-gray-200 dark:border-white/10 mb-6 overflow-x-auto no-scrollbar">
-        <button
-          onClick={() => setActiveAdminTab('applications')}
-          className={`pb-3 px-4 text-xs font-mono font-black uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
-            activeAdminTab === 'applications'
-              ? 'border-[#d4ff00] text-green-700 dark:text-[#d4ff00]'
-              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-gray-900 dark:text-white'
-          }`}
-        >
-          {lang === 'EN' ? 'Applications Pipeline' : 'የአመልካቾች ዝርዝር'} ({applications.length})
-        </button>
-
-        <button
-          onClick={() => setActiveAdminTab('universities')}
-          className={`pb-3 px-4 text-xs font-mono font-black uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
-            activeAdminTab === 'universities'
-              ? 'border-[#d4ff00] text-green-700 dark:text-[#d4ff00]'
-              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-gray-900 dark:text-white'
-          }`}
-        >
-          {lang === 'EN' ? 'MoE Universities' : 'ዩኒቨርሲቲዎች'}
-        </button>
-
-        <button
-          onClick={() => setActiveAdminTab('audit')}
-          className={`pb-3 px-4 text-xs font-mono font-black uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
-            activeAdminTab === 'audit'
-              ? 'border-[#d4ff00] text-green-700 dark:text-[#d4ff00]'
-              : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-gray-900 dark:text-white'
-          }`}
-        >
-          {lang === 'EN' ? 'Council Audit Logs' : 'የኦዲት መዝገብ'}
-        </button>
+        {[
+          { id: 'applications', label: `${lang === 'EN' ? 'Applications' : 'ማመልከቻዎች'} (${applications.length})` },
+          { id: 'members', label: lang === 'EN' ? 'Members' : 'አባላት' },
+          { id: 'cpd', label: 'CPD Manager' },
+          { id: 'elections', label: lang === 'EN' ? 'Elections' : 'ምርጫ' },
+          { id: 'universities', label: lang === 'EN' ? 'Universities' : 'ዩኒቨርሲቲዎች' },
+          { id: 'audit', label: lang === 'EN' ? 'Audit Logs' : 'ኦዲት' },
+        ].map(t => (
+          <button key={t.id} onClick={() => setActiveAdminTab(t.id as any)}
+            className={`pb-3 px-4 text-xs font-mono font-black uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
+              activeAdminTab === t.id ? 'border-[#d4ff00] text-green-700 dark:text-[#d4ff00]' : 'border-transparent text-neutral-600 dark:text-neutral-400 hover:text-gray-900 dark:hover:text-white'
+            }`}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* ════════ TAB: APPLICATIONS ════════ */}
@@ -392,6 +361,162 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       )}
 
+      {/* ════════ TAB: MEMBERS ════════ */}
+      {activeAdminTab === 'members' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <input type="checkbox" checked={selectedMembers.length === members.length && members.length > 0}
+                onChange={selectAllMembers} className="w-4 h-4 rounded cursor-pointer" />
+              <span className="text-xs font-mono text-neutral-600 dark:text-neutral-400">{selectedMembers.length} selected</span>
+            </div>
+            {selectedMembers.length > 0 && (
+              <div className="flex items-center gap-2">
+                <select value={bulkAction} onChange={e => setBulkAction(e.target.value)}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-[#121214] text-gray-900 dark:text-white cursor-pointer">
+                  <option>Send Reminder</option>
+                  <option>Mark for Review</option>
+                  <option>Export CSV</option>
+                </select>
+                <button onClick={() => { setSelectedMembers([]); onToast(`${bulkAction} applied to ${selectedMembers.length} members!`, 'success'); }}
+                  className="px-3 py-1.5 rounded-lg bg-[#d4ff00] text-black text-xs font-black cursor-pointer">
+                  Apply
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-gray-100 dark:bg-black border-b border-gray-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 font-mono font-bold uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="p-4 w-10"></th>
+                  <th className="p-4">Member</th>
+                  <th className="p-4">Type</th>
+                  <th className="p-4">CPD</th>
+                  <th className="p-4">Expires</th>
+                  <th className="p-4">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                {members.map(m => (
+                  <tr key={m.id} className={`hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${selectedMembers.includes(m.id) ? 'bg-[#d4ff00]/5' : ''}`}>
+                    <td className="p-4">
+                      <input type="checkbox" checked={selectedMembers.includes(m.id)} onChange={() => toggleMemberSelect(m.id)} className="w-4 h-4 rounded cursor-pointer" />
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <img src={m.photo_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=100'}
+                          alt="" className="w-8 h-8 rounded-xl object-cover border border-gray-200 dark:border-white/10" />
+                        <div>
+                          <div className="font-black text-gray-900 dark:text-white">{m.first_name} {m.father_name}</div>
+                          <div className="text-[10px] text-neutral-500 font-mono">{m.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold uppercase ${
+                        m.membership_type === 'STUDENT' ? 'bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00]' :
+                        m.membership_type === 'FULL' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      }`}>{m.membership_type}</span>
+                    </td>
+                    <td className="p-4 font-mono text-gray-900 dark:text-white font-bold">{m.cpd_points}</td>
+                    <td className="p-4 font-mono text-[11px] text-neutral-500">{new Date(m.expires_at).toLocaleDateString()}</td>
+                    <td className="p-4">
+                      <span className={`text-[10px] font-mono font-bold ${m.status === 'ACTIVE' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{m.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ════════ TAB: CPD MANAGER ════════ */}
+      {activeAdminTab === 'cpd' && (
+        <div className="space-y-6">
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-6">
+            <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Create New CPD Course' : 'አዲስ CPD ኮርስ ፍጠር'}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[{label:'Course Title', ph:'e.g. Trauma-Informed CBT Workshop'},{label:'Instructor Name', ph:'Dr. Firstname Lastname'}].map((f,i) => (
+                <div key={i}>
+                  <label className="block text-[10px] font-mono font-bold text-neutral-600 dark:text-neutral-400 uppercase mb-1">{f.label}</label>
+                  <input type="text" placeholder={f.ph} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#080808] text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00]" />
+                </div>
+              ))}
+              {[{label:'CPD Points', ph:'e.g. 6'},{label:'Date', ph:'YYYY-MM-DD'},{label:'Duration', ph:'e.g. 3 hours'},{label:'Mode', ph:'Online / In-Person'}].map((f,i) => (
+                <div key={i}>
+                  <label className="block text-[10px] font-mono font-bold text-neutral-600 dark:text-neutral-400 uppercase mb-1">{f.label}</label>
+                  <input type="text" placeholder={f.ph} className="w-full p-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#080808] text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00]" />
+                </div>
+              ))}
+            </div>
+            <button onClick={() => onToast(lang === 'EN' ? 'CPD Course created and published!' : 'CPD ኮርስ ተፈጥሯል!', 'success')}
+              className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase cursor-pointer active:scale-95">
+              <Plus className="w-4 h-4" />{lang === 'EN' ? 'Create & Publish Course' : 'ኮርስ ፍጠርና አሳትም'}
+            </button>
+          </div>
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-4">
+            <h4 className="text-xs font-black uppercase text-neutral-600 dark:text-neutral-400 mb-3">{lang === 'EN' ? 'Existing Courses' : 'ያሉ ኮርሶች'}</h4>
+            <p className="text-xs text-neutral-500 italic">{lang === 'EN' ? 'CPD courses from mock data will appear here.' : 'ኮርሶች ዝርዝር ይታያሉ።'}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ════════ TAB: ELECTIONS ════════ */}
+      {activeAdminTab === 'elections' && (
+        <div className="space-y-6">
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white flex items-center gap-2">
+                <Vote className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Election Control' : 'ምርጫ ቁጥጥር'}
+              </h3>
+              <button onClick={() => { setElectionOpen(!electionOpen); onToast(electionOpen ? 'Election closed.' : 'Election is now LIVE!', electionOpen ? 'info' : 'success'); }}
+                className={`px-4 py-2 rounded-xl text-xs font-black uppercase cursor-pointer transition-all ${
+                  electionOpen ? 'bg-red-500 text-white' : 'bg-[#d4ff00] text-black'
+                }`}>
+                {electionOpen ? (lang === 'EN' ? 'Close Election' : 'ምርጫ ዝጋ') : (lang === 'EN' ? 'Open Election' : 'ምርጫ ክፈት')}
+              </button>
+            </div>
+            <div className={`flex items-center gap-2 p-3 rounded-xl mb-4 ${electionOpen ? 'bg-green-500/10 border border-green-500/20' : 'bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10'}`}>
+              <div className={`w-2 h-2 rounded-full ${electionOpen ? 'bg-green-500 animate-pulse' : 'bg-neutral-400'}`} />
+              <span className={`text-xs font-mono font-bold ${electionOpen ? 'text-green-600 dark:text-green-400' : 'text-neutral-500'}`}>
+                {electionOpen ? 'ELECTION LIVE — Accepting votes' : 'Election is closed'}
+              </span>
+            </div>
+          </div>
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-6 space-y-4">
+            <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Real-time Tally' : 'ቅጽበታዊ ድምጽ ቆጠራ'}
+            </h3>
+            <p className="text-xs text-neutral-500 font-mono">{lang === 'EN' ? 'Presidential Candidates — Total votes:' : 'ጠቅላላ ድምጾች:'} {totalVotes}</p>
+            {[
+              { name: 'Dr. Yonas Alemu', votes: electionVotes.yonas, color: '#3b82f6' },
+              { name: 'Dr. Selamawit Bekele', votes: electionVotes.selamawit, color: '#d4ff00' },
+              { name: 'Dr. Dawit Mekonnen', votes: electionVotes.dawit, color: '#f59e0b' },
+            ].map((c, i) => (
+              <div key={i}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="font-bold text-gray-900 dark:text-white">{c.name}</span>
+                  <span className="font-mono font-bold" style={{ color: c.color }}>{c.votes} votes ({Math.round((c.votes / totalVotes) * 100)}%)</span>
+                </div>
+                <div className="w-full h-3 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(c.votes / totalVotes) * 100}%`, background: c.color }} />
+                </div>
+              </div>
+            ))}
+            {electionOpen && (
+              <button onClick={() => setElectionVotes(v => ({ ...v, yonas: v.yonas + Math.floor(Math.random()*3), selamawit: v.selamawit + Math.floor(Math.random()*3), dawit: v.dawit + Math.floor(Math.random()*2) }))}
+                className="text-xs font-mono text-neutral-500 underline cursor-pointer">
+                [Simulate incoming vote]
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ════════ TAB: AUDIT LOGS ════════ */}
       {activeAdminTab === 'audit' && (
         <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl border border-gray-200 dark:border-white/10 shadow-md p-6 space-y-4">
@@ -399,19 +524,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             <History className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />
             <span>Immutable Council Audit Trail</span>
           </h3>
-
-          <div className="divide-y divide-white/10 font-mono">
+          <div className="divide-y divide-gray-100 dark:divide-white/10 font-mono">
             {auditLogs.map(log => (
               <div key={log.id} className="py-3.5 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-bold text-gray-900 dark:text-white">{log.action}</span>
-                  <div className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5">
-                    Entity: {log.entity_id} • Admin: {log.admin_username}
-                  </div>
+                  <div className="text-[11px] text-neutral-500 mt-0.5">Entity: {log.entity_id} • Admin: {log.admin_username}</div>
                 </div>
-                <div className="text-[11px] text-neutral-600 dark:text-neutral-500 dark:text-neutral-500">
-                  {new Date(log.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                </div>
+                <div className="text-[11px] text-neutral-500">{new Date(log.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
               </div>
             ))}
           </div>
@@ -634,34 +754,32 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
 
             <div>
               <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Announcement Title (English) *</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Call for Papers 2026..."
-                value={newAnn.title}
-                onChange={(e) => setNewAnn({ ...newAnn, title: e.target.value })}
-                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-black text-gray-900 dark:text-white placeholder:text-neutral-600"
-              />
+              <input type="text" required placeholder="e.g. Call for Papers 2026..."
+                value={newAnn.title} onChange={(e) => setNewAnn({ ...newAnn, title: e.target.value })}
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
             </div>
-
             <div>
               <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Amharic Title (Optional)</label>
-              <input
-                type="text"
-                placeholder="ለምሳሌ፡ የጥናት ጥሪ 2026..."
-                value={newAnn.amharic_title}
-                onChange={(e) => setNewAnn({ ...newAnn, amharic_title: e.target.value })}
-                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-black text-gray-900 dark:text-white placeholder:text-neutral-600"
-              />
+              <input type="text" placeholder="ለምሳሌ፡ የጥናት ጥሪ 2026..."
+                value={newAnn.amharic_title} onChange={(e) => setNewAnn({ ...newAnn, amharic_title: e.target.value })}
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
             </div>
-
+            <div>
+              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Cover Photo URL (Optional)</label>
+              <div className="flex gap-2">
+                <Image className="w-4 h-4 text-neutral-400 shrink-0 mt-3" />
+                <input type="text" placeholder="https://images.unsplash.com/... or your image URL"
+                  value={newAnn.cover_photo_url} onChange={(e) => setNewAnn({ ...newAnn, cover_photo_url: e.target.value })}
+                  className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
+              </div>
+              {newAnn.cover_photo_url && (
+                <img src={newAnn.cover_photo_url} alt="cover preview" className="w-full h-32 object-cover rounded-xl mt-2" onError={e => (e.currentTarget.style.display = 'none')} />
+              )}
+            </div>
             <div>
               <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Category</label>
-              <select
-                value={newAnn.category}
-                onChange={(e) => setNewAnn({ ...newAnn, category: e.target.value as any })}
-                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs bg-black text-gray-900 dark:text-white font-mono"
-              >
+              <select value={newAnn.category} onChange={(e) => setNewAnn({ ...newAnn, category: e.target.value as any })}
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs bg-white dark:bg-black text-gray-900 dark:text-white font-mono">
                 <option value="General">General Announcement</option>
                 <option value="Event">Event / Symposium</option>
                 <option value="Research">Research & Journal</option>
@@ -670,17 +788,11 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 <option value="Election">Council Election</option>
               </select>
             </div>
-
             <div>
               <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Content Body *</label>
-              <textarea
-                rows={4}
-                required
-                placeholder="Detailed announcement text..."
-                value={newAnn.content}
-                onChange={(e) => setNewAnn({ ...newAnn, content: e.target.value })}
-                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-black text-gray-900 dark:text-white placeholder:text-neutral-600"
-              />
+              <textarea rows={4} required placeholder="Detailed announcement text..."
+                value={newAnn.content} onChange={(e) => setNewAnn({ ...newAnn, content: e.target.value })}
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200 dark:border-white/10">

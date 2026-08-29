@@ -26,7 +26,7 @@ export interface MembershipType {
 }
 
 export interface Qualification {
-  degree_level: string; // 'BSc' | 'BA' | 'MSc' | 'MA' | 'PhD';
+  degree_level: string; // 'BSc' | 'BA' | 'MSc' | 'MA' | 'PhD'
   field: string;
   institution: string;
   graduation_year: number;
@@ -39,15 +39,23 @@ export interface StudentProfile {
   academic_year: number;
   student_id_number: string;
   expected_graduation_year: number;
+  student_id_url?: string;
 }
 
 export interface CorporateProfile {
   organization_name: string;
-  org_type: string;
+  org_type: string; // 'Hospital' | 'NGO' | 'Clinic' | 'University' | 'Corporate' | 'Government'
   tin_number: string;
   contact_person: string;
+  contact_title: string;
+  contact_phone: string;
+  contact_email: string;
   staff_count: number;
   headquarters_city: string;
+  services_description: string;
+  website?: string;
+  registration_cert_url?: string;
+  logo_url?: string;
 }
 
 export interface PaymentProof {
@@ -58,7 +66,7 @@ export interface PaymentProof {
   transaction_number: string;
   payment_date: string;
   status: 'PENDING' | 'VERIFIED' | 'REJECTED';
-  receipt_image?: string;
+  receipt_url?: string;
 }
 
 export interface Application {
@@ -77,6 +85,7 @@ export interface Application {
   status: ApplicationStatus;
   photo_url?: string;
   id_document_url?: string;
+  degree_certificate_url?: string;
   qualifications?: Qualification[];
   student_profile?: StudentProfile;
   corporate_profile?: CorporateProfile;
@@ -84,46 +93,79 @@ export interface Application {
   submitted_at: string;
   admin_notes?: string;
   rejection_reason?: string;
-  verification_token?: string;
+  telegram_id?: number;
+  // Full member specific
+  current_workplace?: string;
+  current_specialty?: string;
+  years_of_experience?: number;
 }
 
 export interface Member {
   id: string;
   membership_number: string; // e.g. "EPA-2026-8849"
   verification_token: string;
+  
+  // Auth
+  telegram_id?: number;
+  telegram_username?: string;
+  email?: string;
+  
+  // Personal
   first_name: string;
   father_name: string;
   grandfather_name?: string;
   amharic_full_name?: string;
-  photo_url?: string;
-  email: string;
-  phone: string;
+  gender?: 'M' | 'F';
+  date_of_birth?: string;
+  phone?: string;
   city: string;
+  
+  // Membership
   membership_type: MembershipTypeCode;
   status: MemberStatus;
-  specialty: string;
-  workplace: string;
+  
+  // Profile
+  photo_url?: string;
+  specialty?: string;
+  workplace?: string;
   bio?: string;
+  is_available_for_consultation?: boolean;
+  show_contact_in_directory?: boolean;
+  
+  // Professional
+  license_number?: string;
+  
+  // CPD
   cpd_points: number;
+  
+  // Dates
   issued_at: string;
   expires_at: string;
   is_verified: boolean;
-  license_number?: string;
-  telegram_username?: string;
+  
+  // Admin
+  is_admin?: boolean;
+  
+  // Corporate specific
+  corporate_profile?: CorporateProfile;
 }
 
 export interface Announcement {
   id: string;
   title: string;
   amharic_title?: string;
-  category: 'General' | 'Event' | 'Research' | 'Policy' | 'Training' | 'Election';
+  category: 'General' | 'Event' | 'Research' | 'Policy' | 'Training' | 'Election' | 'CPD' | 'News';
   content: string;
+  cover_image_url?: string;
+  cover_photo_url?: string; // alias used in admin form
   published_at: string;
   author: string;
   likes_count: number;
   views_count: number;
   is_featured?: boolean;
   cover_gradient?: string;
+  target_audience?: string[];
+  is_published?: boolean;
 }
 
 export interface University {
@@ -139,26 +181,49 @@ export interface University {
 export interface CPDCourse {
   id: string;
   title: string;
+  description?: string;
   instructor: string;
   instructor_title: string;
+  instructor_photo_url?: string;
   points: number;
-  category: 'Ethics' | 'Clinical' | 'Counseling' | 'Research' | 'Neuropsychology';
+  category: 'Ethics' | 'Clinical' | 'Counseling' | 'Research' | 'Neuropsychology' | 'Trauma' | 'Child Psychology';
   duration: string;
   date: string;
   mode: 'Online Webinar' | 'In-Person (Addis Ababa)' | 'Self-Paced Module';
+  location?: string;
+  zoom_link?: string;
+  materials_url?: string;
+  cover_image_url?: string;
+  max_participants?: number;
+  registered_count?: number;
   registered: boolean;
   is_completed?: boolean;
+  eligible_types?: MembershipTypeCode[];
 }
 
 export interface ElectionCandidate {
   id: string;
+  election_id?: string;
+  member_id?: string;
   name: string;
   title: string;
   institution: string;
-  running_for: 'President' | 'Vice President' | 'Secretary General' | 'Research Chair' | 'Ethics Board';
+  running_for: 'President' | 'Vice President' | 'Secretary General' | 'Research Chair' | 'Ethics Board' | 'Treasurer';
   manifesto: string;
   votes_count: number;
   avatar_url?: string;
+}
+
+export interface Election {
+  id: string;
+  title: string;
+  description?: string;
+  position: ElectionCandidate['running_for'];
+  is_active: boolean;
+  voting_starts_at?: string;
+  voting_ends_at?: string;
+  results_published?: boolean;
+  eligible_voter_types?: MembershipTypeCode[];
 }
 
 export interface AuditLog {
