@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Award, BookOpen, Vote, Users, FileText, CreditCard, BarChart2,
-  CheckCircle2, AlertCircle, Clock, Calendar, TrendingUp, Bell,
-  Sparkles, Shield, Edit3, ExternalLink, ChevronRight, Star, Zap
+  UserCheck, Award, FileText, Vote, MapPin, Building2, ExternalLink, ShieldCheck, Mail, Phone, Calendar, Download, BookOpen, Clock, Heart, Plus, Search, ChevronRight, Briefcase, Bell, MessageSquare, Sparkles, Shield, Edit3, CheckCircle2
 } from 'lucide-react';
 import { Member, CPDCourse, Announcement } from '../../types';
 
@@ -189,7 +187,14 @@ export const FullMemberPortal: React.FC<FullMemberPortalProps> = ({
                     <div className="w-2 h-2 rounded-full bg-[#d4ff00] shrink-0 mt-1.5" />
                     <div className="flex-1">
                       <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
-                      <p className="text-[10px] text-neutral-500 mt-1">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-[10px] text-neutral-500">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
+                        {(ann as any).file_attachment_url && (
+                          <a href={(ann as any).file_attachment_url} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center gap-1 text-blue-500 hover:underline ml-2" onClick={e => e.stopPropagation()}>
+                            <FileText className="w-3 h-3" /> {lang === 'EN' ? 'Attachment' : 'ፋይል'}
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="pl-5 flex items-center justify-between mt-1">
@@ -200,6 +205,9 @@ export const FullMemberPortal: React.FC<FullMemberPortalProps> = ({
                         </button>
                         <button onClick={() => onToast(lang === 'EN' ? 'Adjustment requested.' : 'ማስተካከያ ተጠይቋል!', 'info')} className="px-3 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 text-[10px] font-bold uppercase cursor-pointer">
                           Adjust
+                        </button>
+                        <button onClick={() => onToast(lang === 'EN' ? 'Comment opened.' : 'አስተያየት ክፈት', 'info')} className="px-3 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 text-[10px] font-bold uppercase cursor-pointer flex items-center gap-1">
+                          <MessageSquare className="w-3 h-3" /> Comment
                         </button>
                       </div>
                     ) : (

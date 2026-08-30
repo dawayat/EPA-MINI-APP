@@ -914,6 +914,13 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       <div className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300 mt-0.5">
                         Ref: {reviewingApp.payment.transaction_number}
                       </div>
+                      {reviewingApp.payment.receipt_url && (
+                        <div className="mt-2">
+                          <a href={reviewingApp.payment.receipt_url} target="_blank" rel="noreferrer" className="text-blue-500 underline text-xs font-bold">
+                            View Receipt Attachment
+                          </a>
+                        </div>
+                      )}
                     </div>
                     {reviewingApp.payment.status === 'VERIFIED' ? (
                       <span className="px-3 py-1 rounded-lg bg-[#d4ff00] text-black font-mono font-black text-[10px] uppercase">

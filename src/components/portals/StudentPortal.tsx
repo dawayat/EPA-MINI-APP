@@ -3,7 +3,7 @@ import {
   GraduationCap, BookOpen, Award, Users, Calendar, FileText,
   ChevronRight, ExternalLink, Bell, TrendingUp, MessageCircle,
   Star, Clock, CheckCircle2, AlertCircle, Sparkles, ArrowRight,
-  Briefcase, Search, Heart, Zap
+  Briefcase, Search, Heart, Zap, MessageSquare
 } from 'lucide-react';
 import { Member, CPDCourse, Announcement } from '../../types';
 
@@ -166,16 +166,54 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
               </div>
             </div>
             <div className="space-y-3">
-              {announcements.slice(0, 3).map(ann => (
-                <div key={ann.id} className="flex items-start gap-3 p-3 rounded-xl bg-black/5 dark:bg-white/5">
-                  <div className="w-2 h-2 rounded-full bg-[#d4ff00] shrink-0 mt-1.5" />
-                  <div>
-                    <p className="text-xs font-bold text-gray-900 dark:text-white line-clamp-2">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
-                    <p className="text-[10px] text-neutral-500 mt-0.5">{new Date(ann.published_at).toLocaleDateString()}</p>
+              {announcements.slice(0, 4).map(ann => (
+                <div key={ann.id} className="flex flex-col gap-2 p-4 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent hover:border-gray-200 dark:hover:border-white/10 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-[#d4ff00] shrink-0 mt-1.5" />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-[10px] text-neutral-500">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
+                        {(ann as any).file_attachment_url && (
+                          <a href={(ann as any).file_attachment_url} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center gap-1 text-blue-500 hover:underline ml-2" onClick={e => e.stopPropagation()}>
+                            <FileText className="w-3 h-3" /> {lang === 'EN' ? 'Attachment' : 'ፋይል'}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pl-5 flex items-center justify-between mt-1">
+                    {ann.category === 'Vote' ? (
+                      <div className="flex gap-2">
+                        <button onClick={() => onToast(lang === 'EN' ? 'Vote Approved!' : 'ድምጽዎ ጸድቋል!', 'success')} className="px-3 py-1 rounded bg-green-500/10 hover:bg-green-500/20 text-green-600 text-[10px] font-bold uppercase cursor-pointer">
+                          Approve
+                        </button>
+                        <button onClick={() => onToast(lang === 'EN' ? 'Adjustment requested.' : 'ማስተካከያ ተጠይቋል!', 'info')} className="px-3 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 text-[10px] font-bold uppercase cursor-pointer">
+                          Adjust
+                        </button>
+                        <button onClick={() => onToast(lang === 'EN' ? 'Comment opened.' : 'አስተያየት ክፈት', 'info')} className="px-3 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 text-[10px] font-bold uppercase cursor-pointer flex items-center gap-1">
+                          <MessageSquare className="w-3 h-3" /> Comment
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setLikedAnn(p => ({ ...p, [ann.id]: !p[ann.id] }))}
+                        className={`text-[10px] flex items-center gap-1 cursor-pointer ${likedAnn[ann.id] ? 'text-red-400' : 'text-neutral-500'}`}>
+                        <Heart className={`w-3 h-3 ${likedAnn[ann.id] ? 'fill-current' : ''}`} />
+                        <span>{ann.likes_count + (likedAnn[ann.id] ? 1 : 0)}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
+            {announcements.length > 4 && (
+              <button 
+                onClick={() => onToast('Opening full news feed...', 'info')}
+                className="w-full mt-4 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer"
+              >
+                {lang === 'EN' ? 'View All News' : 'ሁሉንም ዜናዎች እይ'}
+              </button>
+            )}
           </div>
 
           {/* Upcoming Courses Preview */}

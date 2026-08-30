@@ -43,6 +43,11 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
       }`}
       style={{ minHeight: '100dvh' }}
     >
+      {/* Large Blurry Background Logo */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden opacity-10 dark:opacity-5">
+        <img src="/epa-logo.png" alt="" className="w-96 h-96 sm:w-[500px] sm:h-[500px] object-contain blur-2xl transform scale-150" />
+      </div>
+
       <div className="relative z-10 flex flex-col items-center justify-center">
         
         {/* Minimalist Logo / Typography */}
