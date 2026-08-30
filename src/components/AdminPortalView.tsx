@@ -147,22 +147,25 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             <button 
               onClick={async () => {
                 try {
-                  onToast('Running database migration...', 'info');
+                  onToast('Checking database...', 'info');
                   const res = await fetch('/api/migrate');
                   const data = await res.json();
                   if (data.success) {
-                    onToast(data.message, 'success');
+                    onToast('✅ Database schema is correct!', 'success');
                   } else {
-                    onToast(`Migration failed: ${data.error}`, 'error');
+                    // Show the SQL in an alert for easy copying
+                    const sqlMsg = data.sql_to_run || 'Check /api/migrate for details';
+                    alert(`⚠️ DATABASE NEEDS UPDATING\n\n${data.message}\n\nCOPY AND RUN THIS IN SUPABASE SQL EDITOR:\n\n${sqlMsg}\n\nGo to: https://supabase.com/dashboard → Your Project → SQL Editor → Paste & Run`);
+                    onToast(`DB needs SQL update — check the popup!`, 'error');
                   }
                 } catch (e: any) {
-                  onToast('Error running migration', 'error');
+                  onToast(`Error: ${e.message}`, 'error');
                 }
               }}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-red-600/20 active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 cursor-pointer"
             >
               <Settings className="w-4 h-4" />
-              Fix Database
+              Check DB
             </button>
 
             <button

@@ -22,6 +22,7 @@ export default async function handler(req, res) {
         'photo_url','current_workplace','current_specialty','years_of_experience',
         'license_number','degree_certificate_url','id_document_url',
         'agreed_to_ethics','student_profile','corporate_profile','qualifications','payment',
+        'phone_password','rejection_reason','admin_notes',
         'submitted_at','updated_at'
       ];
       for (const f of fields) {
