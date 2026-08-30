@@ -18,6 +18,7 @@ export const CorporatePortal: React.FC<CorporatePortalProps> = ({
   member, lang, cpdCourses, announcements, onOpenDirectory, onRegisterCPD, onToast
 }) => {
   const [activeSection, setActiveSection] = useState<'overview' | 'staff' | 'workshops' | 'jobs' | 'invoices'>('overview');
+  const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
 
   // Simulated staff list
   const mockStaff = [

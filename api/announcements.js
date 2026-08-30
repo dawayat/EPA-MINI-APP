@@ -15,7 +15,7 @@ export default async function handler(req, res) {
       const row = {};
       const fields = [
         'id','title','content','type','status','published_at','author_name',
-        'attachments','target_audience'
+        'attachments','target_audience','is_draft'
       ];
       for (const f of fields) {
         if (a[f] !== undefined && a[f] !== null) row[f] = a[f];

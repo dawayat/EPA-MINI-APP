@@ -99,8 +99,6 @@ export interface Application {
   current_workplace?: string;
   current_specialty?: string;
   years_of_experience?: number;
-  gender?: 'M' | 'F';
-  date_of_birth?: string;
   license_number?: string;
   national_id_number?: string;
 }
@@ -177,6 +175,25 @@ export interface Announcement {
   is_published?: boolean;
   file_attachment_url?: string;
   is_draft?: boolean;
+}
+
+export type AnnouncementVoteChoice = 'approve' | 'adjust';
+
+export interface AnnouncementComment {
+  id: string;
+  announcement_id: string;
+  member_id: string;
+  author_name: string;
+  content: string;
+  created_at: string;
+}
+
+export interface MemberMessage {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  content: string;
+  created_at: string;
 }
 
 export interface University {

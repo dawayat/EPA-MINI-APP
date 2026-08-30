@@ -90,9 +90,40 @@ CREATE TABLE announcements (
   published_at timestamptz DEFAULT now(),
   author_name text,
   status text DEFAULT 'PUBLISHED',
+  is_draft boolean DEFAULT false,
   attachments jsonb,
   target_audience text[]
 );
+
+-- Shared member interactions
+CREATE TABLE announcement_comments (
+  id text PRIMARY KEY,
+  announcement_id text NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+  member_id text NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  author_name text NOT NULL,
+  content text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE announcement_votes (
+  announcement_id text NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
+  member_id text NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  choice text NOT NULL CHECK (choice IN ('approve', 'adjust')),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (announcement_id, member_id)
+);
+
+CREATE TABLE member_messages (
+  id text PRIMARY KEY,
+  sender_id text NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  recipient_id text NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  content text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (sender_id <> recipient_id)
+);
+
+CREATE INDEX member_messages_sender_idx ON member_messages(sender_id, created_at);
+CREATE INDEX member_messages_recipient_idx ON member_messages(recipient_id, created_at);
 
 -- Universities Table
 CREATE TABLE universities (
@@ -160,6 +191,9 @@ CREATE TABLE audit_logs (
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE announcement_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE announcement_votes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE member_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE universities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cpd_courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE elections ENABLE ROW LEVEL SECURITY;
@@ -170,6 +204,9 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "open_members" ON members FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open_applications" ON applications FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open_announcements" ON announcements FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open_announcement_comments" ON announcement_comments FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open_announcement_votes" ON announcement_votes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open_member_messages" ON member_messages FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open_universities" ON universities FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open_cpd_courses" ON cpd_courses FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open_elections" ON elections FOR ALL USING (true) WITH CHECK (true);

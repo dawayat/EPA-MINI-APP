@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  UserCheck, Award, FileText, Vote, MapPin, Building2, ExternalLink, ShieldCheck, Mail, Phone, Calendar, Download, BookOpen, Clock, Heart, Plus, Search, ChevronRight, Briefcase, Bell, MessageSquare, Sparkles, Shield, Edit3, CheckCircle2
+  UserCheck, Award, FileText, Vote, MapPin, Building2, ExternalLink, ShieldCheck, Mail, Phone, Calendar, Download, BookOpen, Clock, Heart, Plus, Search, ChevronRight, Briefcase, Bell, MessageSquare, Sparkles, Shield, Edit3, CheckCircle2, CreditCard, Users
 } from 'lucide-react';
 import { Member, CPDCourse, Announcement } from '../../types';
 
@@ -20,6 +20,7 @@ export const FullMemberPortal: React.FC<FullMemberPortalProps> = ({
   member, lang, cpdCourses, announcements, onOpenIdCard, onOpenVoting, onOpenDirectory, onRegisterCPD, onToast
 }) => {
   const [activeSection, setActiveSection] = useState<'overview' | 'cpd' | 'directory' | 'elections' | 'renewal'>('overview');
+  const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
 
   const myRegisteredCourses = cpdCourses.filter(c => c.registered);
   const completedCourses = cpdCourses.filter(c => c.is_completed);

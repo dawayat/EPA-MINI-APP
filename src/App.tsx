@@ -167,7 +167,9 @@ export default function App() {
       membership_type: (newApp.membership_type || 'STUDENT') as any,
       status: 'SUBMITTED',
       submitted_at: newApp.submitted_at || new Date().toISOString(),
-      telegram_id: tgUser?.id?.toString() || newApp.telegram_id || undefined
+      telegram_id: tgUser?.id?.toString() || newApp.telegram_id || undefined,
+      first_name: newApp.first_name || '',
+      father_name: newApp.father_name || ''
     };
 
     // Always try to save to Supabase (isSupabaseConfigured is now always true)

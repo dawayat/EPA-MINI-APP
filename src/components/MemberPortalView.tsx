@@ -6,13 +6,26 @@ import {
   Star, Bell, TrendingUp, AlertCircle, Plus, Shield, Edit3, ChevronRight,
   MessageSquare
 } from 'lucide-react';
-import { Member, CPDCourse, Announcement, ResearchArticle } from '../types';
+import {
+  Announcement,
+  AnnouncementComment,
+  AnnouncementVoteChoice,
+  CPDCourse,
+  Member,
+  MemberMessage,
+  ResearchArticle
+} from '../types';
 import { ResearchPortal } from './ResearchPortal';
-
-// ── IN-MEMORY MOCK STATE FOR DEMO (Persists across tabs) ──────────────────
-const GLOBAL_COMMENTS: Record<string, { id: string, author: string, text: string, time: string }[]> = {};
-const GLOBAL_VOTES: Record<string, 'approve' | 'adjust' | null> = {};
-const GLOBAL_CHATS: Record<string, { from: 'me' | 'them', text: string }[]> = {};
+import {
+  castAnnouncementVote,
+  fetchAnnouncementComments,
+  fetchAnnouncementVote,
+  fetchMemberMessages,
+  notifyCommunityUpdate,
+  onCommunityUpdate,
+  postAnnouncementComment,
+  sendMemberMessage
+} from '../lib/community';
 
 
 interface MemberPortalViewProps {
@@ -40,37 +53,74 @@ interface AnnCardProps {
 const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, likedAnn, setLikedAnn }) => {
   const [showComment, setShowComment] = useState(false);
   const [commentText, setCommentText] = useState('');
-  const [localComments, setLocalComments] = useState(GLOBAL_COMMENTS[ann.id] || []);
-  const [myVote, setMyVote] = useState(GLOBAL_VOTES[ann.id] || null);
-  
-  const isVoting = ann.category === 'Election' || ann.is_draft;
+  const [comments, setComments] = useState<AnnouncementComment[]>([]);
+  const [myVote, setMyVote] = useState<AnnouncementVoteChoice | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      try {
+        const [nextComments, nextVote] = await Promise.all([
+          fetchAnnouncementComments(ann.id),
+          fetchAnnouncementVote(ann.id, member.id)
+        ]);
+        if (active) {
+          setComments(nextComments);
+          setMyVote(nextVote);
+        }
+      } catch (error) {
+        console.error('[community] Unable to refresh announcement interactions:', error);
+      }
+    };
+    refresh();
+    const removeListener = onCommunityUpdate(refresh);
+    const interval = window.setInterval(refresh, 5_000);
+    return () => {
+      active = false;
+      removeListener();
+      clearInterval(interval);
+    };
+  }, [ann.id, member.id]);
+
+  const isVoting = Boolean(ann.is_draft) || ['election', 'vote', 'voting', 'draft'].includes(String(ann.category).toLowerCase());
   const coverImg = ann.cover_image_url || ann.cover_photo_url;
 
-  const handleVote = (type: 'approve' | 'adjust') => {
-    GLOBAL_VOTES[ann.id] = type;
-    setMyVote(type);
-    onToast(lang === 'EN' ? `Vote cast: ${type}` : `ድምጽ: ${type}`, 'success');
+  const handleVote = async (choice: AnnouncementVoteChoice) => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const { vote } = await castAnnouncementVote(ann.id, member.id, choice);
+      setMyVote(vote.choice);
+      notifyCommunityUpdate();
+      onToast(lang === 'EN' ? `Vote saved: ${choice}` : `ድምጽ ተቀምጧል: ${choice}`, 'success');
+    } catch (error: any) {
+      onToast(error.message || 'Could not save your vote.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleComment = () => {
-    if (!commentText.trim()) return;
-    const newComment = {
-      id: Date.now().toString(),
-      author: `${member.first_name} ${member.father_name}`,
-      text: commentText,
-      time: new Date().toLocaleDateString()
-    };
-    const updated = [...(GLOBAL_COMMENTS[ann.id] || []), newComment];
-    GLOBAL_COMMENTS[ann.id] = updated;
-    setLocalComments(updated);
-    setCommentText('');
-    onToast(lang === 'EN' ? 'Comment submitted!' : 'አስተያየት ተልኳል!', 'success');
+  const handleComment = async () => {
+    const content = commentText.trim();
+    if (!content || isSaving) return;
+    setIsSaving(true);
+    try {
+      const { comment } = await postAnnouncementComment(ann.id, member.id, content);
+      setComments(current => [...current, comment]);
+      setCommentText('');
+      notifyCommunityUpdate();
+      onToast(lang === 'EN' ? 'Comment posted.' : 'አስተያየት ተልኳል!', 'success');
+    } catch (error: any) {
+      onToast(error.message || 'Could not post your comment.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
+
   return (
     <div className="rounded-2xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 overflow-hidden hover:border-[#d4ff00]/40 transition-colors">
-      {coverImg && (
-        <img src={coverImg} alt={ann.title} className="w-full h-40 object-cover" />
-      )}
+      {coverImg && <img src={coverImg} alt={ann.title} className="w-full h-40 object-cover" />}
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/20 uppercase">{ann.category}</span>
@@ -79,89 +129,59 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
         <h4 className="font-black text-sm text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</h4>
         <p className="text-[12px] text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">{ann.content}</p>
         {ann.file_attachment_url && (
-          <a href={ann.file_attachment_url} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mt-3 text-[11px] text-blue-500 hover:underline font-bold">
+          <a href={ann.file_attachment_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-3 text-[11px] text-blue-500 hover:underline font-bold">
             <FileText className="w-3.5 h-3.5" /> {lang === 'EN' ? 'Open Attachment' : 'ፋይል ክፈት'}
           </a>
         )}
         <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 dark:border-white/5">
           {isVoting ? (
             <div className="flex gap-2 flex-wrap">
-              <button onClick={() => handleVote('approve')}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase cursor-pointer flex items-center gap-1 transition-colors ${
-                  myVote === 'approve' 
-                    ? 'bg-green-600 text-white' 
-                    : 'bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400'
-                }`}>
+              <button onClick={() => handleVote('approve')} disabled={isSaving} className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase cursor-pointer flex items-center gap-1 transition-colors disabled:opacity-50 ${myVote === 'approve' ? 'bg-green-600 text-white' : 'bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400'}`}>
                 ✓ Approve {myVote === 'approve' && '(Voted)'}
               </button>
-              <button onClick={() => handleVote('adjust')}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase cursor-pointer flex items-center gap-1 transition-colors ${
-                  myVote === 'adjust'
-                    ? 'bg-amber-600 text-white'
-                    : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400'
-                }`}>
+              <button onClick={() => handleVote('adjust')} disabled={isSaving} className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase cursor-pointer flex items-center gap-1 transition-colors disabled:opacity-50 ${myVote === 'adjust' ? 'bg-amber-600 text-white' : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400'}`}>
                 ↺ Adjust {myVote === 'adjust' && '(Voted)'}
               </button>
-              <button onClick={() => setShowComment(v => !v)}
-                className="px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 text-[11px] font-black uppercase cursor-pointer flex items-center gap-1">
-                <MessageSquare className="w-3 h-3" /> {localComments.length} Comments
+              <button onClick={() => setShowComment(v => !v)} className="px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 text-[11px] font-black uppercase cursor-pointer flex items-center gap-1">
+                <MessageSquare className="w-3 h-3" /> {comments.length} Comments
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-4">
-              <button onClick={() => setLikedAnn(p => ({ ...p, [ann.id]: !p[ann.id] }))}
-                className={`flex items-center gap-1.5 text-[11px] cursor-pointer transition-colors ${likedAnn[ann.id] ? 'text-red-400' : 'text-neutral-500 hover:text-red-400'}`}>
+              <button onClick={() => setLikedAnn(p => ({ ...p, [ann.id]: !p[ann.id] }))} className={`flex items-center gap-1.5 text-[11px] cursor-pointer transition-colors ${likedAnn[ann.id] ? 'text-red-400' : 'text-neutral-500 hover:text-red-400'}`}>
                 <Heart className={`w-4 h-4 ${likedAnn[ann.id] ? 'fill-current' : ''}`} />
                 <span>{ann.likes_count + (likedAnn[ann.id] ? 1 : 0)}</span>
               </button>
-              <button onClick={() => setShowComment(v => !v)}
-                className="flex items-center gap-1.5 text-[11px] text-neutral-500 hover:text-blue-400 cursor-pointer transition-colors">
-                <MessageSquare className="w-4 h-4" /> {localComments.length} Comments
+              <button onClick={() => setShowComment(v => !v)} className="flex items-center gap-1.5 text-[11px] text-neutral-500 hover:text-blue-400 cursor-pointer transition-colors">
+                <MessageSquare className="w-4 h-4" /> {comments.length} Comments
               </button>
             </div>
           )}
         </div>
-        
-        {/* Comments Section */}
         {showComment && (
           <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/5 space-y-4">
-            {localComments.length > 0 && (
+            {comments.length ? (
               <div className="space-y-3">
-                {localComments.map(c => (
-                  <div key={c.id} className="flex items-start gap-2.5">
-                    <div className="w-6 h-6 rounded-full bg-[#d4ff00]/20 flex items-center justify-center text-[9px] font-black text-gray-900 dark:text-[#d4ff00] shrink-0">
-                      {c.author.charAt(0)}
-                    </div>
+                {comments.map(comment => (
+                  <div key={comment.id} className="flex items-start gap-2.5">
+                    <div className="w-6 h-6 rounded-full bg-[#d4ff00]/20 flex items-center justify-center text-[9px] font-black text-gray-900 dark:text-[#d4ff00] shrink-0">{comment.author_name.charAt(0)}</div>
                     <div className="flex-1 bg-white dark:bg-white/5 rounded-xl rounded-tl-sm p-2.5 border border-gray-100 dark:border-white/10">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-bold text-gray-900 dark:text-white">{c.author}</span>
-                        <span className="text-[9px] text-neutral-500">{c.time}</span>
+                        <span className="text-[10px] font-bold text-gray-900 dark:text-white">{comment.author_name}</span>
+                        <span className="text-[9px] text-neutral-500">{new Date(comment.created_at).toLocaleDateString()}</span>
                       </div>
-                      <p className="text-[11px] text-neutral-700 dark:text-neutral-300">{c.text}</p>
+                      <p className="text-[11px] text-neutral-700 dark:text-neutral-300">{comment.content}</p>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
+            ) : <p className="text-[11px] text-neutral-500">{lang === 'EN' ? 'No comments yet. Start the discussion.' : 'ገና አስተያየት የለም።'}</p>}
             <div className="flex gap-2 items-start mt-2">
-              <div className="w-6 h-6 rounded-full bg-[#d4ff00] flex items-center justify-center text-[9px] font-black text-black shrink-0">
-                {member.first_name.charAt(0)}
-              </div>
+              <div className="w-6 h-6 rounded-full bg-[#d4ff00] flex items-center justify-center text-[9px] font-black text-black shrink-0">{member.first_name.charAt(0)}</div>
               <div className="flex-1">
-                <textarea
-                  rows={2}
-                  value={commentText}
-                  onChange={e => setCommentText(e.target.value)}
-                  placeholder={lang === 'EN' ? 'Add a comment...' : 'አስተያየትዎን ይጻፉ...'}
-                  className="w-full p-2.5 rounded-xl text-xs border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00] resize-none"
-                />
-                <button
-                  onClick={handleComment}
-                  disabled={!commentText.trim()}
-                  className="mt-2 px-4 py-1.5 rounded-lg bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-[10px] font-black uppercase cursor-pointer active:scale-95 disabled:opacity-50"
-                >
-                  {lang === 'EN' ? 'Post Comment' : 'አስገባ'}
+                <textarea rows={2} value={commentText} onChange={e => setCommentText(e.target.value)} placeholder={lang === 'EN' ? 'Add a comment...' : 'አስተያየትዎን ይጻፉ...'} className="w-full p-2.5 rounded-xl text-xs border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00] resize-none" />
+                <button onClick={handleComment} disabled={!commentText.trim() || isSaving} className="mt-2 px-4 py-1.5 rounded-lg bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-[10px] font-black uppercase cursor-pointer active:scale-95 disabled:opacity-50">
+                  {isSaving ? (lang === 'EN' ? 'Posting…' : 'በመላክ ላይ…') : (lang === 'EN' ? 'Post Comment' : 'አስገባ')}
                 </button>
               </div>
             </div>
@@ -171,7 +191,6 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
     </div>
   );
 };
-
 // ── CONNECT & CHAT SECTION (students connect with full members & peers) ────────
 interface ConnectProps {
   member: Member;
@@ -180,25 +199,34 @@ interface ConnectProps {
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, onToast }) => {
-  const [chatPerson, setChatPerson] = useState<{ name: string; role: string } | null>(null);
+  const [chatPerson, setChatPerson] = useState<{ name: string; role: string; id: string } | null>(null);
   const [msgInput, setMsgInput] = useState('');
-  const [messages, setMessages] = useState<{ from: 'me' | 'them'; text: string }[]>([]);
-  
-  // Sync when opening chat
-  useEffect(() => {
-    if (chatPerson) {
-      const chatId = chatPerson.name;
-      if (!GLOBAL_CHATS[chatId]) {
-        GLOBAL_CHATS[chatId] = [{ from: 'them', text: `Hello! I'm ${chatPerson.name}. How can I help you?` }];
-      }
-      setMessages(GLOBAL_CHATS[chatId]);
-    }
-  }, [chatPerson]);
+  const [allMessages, setAllMessages] = useState<MemberMessage[]>([]);
+  const [isSending, setIsSending] = useState(false);
   const [activeTab, setActiveTab] = useState<'mentors' | 'peers' | 'chat'>('mentors');
 
-
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      try {
+        const messages = await fetchMemberMessages(member.id);
+        if (active) setAllMessages(messages);
+      } catch (error) {
+        console.error('[community] Unable to refresh messages:', error);
+      }
+    };
+    refresh();
+    const removeListener = onCommunityUpdate(refresh);
+    const interval = window.setInterval(refresh, 3_000);
+    return () => {
+      active = false;
+      removeListener();
+      clearInterval(interval);
+    };
+  }, [member.id]);
 
   const mentors = (allMembers || []).filter(m => m.membership_type === 'FULL' && m.id !== member.id).map(m => ({
+    id: m.id,
     name: m.first_name + ' ' + m.father_name,
     specialty: m.specialty || 'General Psychology',
     workplace: m.workplace || m.city || 'Private Practice',
@@ -207,31 +235,40 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
   }));
 
   const peers = (allMembers || []).filter(m => m.membership_type === 'STUDENT' && m.id !== member.id).map(m => ({
+    id: m.id,
     name: m.first_name + ' ' + m.father_name,
     year: m.student_profile?.academic_year ? `Year ${m.student_profile.academic_year}` : 'Student',
     university: m.student_profile?.university_name || 'Psychology Student',
     photo: m.photo_url || 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=200'
   }));
 
-  const openChat = (name: string, role: string) => {
-    setChatPerson({ name, role });
+  const openChat = (id: string, name: string, role: string) => {
+    setChatPerson({ id, name, role });
     setActiveTab('chat');
   };
 
-  const sendMessage = () => {
-    if (!msgInput.trim() || !chatPerson) return;
-    const chatId = chatPerson.name;
-    const newMessages = [...(GLOBAL_CHATS[chatId] || []), { from: 'me' as const, text: msgInput }];
-    GLOBAL_CHATS[chatId] = newMessages;
-    setMessages(newMessages);
-    setMsgInput('');
-    
-    // Auto-reply mock
-    setTimeout(() => {
-      const replied = [...GLOBAL_CHATS[chatId], { from: 'them' as const, text: 'Thank you for your message! I\'ll get back to you soon.' }];
-      GLOBAL_CHATS[chatId] = replied;
-      setMessages(replied);
-    }, 800);
+  const messages = chatPerson ? allMessages.filter(message =>
+    (message.sender_id === member.id && message.recipient_id === chatPerson.id) ||
+    (message.sender_id === chatPerson.id && message.recipient_id === member.id)
+  ) : [];
+  const conversationIds: string[] = [...new Set<string>(allMessages.map(message =>
+    message.sender_id === member.id ? message.recipient_id : message.sender_id
+  ))];
+
+  const sendMessage = async () => {
+    const content = msgInput.trim();
+    if (!content || !chatPerson || isSending) return;
+    setIsSending(true);
+    try {
+      const { message } = await sendMemberMessage(member.id, chatPerson.id, content);
+      setAllMessages(current => [...current, message]);
+      setMsgInput('');
+      notifyCommunityUpdate();
+    } catch (error: any) {
+      onToast(error.message || 'Could not send your message.', 'error');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -265,7 +302,7 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
                 <p className="text-xs text-green-700 dark:text-[#d4ff00] font-medium truncate">{m.specialty}</p>
                 <p className="text-[11px] text-neutral-500 truncate">{m.workplace}</p>
               </div>
-              <button onClick={() => openChat(m.name, m.specialty)}
+              <button onClick={() => openChat(m.id, m.name, m.specialty)}
                 className="shrink-0 px-3 py-1.5 rounded-xl bg-[#d4ff00] text-black text-[10px] font-black uppercase cursor-pointer active:scale-95">
                 Chat
               </button>
@@ -284,7 +321,7 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
                 <p className="font-black text-sm text-gray-900 dark:text-white">{p.name}</p>
                 <p className="text-xs text-neutral-500">{p.year} • {p.university}</p>
               </div>
-              <button onClick={() => openChat(p.name, 'Student')}
+              <button onClick={() => openChat(p.id, p.name, 'Student')}
                 className="shrink-0 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-xs font-black text-gray-900 dark:text-white cursor-pointer active:scale-95">
                 Chat
               </button>
@@ -305,14 +342,14 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.from === 'me' ? 'justify-end' : 'justify-start'}`}>
+                {messages.map(msg => (
+                  <div key={msg.id} className={`flex ${msg.sender_id === member.id ? 'justify-end' : 'justify-start'}`}>
                     <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
-                      msg.from === 'me'
+                      msg.sender_id === member.id
                         ? 'bg-[#d4ff00] text-black rounded-br-sm'
                         : 'bg-white dark:bg-white/10 text-gray-900 dark:text-white rounded-bl-sm border border-gray-100 dark:border-white/10'
                     }`}>
-                      {msg.text}
+                      {msg.content}
                     </div>
                   </div>
                 ))}
@@ -326,17 +363,30 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
                   placeholder={lang === 'EN' ? 'Type a message...' : 'መልዕክት ይጻፉ...'}
                   className="flex-1 px-3 py-2 rounded-xl text-xs border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00]"
                 />
-                <button onClick={sendMessage}
-                  className="px-4 py-2 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase cursor-pointer active:scale-95">
-                  Send
+                <button onClick={sendMessage} disabled={isSending || !msgInput.trim()}
+                  className="px-4 py-2 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase cursor-pointer active:scale-95 disabled:opacity-50">
+                  {isSending ? '…' : 'Send'}
                 </button>
               </div>
             </>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-neutral-500">
+            <div className="flex-1 overflow-y-auto p-5 text-neutral-500">
               <MessageSquare className="w-10 h-10 mb-3 opacity-30" />
               <p className="text-sm font-bold">{lang === 'EN' ? 'No conversation selected' : 'ምንም ንግግር አልተመረጠም'}</p>
-              <p className="text-xs mt-1">{lang === 'EN' ? 'Click "Chat" on any member above to start messaging.' : 'ከላይ "Chat" ን ይጫኑ'}</p>
+              <p className="text-xs mt-1">{lang === 'EN' ? 'Start a chat above or open an existing conversation.' : 'ከላይ ውይይት ይጀምሩ ወይም ያለ ውይይት ይክፈቱ።'}</p>
+              {conversationIds.length > 0 && (
+                <div className="mt-5 space-y-2 text-left">
+                  {conversationIds.map(id => {
+                    const other = allMembers.find(candidate => candidate.id === id);
+                    if (!other) return null;
+                    const name = `${other.first_name} ${other.father_name}`;
+                    return <button key={id} onClick={() => openChat(id, name, other.specialty || other.membership_type)} className="w-full px-3 py-2.5 rounded-xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 hover:border-[#d4ff00]/50 text-xs font-bold text-gray-900 dark:text-white text-left">
+                      <span className="block">{name}</span>
+                      <span className="block text-[10px] mt-0.5 font-normal text-neutral-500">{other.specialty || other.membership_type}</span>
+                    </button>;
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -845,66 +895,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
       {activeTab === 'announcements' && (
         <div className="space-y-4">
           {announcements.map(ann => (
-            <div key={ann.id} className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-md">
-              {ann.cover_photo_url && (
-                <img src={ann.cover_photo_url} alt={ann.title} className="w-full h-40 object-cover rounded-xl mb-4" />
-              )}
-              <div className="flex items-center justify-between mb-3">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/30 font-mono font-bold uppercase text-[10px]">{ann.category}</span>
-                <span className="text-neutral-600 dark:text-neutral-400 font-mono text-xs">{new Date(ann.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-              </div>
-              <h3 className="font-black text-base text-gray-900 dark:text-white uppercase mb-2">
-                {lang === 'EN' ? ann.title : ann.amharic_title || ann.title}
-                {(ann as any).is_draft && <span className="ml-2 text-[10px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-full">DRAFT</span>}
-              </h3>
-              <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed mb-4">{ann.content}</p>
-
-              {(ann as any).file_attachment_url && (
-                <a href={(ann as any).file_attachment_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 mb-4 px-4 py-2.5 bg-black/5 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-xs font-bold text-gray-900 dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
-                  <FileText className="w-4 h-4" />
-                  View Attached Document
-                </a>
-              )}
-
-              {(ann as any).is_draft && (
-                <div className="mt-2 mb-4 p-4 bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/10 rounded-xl">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-500 mb-2">Cast your vote on this draft</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setDraftVotes(p => ({ ...p, [ann.id]: p[ann.id] === 'approve' ? null : 'approve' }))}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase transition-all ${
-                        draftVotes[ann.id] === 'approve' ? 'bg-green-500 text-white' : 'bg-white dark:bg-black border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white'
-                      }`}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => setDraftVotes(p => ({ ...p, [ann.id]: p[ann.id] === 'adjust' ? null : 'adjust' }))}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold uppercase transition-all ${
-                        draftVotes[ann.id] === 'adjust' ? 'bg-amber-500 text-white' : 'bg-white dark:bg-black border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white'
-                      }`}
-                    >
-                      Needs Adjustment
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-white/10 text-xs text-neutral-600 dark:text-neutral-400 font-mono">
-                <span className="font-semibold text-neutral-700 dark:text-neutral-200">{ann.author}</span>
-                <div className="flex items-center gap-4">
-                  <button onClick={() => setLikedAnn(p => ({ ...p, [ann.id]: !p[ann.id] }))}
-                    className={`flex items-center gap-1 font-semibold cursor-pointer transition-colors ${likedAnn[ann.id] ? 'text-red-500 dark:text-red-400' : 'text-neutral-500 hover:text-red-500'}`}>
-                    <Heart className={`w-4 h-4 ${likedAnn[ann.id] ? 'fill-current' : ''}`} />
-                    <span>{ann.likes_count + (likedAnn[ann.id] ? 1 : 0)}</span>
-                  </button>
-                  <button onClick={() => setBookmarkedAnn(p => ({ ...p, [ann.id]: !p[ann.id] }))}
-                    className={`flex items-center gap-1 font-semibold cursor-pointer transition-colors ${bookmarkedAnn[ann.id] ? 'text-green-700 dark:text-[#d4ff00]' : 'text-neutral-500 hover:text-green-700 dark:hover:text-[#d4ff00]'}`}>
-                    <Bookmark className={`w-4 h-4 ${bookmarkedAnn[ann.id] ? 'fill-current' : ''}`} />
-                  </button>
-                </div>
-              </div>
-            </div>
+            <AnnouncementCard key={ann.id} member={member} ann={ann} lang={lang} onToast={onToast} likedAnn={likedAnn} setLikedAnn={setLikedAnn} />
           ))}
         </div>
       )}
@@ -943,7 +934,8 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
 const CorporatePortal: React.FC<MemberPortalViewProps> = ({
   member, lang, cpdCourses, announcements, onOpenDirectory, onRegisterCPD, onToast
 }) => {
-  const [section, setSection] = useState<'overview' | 'staff' | 'workshops' | 'jobs'>('overview');
+  const [section, setSection] = useState<'overview' | 'staff' | 'workshops' | 'jobs' | 'news'>('overview');
+  const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
   const mockStaff = [
     { name: 'Meron Haile', role: 'Clinical Psychologist', status: 'Active' },
     { name: 'Abebe Tadesse', role: 'Counselor', status: 'Pending' },
@@ -955,6 +947,7 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
     { id: 'staff', label: lang === 'EN' ? 'Staff' : 'ሰራተኞች', icon: <Users className="w-4 h-4" /> },
     { id: 'workshops', label: lang === 'EN' ? 'Workshops' : 'ወርክሾፖች', icon: <BookOpen className="w-4 h-4" /> },
     { id: 'jobs', label: lang === 'EN' ? 'Job Board' : 'ስራ', icon: <Briefcase className="w-4 h-4" /> },
+    { id: 'news', label: lang === 'EN' ? 'News' : 'ዜና', icon: <Bell className="w-4 h-4" /> },
   ];
 
   return (
@@ -1030,15 +1023,12 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
               <Bell className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
               <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'EPA News' : 'EPA ዜናዎች'}</h3>
             </div>
-            {announcements.slice(0, 3).map(ann => (
-              <div key={ann.id} className="flex items-start gap-3 p-3 rounded-xl bg-black/5 dark:bg-white/5 mb-2">
-                <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0 mt-1.5" />
-                <div>
-                  <p className="text-xs font-bold text-gray-900 dark:text-white line-clamp-2">{ann.title}</p>
-                  <p className="text-[10px] text-neutral-500 mt-0.5">{new Date(ann.published_at).toLocaleDateString()}</p>
-                </div>
-              </div>
-            ))}
+            <div className="space-y-3">
+              {announcements.slice(0, 3).map(ann => (
+                <AnnouncementCard key={ann.id} member={member} ann={ann} lang={lang} onToast={onToast} likedAnn={likedAnn} setLikedAnn={setLikedAnn} />
+              ))}
+            </div>
+            {announcements.length > 3 && <button onClick={() => setSection('news')} className="w-full mt-4 py-2 rounded-xl text-xs font-black uppercase text-blue-500 hover:bg-blue-500/10">{lang === 'EN' ? 'View All News' : 'ሁሉንም ዜናዎች እይ'}</button>}
           </div>
           <div className="bg-gradient-to-br from-amber-500/10 to-yellow-500/5 rounded-2xl border border-amber-500/20 p-5">
             <div className="flex items-center gap-3 mb-3">
@@ -1132,11 +1122,7 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
           </div>
           <div className="space-y-3">
             {announcements.map(ann => (
-              <div key={ann.id} className="flex flex-col gap-2 p-4 rounded-xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 hover:border-amber-400/40 transition-colors">
-                <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
-                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-1">{ann.content}</p>
-                <p className="text-[10px] text-neutral-500">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
-              </div>
+              <AnnouncementCard key={ann.id} member={member} ann={ann} lang={lang} onToast={onToast} likedAnn={likedAnn} setLikedAnn={setLikedAnn} />
             ))}
           </div>
         </div>

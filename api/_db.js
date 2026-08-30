@@ -62,6 +62,19 @@ export async function dbInsert(table, row) {
   return true;
 }
 
+export async function dbUpsert(table, row, onConflict) {
+  const res = await fetch(supabaseUrl(table, `on_conflict=${onConflict}`), {
+    method: 'POST',
+    headers: { ...supabaseHeaders(), 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(row)
+  });
+  if (!res.ok && res.status !== 201) {
+    const text = await res.text();
+    throw new Error(`DB UPSERT ${table} failed (${res.status}): ${text}`);
+  }
+  return true;
+}
+
 export async function dbUpdate(table, row, matchColumn, matchValue) {
   const res = await fetch(supabaseUrl(table, `${matchColumn}=eq.${matchValue}`), {
     method: 'PATCH',

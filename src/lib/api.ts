@@ -91,6 +91,7 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
     ...r,
     category: r.type,
     author: r.author_name,
+    is_draft: Boolean(r.is_draft),
     cover_photo_url: r.attachments?.find((a: any) => a.type === 'cover')?.url || null,
     file_attachment_url: r.attachments?.find((a: any) => a.type === 'file')?.url || null,
   }));
@@ -144,6 +145,7 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
     published_at: announcementData.published_at || new Date().toISOString(),
     author_name: (announcementData as any).author || 'EPA Executive Directorate',
     status: (announcementData as any).is_draft ? 'DRAFT' : 'PUBLISHED',
+    is_draft: Boolean((announcementData as any).is_draft),
   };
 
   const attachments: any[] = [];

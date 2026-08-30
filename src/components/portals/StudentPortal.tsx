@@ -22,6 +22,7 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
   member, lang, cpdCourses, announcements, onOpenIdCard, onOpenDirectory, onRegisterCPD, onToast
 }) => {
   const [activeSection, setActiveSection] = useState<'overview' | 'cpd' | 'research' | 'jobs' | 'mentor'>('overview');
+  const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
 
   const studentCourses = cpdCourses.filter(c => 
     !c.eligible_types || c.eligible_types.includes('STUDENT')
