@@ -846,10 +846,20 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       )}
                     </div>
                   ) : reviewingApp.membership_type === 'STUDENT' && reviewingApp.student_profile ? (
-                    <div className="p-4 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                    <div className="p-4 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10 space-y-2">
                       <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.student_profile.university_name || 'N/A'}</div>
-                      <div className="text-neutral-700 dark:text-neutral-300 mt-0.5">{reviewingApp.student_profile.field_of_study || 'N/A'} (Year {reviewingApp.student_profile.academic_year || 'N/A'})</div>
-                      <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px] mt-1">Student ID: {reviewingApp.student_profile.student_id_number || 'N/A'}</div>
+                      <div className="text-neutral-700 dark:text-neutral-300">
+                        {reviewingApp.student_profile.field_of_study || 'N/A'}
+                        {reviewingApp.student_profile.academic_year ? ` — Year ${reviewingApp.student_profile.academic_year}` : ''}
+                        {reviewingApp.student_profile.expected_graduation_year ? ` (Graduating ${reviewingApp.student_profile.expected_graduation_year})` : ''}
+                      </div>
+                      <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px]">Student ID: {reviewingApp.student_profile.student_id_number || 'N/A'}</div>
+                      {reviewingApp.student_profile.student_id_url && (
+                        <a href={reviewingApp.student_profile.student_id_url} target="_blank" rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-blue-500 underline text-xs font-bold pt-1">
+                          📎 View Student ID Card
+                        </a>
+                      )}
                     </div>
                   ) : reviewingApp.membership_type === 'FULL' && reviewingApp.qualifications && reviewingApp.qualifications.length > 0 ? (
                     <div className="space-y-2">

@@ -21,11 +21,247 @@ interface MemberPortalViewProps {
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
+// ── ANNOUNCEMENT CARD (shared across all portals) ───────────────────────────
+interface AnnCardProps {
+  ann: Announcement;
+  lang: 'EN' | 'AM';
+  onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
+  likedAnn: Record<string, boolean>;
+  setLikedAnn: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+}
+const AnnouncementCard: React.FC<AnnCardProps> = ({ ann, lang, onToast, likedAnn, setLikedAnn }) => {
+  const [showComment, setShowComment] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const isVoting = ann.category === 'Election' || ann.is_draft;
+  const coverImg = ann.cover_image_url || ann.cover_photo_url;
+  return (
+    <div className="rounded-2xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 overflow-hidden hover:border-[#d4ff00]/40 transition-colors">
+      {coverImg && (
+        <img src={coverImg} alt={ann.title} className="w-full h-40 object-cover" />
+      )}
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/20 uppercase">{ann.category}</span>
+          <span className="text-[10px] text-neutral-500">{new Date(ann.published_at).toLocaleDateString()}</span>
+        </div>
+        <h4 className="font-black text-sm text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</h4>
+        <p className="text-[12px] text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">{ann.content}</p>
+        {ann.file_attachment_url && (
+          <a href={ann.file_attachment_url} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 mt-3 text-[11px] text-blue-500 hover:underline font-bold">
+            <FileText className="w-3.5 h-3.5" /> {lang === 'EN' ? 'Open Attachment' : 'ፋይል ክፈት'}
+          </a>
+        )}
+        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 dark:border-white/5">
+          {isVoting ? (
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={() => onToast(lang === 'EN' ? 'Vote: Approved!' : 'ድምጽ: አጽድቁ!', 'success')}
+                className="px-3 py-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 text-[11px] font-black uppercase cursor-pointer flex items-center gap-1">
+                ✓ Approve
+              </button>
+              <button onClick={() => onToast(lang === 'EN' ? 'Vote: Needs Adjustment' : 'ድምጽ: ማስተካከያ', 'info')}
+                className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-black uppercase cursor-pointer flex items-center gap-1">
+                ↺ Adjust
+              </button>
+              <button onClick={() => setShowComment(v => !v)}
+                className="px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 text-[11px] font-black uppercase cursor-pointer flex items-center gap-1">
+                <MessageSquare className="w-3 h-3" /> Comment
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <button onClick={() => setLikedAnn(p => ({ ...p, [ann.id]: !p[ann.id] }))}
+                className={`flex items-center gap-1.5 text-[11px] cursor-pointer transition-colors ${likedAnn[ann.id] ? 'text-red-400' : 'text-neutral-500 hover:text-red-400'}`}>
+                <Heart className={`w-4 h-4 ${likedAnn[ann.id] ? 'fill-current' : ''}`} />
+                <span>{ann.likes_count + (likedAnn[ann.id] ? 1 : 0)}</span>
+              </button>
+              <button onClick={() => setShowComment(v => !v)}
+                className="flex items-center gap-1.5 text-[11px] text-neutral-500 hover:text-blue-400 cursor-pointer transition-colors">
+                <MessageSquare className="w-4 h-4" /> Comment
+              </button>
+            </div>
+          )}
+        </div>
+        {showComment && (
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-white/5">
+            <textarea
+              rows={2}
+              value={commentText}
+              onChange={e => setCommentText(e.target.value)}
+              placeholder={lang === 'EN' ? 'Write your comment...' : 'አስተያየትዎን ይጻፉ...'}
+              className="w-full p-2.5 rounded-xl text-xs border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00] resize-none"
+            />
+            <button
+              onClick={() => { if (commentText.trim()) { onToast(lang === 'EN' ? 'Comment submitted!' : 'አስተያየት ተልኳል!', 'success'); setCommentText(''); setShowComment(false); } }}
+              className="mt-2 px-4 py-1.5 rounded-lg bg-[#d4ff00] text-black text-[11px] font-black uppercase cursor-pointer active:scale-95"
+            >
+              {lang === 'EN' ? 'Submit' : 'አስገባ'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ── CONNECT & CHAT SECTION (students connect with full members & peers) ────────
+interface ConnectProps {
+  member: Member;
+  lang: 'EN' | 'AM';
+  onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
+}
+const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, onToast }) => {
+  const [chatPerson, setChatPerson] = useState<{ name: string; role: string } | null>(null);
+  const [msgInput, setMsgInput] = useState('');
+  const [messages, setMessages] = useState<{ from: 'me' | 'them'; text: string }[]>([]);
+  const [activeTab, setActiveTab] = useState<'mentors' | 'peers' | 'chat'>('mentors');
+
+  const mentors = [
+    { name: 'Dr. Selamawit Bekele', specialty: 'Clinical & Trauma Psychology', workplace: 'Addis Ababa University', available: true, photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200' },
+    { name: 'Dr. Dawit Mekonnen', specialty: 'Neuropsychology & Psychometrics', workplace: 'Jimma University', available: true, photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200' },
+    { name: 'Aster Haile, M.Sc.', specialty: 'Counseling Psychology', workplace: 'St. Paul Hospital', available: false, photo: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200' },
+    { name: 'Dr. Yonas Biruk', specialty: 'Child & Adolescent Psychology', workplace: 'ALERT Hospital', available: true, photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=200' },
+  ];
+
+  const peers = [
+    { name: 'Sara Bekele', year: 'Year 3', university: 'Addis Ababa University', photo: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=200' },
+    { name: 'Temesgen Alemu', year: 'Year 4', university: 'Jimma University', photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200' },
+    { name: 'Hana Tadesse', year: 'Year 2', university: 'AAU', photo: 'https://images.unsplash.com/photo-1554727242-741c14fa561c?auto=format&fit=crop&q=80&w=200' },
+  ];
+
+  const openChat = (name: string, role: string) => {
+    setChatPerson({ name, role });
+    setMessages([{ from: 'them', text: `Hello! I'm ${name}. How can I help you?` }]);
+    setActiveTab('chat');
+  };
+
+  const sendMessage = () => {
+    if (!msgInput.trim()) return;
+    const newMessages = [...messages, { from: 'me' as const, text: msgInput }];
+    setMessages(newMessages);
+    setMsgInput('');
+    setTimeout(() => {
+      setMessages(prev => [...prev, { from: 'them', text: 'Thank you for your message! I\'ll get back to you soon.' }]);
+    }, 800);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 bg-gray-100 dark:bg-[#0c0c0e] p-1 rounded-2xl overflow-x-auto no-scrollbar mb-4">
+        {[
+          { id: 'mentors', label: lang === 'EN' ? 'Mentors' : 'አማካሪዎች' },
+          { id: 'peers', label: lang === 'EN' ? 'Peer Students' : 'የትምህርት ባልደረቦች' },
+          { id: 'chat', label: lang === 'EN' ? 'Messages' : 'መልዕክቶች' },
+        ].map(t => (
+          <button key={t.id} onClick={() => setActiveTab(t.id as any)}
+            className={`flex-1 px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer ${
+              activeTab === t.id ? 'bg-[#d4ff00] text-black shadow-md' : 'text-gray-600 dark:text-neutral-400'
+            }`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'mentors' && (
+        <div className="space-y-3">
+          <p className="text-xs text-neutral-500">{lang === 'EN' ? 'Connect with licensed full members for professional mentorship and guidance.' : 'ለሙያ ምክር ከሙሉ አባላት ጋር ይገናኙ።'}</p>
+          {mentors.map((m, i) => (
+            <div key={i} className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-4 flex items-center gap-4">
+              <div className="relative shrink-0">
+                <img src={m.photo} alt={m.name} className="w-14 h-14 rounded-2xl object-cover border border-gray-200 dark:border-white/10" />
+                <span className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#121214] ${m.available ? 'bg-green-400' : 'bg-gray-400'}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-sm text-gray-900 dark:text-white truncate">{m.name}</p>
+                <p className="text-xs text-green-700 dark:text-[#d4ff00] font-medium truncate">{m.specialty}</p>
+                <p className="text-[11px] text-neutral-500 truncate">{m.workplace}</p>
+              </div>
+              <button onClick={() => openChat(m.name, m.specialty)}
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-[#d4ff00] text-black text-[10px] font-black uppercase cursor-pointer active:scale-95">
+                Chat
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'peers' && (
+        <div className="space-y-3">
+          <p className="text-xs text-neutral-500">{lang === 'EN' ? 'Connect and collaborate with fellow psychology students across Ethiopia.' : 'ከሌሎች ተማሪዎች ጋር ይተባበሩ።'}</p>
+          {peers.map((p, i) => (
+            <div key={i} className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-4 flex items-center gap-4">
+              <img src={p.photo} alt={p.name} className="w-12 h-12 rounded-2xl object-cover shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-sm text-gray-900 dark:text-white">{p.name}</p>
+                <p className="text-xs text-neutral-500">{p.year} • {p.university}</p>
+              </div>
+              <button onClick={() => openChat(p.name, 'Student')}
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-xs font-black text-gray-900 dark:text-white cursor-pointer active:scale-95">
+                Chat
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'chat' && (
+        <div className="flex flex-col h-[420px] bg-gray-50 dark:bg-[#0d0d0f] rounded-2xl border border-gray-200 dark:border-white/10 overflow-hidden">
+          {chatPerson ? (
+            <>
+              <div className="flex items-center gap-3 p-4 border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#121214]">
+                <div className="w-8 h-8 rounded-full bg-[#d4ff00]/20 flex items-center justify-center text-sm font-black text-[#d4ff00]">{chatPerson.name[0]}</div>
+                <div>
+                  <p className="text-sm font-black text-gray-900 dark:text-white">{chatPerson.name}</p>
+                  <p className="text-[10px] text-neutral-500">{chatPerson.role}</p>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {messages.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.from === 'me' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl text-sm ${
+                      msg.from === 'me'
+                        ? 'bg-[#d4ff00] text-black rounded-br-sm'
+                        : 'bg-white dark:bg-white/10 text-gray-900 dark:text-white rounded-bl-sm border border-gray-100 dark:border-white/10'
+                    }`}>
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="p-3 border-t border-gray-200 dark:border-white/10 flex gap-2">
+                <input
+                  type="text"
+                  value={msgInput}
+                  onChange={e => setMsgInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                  placeholder={lang === 'EN' ? 'Type a message...' : 'መልዕክት ይጻፉ...'}
+                  className="flex-1 px-3 py-2 rounded-xl text-xs border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00]"
+                />
+                <button onClick={sendMessage}
+                  className="px-4 py-2 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase cursor-pointer active:scale-95">
+                  Send
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-neutral-500">
+              <MessageSquare className="w-10 h-10 mb-3 opacity-30" />
+              <p className="text-sm font-bold">{lang === 'EN' ? 'No conversation selected' : 'ምንም ንግግር አልተመረጠም'}</p>
+              <p className="text-xs mt-1">{lang === 'EN' ? 'Click "Chat" on any member above to start messaging.' : 'ከላይ "Chat" ን ይጫኑ'}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── STUDENT PORTAL ─────────────────────────────────────────────────────────────
+
 const StudentPortal: React.FC<MemberPortalViewProps> = ({
   member, lang, cpdCourses, announcements, onOpenIdCard, onOpenDirectory, onRegisterCPD, onToast
 }) => {
-  const [section, setSection] = useState<'overview' | 'cpd' | 'mentor' | 'jobs'>('overview');
+  const [section, setSection] = useState<'overview' | 'cpd' | 'mentor' | 'jobs' | 'news'>('overview');
   const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
 
   const daysLeft = Math.ceil((new Date(member.expires_at).getTime() - Date.now()) / 86400000);
@@ -35,9 +271,8 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
   const tabs = [
     { id: 'overview', label: lang === 'EN' ? 'Dashboard' : 'ዳሽቦርድ', icon: <Sparkles className="w-4 h-4" /> },
     { id: 'cpd', label: lang === 'EN' ? 'Webinars' : 'ዌቢናሮች', icon: <BookOpen className="w-4 h-4" /> },
-    { id: 'mentor', label: lang === 'EN' ? 'Mentors' : 'አማካሪዎች', icon: <Users className="w-4 h-4" /> },
+    { id: 'mentor', label: lang === 'EN' ? 'Connect' : 'ተወዳደሩ', icon: <Users className="w-4 h-4" /> },
     { id: 'jobs', label: lang === 'EN' ? 'Jobs' : 'ስራ', icon: <Briefcase className="w-4 h-4" /> },
-    { id: 'news', label: lang === 'EN' ? 'News' : 'ዜና', icon: <Bell className="w-4 h-4" /> },
     { id: 'news', label: lang === 'EN' ? 'News' : 'ዜና', icon: <Bell className="w-4 h-4" /> },
   ];
 
@@ -63,8 +298,8 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
             </div>
             <h2 className="text-xl font-black text-white mt-1 uppercase">{member.first_name} {member.father_name}</h2>
             {member.amharic_full_name && <p className="text-[#d4ff00]/70 text-sm">{member.amharic_full_name}</p>}
-            <p className="text-neutral-400 text-xs mt-0.5">{(member.specialty && member.specialty !== 'undefined') ? member.specialty : (member.student_profile?.field_of_study || 'Psychology')} • {(member.workplace && member.workplace !== 'undefined') ? member.workplace : (member.student_profile?.university_name || member.city || 'EPA Member')}</p>
-            <p className="text-neutral-500 text-[10px] font-mono mt-0.5">{member.membership_number}</p>
+            <p className="text-neutral-400 text-xs mt-0.5">{member.student_profile?.field_of_study || 'Psychology Student'} {member.student_profile?.academic_year ? `— Year ${member.student_profile.academic_year}` : ''}</p>
+            <p className="text-neutral-500 text-[10px] font-mono mt-0.5">{member.student_profile?.university_name || member.city} • {member.membership_number}</p>
           </div>
         </div>
         <div className="relative z-10 grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-white/10">
@@ -136,39 +371,39 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
                   </div>
                   <div className="pl-5 flex items-center justify-between mt-1">
                     {ann.category === 'Election' || ann.is_draft ? (
-                      <div className="flex gap-2">
-                        <button onClick={() => onToast(lang === 'EN' ? 'Vote Approved!' : 'ድምጽዎ ጸድቋል!', 'success')} className="px-3 py-1 rounded bg-green-500/10 hover:bg-green-500/20 text-green-600 text-[10px] font-bold uppercase cursor-pointer">
-                          Approve
+                      <div className="flex gap-2 flex-wrap">
+                        <button onClick={() => onToast(lang === 'EN' ? 'Vote cast: Approve' : 'ድምጽ: አጽድቁ', 'success')} className="px-3 py-1 rounded bg-green-500/10 hover:bg-green-500/20 text-green-600 text-[10px] font-bold uppercase cursor-pointer">
+                          ✓ Approve
                         </button>
-                        <button onClick={() => onToast(lang === 'EN' ? 'Adjustment requested.' : 'ማስተካከያ ተጠይቋል!', 'info')} className="px-3 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 text-[10px] font-bold uppercase cursor-pointer">
-                          Adjust
+                        <button onClick={() => onToast(lang === 'EN' ? 'Vote cast: Needs Adjustment' : 'ድምጽ: ማስተካከያ', 'info')} className="px-3 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 text-[10px] font-bold uppercase cursor-pointer">
+                          ↺ Adjust
                         </button>
-                        <button onClick={() => onToast(lang === 'EN' ? 'Comment opened.' : 'አስተያየት ክፈት', 'info')} className="px-3 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 text-[10px] font-bold uppercase cursor-pointer flex items-center gap-1">
-                          <MessageSquare className="w-3 h-3" /> Comment
-                        </button>
-                        <button onClick={() => onToast(lang === 'EN' ? 'Comment opened.' : 'አስተያየት ክፈት', 'info')} className="px-3 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 text-[10px] font-bold uppercase cursor-pointer flex items-center gap-1">
+                        <button onClick={() => onToast(lang === 'EN' ? 'Comment panel opening...' : 'አስተያየት ይስጡ', 'info')} className="px-3 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 text-[10px] font-bold uppercase cursor-pointer flex items-center gap-1">
                           <MessageSquare className="w-3 h-3" /> Comment
                         </button>
                       </div>
                     ) : (
-                      <button onClick={() => setLikedAnn(p => ({ ...p, [ann.id]: !p[ann.id] }))}
-                        className={`text-[10px] flex items-center gap-1 cursor-pointer ${likedAnn[ann.id] ? 'text-red-400' : 'text-neutral-500'}`}>
-                        <Heart className={`w-3 h-3 ${likedAnn[ann.id] ? 'fill-current' : ''}`} />
-                        <span>{ann.likes_count + (likedAnn[ann.id] ? 1 : 0)}</span>
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setLikedAnn(p => ({ ...p, [ann.id]: !p[ann.id] }))}
+                          className={`text-[10px] flex items-center gap-1 cursor-pointer ${likedAnn[ann.id] ? 'text-red-400' : 'text-neutral-500'}`}>
+                          <Heart className={`w-3 h-3 ${likedAnn[ann.id] ? 'fill-current' : ''}`} />
+                          <span>{ann.likes_count + (likedAnn[ann.id] ? 1 : 0)}</span>
+                        </button>
+                        <button onClick={() => onToast('Comment opened.', 'info')} className="text-[10px] flex items-center gap-1 cursor-pointer text-neutral-500 hover:text-blue-400">
+                          <MessageSquare className="w-3 h-3" /> Comment
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
               ))}
             </div>
-            {announcements.length > 4 && (
-              <button 
-                onClick={() => setSection('news' as any)}
-                className="w-full mt-4 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer"
-              >
-                {lang === 'EN' ? 'View All News' : 'ሁሉንም ዜናዎች እይ'}
-              </button>
-            )}
+            <button 
+              onClick={() => setSection('news' as any)}
+              className="w-full mt-4 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer"
+            >
+              {lang === 'EN' ? 'View All News' : 'ሁሉንም ዜናዎች እይ'}
+            </button>
           </div>
 
           {/* Upcoming webinars */}
@@ -262,53 +497,45 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
       )}
 
       {section === 'mentor' && (
-        <div className="space-y-4">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">{lang === 'EN' ? 'Connect with licensed EPA members for mentorship.' : 'ለሙያ መምሪያ ከሙያ አባላት ጋር ይገናኙ።'}</p>
-          {[
-            { name: 'Dr. Selamawit Bekele', specialty: 'Clinical & Trauma Psychology', workplace: 'AAU & Tikur Anbessa', photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200' },
-            { name: 'Dr. Dawit Mekonnen', specialty: 'Neuropsychology', workplace: 'Jimma University', photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200' },
-          ].map((m, i) => (
-            <div key={i} className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-4 flex items-center gap-4">
-              <img src={m.photo} alt={m.name} className="w-14 h-14 rounded-2xl object-cover border border-gray-200 dark:border-white/10 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-black text-sm text-gray-900 dark:text-white">{m.name}</p>
-                <p className="text-xs text-green-700 dark:text-[#d4ff00] font-medium">{m.specialty}</p>
-                <p className="text-[11px] text-neutral-500">{m.workplace}</p>
-              </div>
-              <button onClick={() => onToast(lang === 'EN' ? 'Mentorship request sent!' : 'ጥያቄ ተልኳል!', 'success')}
-                className="shrink-0 px-3 py-1.5 rounded-xl bg-black/5 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-xs font-black text-gray-900 dark:text-white cursor-pointer active:scale-95">
-                {lang === 'EN' ? 'Connect' : 'ያግኙ'}
-              </button>
-            </div>
-          ))}
-          <button onClick={onOpenDirectory}
-            className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border border-dashed border-gray-300 dark:border-white/20 text-sm font-bold text-neutral-600 dark:text-neutral-400 hover:border-[#d4ff00]/40 cursor-pointer transition-colors">
-            <Search className="w-4 h-4" />{lang === 'EN' ? 'Browse all psychologists' : 'ሁሉንም ባለሙያዎች ፈልግ'}
-          </button>
-        </div>
+        <ConnectChatSection member={member} lang={lang} onToast={onToast} />
       )}
 
       {section === 'jobs' && (
         <div className="space-y-4">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">{lang === 'EN' ? 'Graduate & internship opportunities in psychology.' : 'የምሩቃን እና ልምምድ እድሎች።'}</p>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'Jobs & Internships' : 'ስራ እና ልምምድ'}</h3>
+              <p className="text-xs text-neutral-500 mt-0.5">{lang === 'EN' ? 'Graduate & internship opportunities in psychology across Ethiopia.' : 'የምሩቃን እና ልምምድ እድሎች'}</p>
+            </div>
+          </div>
           {[
-            { title: 'Psychosocial Support Intern', org: 'UNHCR Ethiopia', location: 'Addis Ababa', type: 'Internship', posted: '2 days ago' },
-            { title: 'Research Assistant – Mental Health', org: 'Jimma University', location: 'Jimma', type: 'Part-time', posted: '1 week ago' },
-            { title: 'School Counselor (Graduate)', org: 'Addis Ababa Education Bureau', location: 'Addis Ababa', type: 'Full-time', posted: '3 days ago' },
+            { title: 'Psychosocial Support Intern', org: 'UNHCR Ethiopia', location: 'Addis Ababa', type: 'Internship', deadline: 'Sep 15, 2026', pay: 'Stipend: 3,500 ETB/mo' },
+            { title: 'Research Assistant – Mental Health', org: 'Jimma University', location: 'Jimma', type: 'Part-time', deadline: 'Sep 20, 2026', pay: '4,000 ETB/mo' },
+            { title: 'School Counselor (Graduate)', org: 'Addis Ababa Education Bureau', location: 'Addis Ababa', type: 'Full-time', deadline: 'Oct 1, 2026', pay: 'Gov. Scale' },
+            { title: 'Community Mental Health Worker', org: 'Partners in Health Ethiopia', location: 'Gondar', type: 'Contract', deadline: 'Sep 30, 2026', pay: 'Negotiable' },
           ].map((job, i) => (
-            <div key={i} className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-5 flex items-start justify-between gap-3">
-              <div>
-                <h4 className="font-black text-sm text-gray-900 dark:text-white">{job.title}</h4>
-                <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">{job.org} • {job.location}</p>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">{job.type}</span>
-                  <span className="text-[10px] text-neutral-500">{job.posted}</span>
+            <div key={i} className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                      job.type === 'Internship' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20' :
+                      job.type === 'Full-time' ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20' :
+                      'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+                    }`}>{job.type}</span>
+                  </div>
+                  <h4 className="font-black text-sm text-gray-900 dark:text-white">{job.title}</h4>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">{job.org} • {job.location}</p>
+                  <div className="flex items-center gap-3 mt-2 text-[10px] text-neutral-500">
+                    <span>Deadline: {job.deadline}</span>
+                    <span className="text-[#d4ff00]/80">{job.pay}</span>
+                  </div>
                 </div>
+                <button onClick={() => onToast(lang === 'EN' ? 'Opening application form...' : 'ማመልከቻ እየተከፈተ ነው...', 'info')}
+                  className="shrink-0 px-3 py-2 rounded-xl bg-[#d4ff00] text-black text-[10px] font-black uppercase cursor-pointer active:scale-95 hover:bg-[#c3eb00]">
+                  Apply
+                </button>
               </div>
-              <button onClick={() => onToast(lang === 'EN' ? 'Opening application...' : 'ማመልከቻ እየተከፈተ ነው...', 'info')}
-                className="shrink-0 p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-gray-200 dark:border-white/10 cursor-pointer">
-                <ExternalLink className="w-4 h-4 text-neutral-500" />
-              </button>
             </div>
           ))}
         </div>
@@ -316,17 +543,14 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
 
       {section === 'news' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-2">
             <Bell className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
             <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'All News & Announcements' : 'ሁሉም ዜናዎች'}</h3>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {announcements.map(ann => (
-              <div key={ann.id} className="flex flex-col gap-2 p-4 rounded-xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 hover:border-[#d4ff00]/40 transition-colors">
-                <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
-                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-1">{ann.content}</p>
-                <p className="text-[10px] text-neutral-500">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
-              </div>
+              <AnnouncementCard key={ann.id} ann={ann} lang={lang} onToast={onToast}
+                likedAnn={likedAnn} setLikedAnn={setLikedAnn} />
             ))}
           </div>
         </div>
