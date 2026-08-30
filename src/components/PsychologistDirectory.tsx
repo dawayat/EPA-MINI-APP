@@ -30,6 +30,7 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCity, setSelectedCity] = useState<string>('ALL');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('ALL');
+  const [selectedMembershipType, setSelectedMembershipType] = useState<'ALL' | 'FULL' | 'STUDENT' | 'CORPORATE'>('ALL');
   const [selectedMemberModal, setSelectedMemberModal] = useState<Member | null>(null);
 
   const cities = ['ALL', 'Addis Ababa', 'Hawassa', 'Bahir Dar', 'Jimma', 'Mekelle', 'Gondar'];
@@ -42,15 +43,16 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
     'Industrial & Organizational Psychology'
   ];
 
-  // The public directory is a member directory, not a licensing register.
-  // Students and organisations therefore never appear as psychologists.
-  const directoryMembers = members.filter(member => member.membership_type === 'FULL' && member.status === 'ACTIVE');
+  // This is a membership directory. Students are explicitly shown as student
+  // members rather than being labelled with a professional specialty.
+  const directoryMembers = members.filter(member => member.status === 'ACTIVE');
   const filtered = directoryMembers.filter(m => {
     const matchesCity = selectedCity === 'ALL' || m.city === selectedCity;
-    const matchesSpec = selectedSpecialty === 'ALL' || (m.specialty || '').includes(selectedSpecialty);
-    const searchString = `${m.first_name} ${m.father_name} ${m.specialty} ${m.workplace} ${m.city}`.toLowerCase();
+    const matchesType = selectedMembershipType === 'ALL' || m.membership_type === selectedMembershipType;
+    const matchesSpec = selectedSpecialty === 'ALL' || m.membership_type === 'STUDENT' || (m.specialty || '').includes(selectedSpecialty);
+    const searchString = `${m.first_name} ${m.father_name} ${m.specialty || ''} ${m.student_profile?.field_of_study || ''} ${m.workplace || ''} ${m.student_profile?.university_name || ''} ${m.city}`.toLowerCase();
     const matchesSearch = !searchQuery || searchString.includes(searchQuery.toLowerCase());
-    return matchesCity && matchesSpec && matchesSearch;
+    return matchesCity && matchesType && matchesSpec && matchesSearch;
   });
 
   return (
@@ -61,11 +63,11 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
           {lang === 'EN' ? 'EPA Member Directory' : 'የEPA አባላት ማውጫ'}
         </span>
         <h1 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white font-syne uppercase tracking-tight mt-3">
-          {lang === 'EN' ? 'Find EPA Professional Members' : 'የEPA ሙሉ አባላትን ይፈልጉ'}
+          {lang === 'EN' ? 'Find EPA Members' : 'የEPA አባላትን ይፈልጉ'}
         </h1>
         <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-2">
           {lang === 'EN'
-            ? 'Discover active EPA full professional members by name, field, workplace, or city.'
+            ? 'Discover active EPA full, student, and corporate members by name, field, institution, or city.'
             : 'በአዲስ አበባ እና በክልል ከተሞች የሚገኙ የተመሰከረላቸውን የስነ-ልቦና ባለሙያዎች በቀላሉ ያግኙ።'}
         </p>
       </div>
@@ -93,6 +95,9 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
               {cities.map(c => (
                 <option key={c} value={c} className="bg-gray-50 dark:bg-[#121214]">{c === 'ALL' ? 'All Cities (ሁሉም ከተሞች)' : c}</option>
               ))}
+            </select>
+            <select value={selectedMembershipType} onChange={(e) => setSelectedMembershipType(e.target.value as typeof selectedMembershipType)} className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-xs font-mono font-semibold text-stone-700 dark:text-stone-300 bg-gray-50 dark:bg-[#09090b]">
+              <option value="ALL">All members</option><option value="FULL">Full members</option><option value="STUDENT">Student members</option><option value="CORPORATE">Corporate members</option>
             </select>
           </div>
         </div>
@@ -150,18 +155,19 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
                   <div className="text-[11px] font-mono text-stone-600 dark:text-stone-400 mt-0.5">
                     {member.membership_number}
                   </div>
+                  <span className={`inline-flex mt-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-black uppercase ${member.membership_type === 'STUDENT' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-300' : member.membership_type === 'CORPORATE' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-300' : 'bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00]'}`}>{member.membership_type === 'STUDENT' ? 'Student Member' : member.membership_type === 'CORPORATE' ? 'Corporate Member' : 'Full Professional Member'}</span>
                 </div>
               </div>
 
               <div className="space-y-2 text-xs">
                 <div className="font-semibold text-stone-700 dark:text-stone-200 flex items-start gap-1.5">
                   <Award className="w-3.5 h-3.5 text-green-700 dark:text-[#d4ff00] shrink-0 mt-0.5" />
-                  <span>{member.specialty || 'Psychology'}</span>
+                  <span>{member.membership_type === 'STUDENT' ? (member.student_profile?.field_of_study || 'Psychology student') : (member.specialty || 'Psychology')}</span>
                 </div>
 
                 <div className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
                   <Building className="w-3.5 h-3.5 text-stone-600 dark:text-stone-500 shrink-0" />
-                  <span className="truncate">{member.workplace || 'EPA full professional member'}</span>
+                  <span className="truncate">{member.membership_type === 'STUDENT' ? (member.student_profile?.university_name || 'EPA student member') : (member.workplace || member.corporate_profile?.organization_name || 'EPA member')}</span>
                 </div>
 
                 <div className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
@@ -220,16 +226,16 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
 
             <div className="space-y-2 text-xs pt-2">
               <div className="flex justify-between py-1 border-b border-gray-100 dark:border-white/5">
-                <span className="text-stone-600 dark:text-stone-400 font-mono">Specialization:</span>
-                <span className="font-bold text-gray-900 dark:text-white">{selectedMemberModal.specialty || 'Psychology'}</span>
+                <span className="text-stone-600 dark:text-stone-400 font-mono">{selectedMemberModal.membership_type === 'STUDENT' ? 'Programme:' : 'Professional Field:'}</span>
+                <span className="font-bold text-gray-900 dark:text-white">{selectedMemberModal.membership_type === 'STUDENT' ? (selectedMemberModal.student_profile?.field_of_study || 'Psychology student') : (selectedMemberModal.specialty || 'Psychology')}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-gray-100 dark:border-white/5">
-                <span className="text-stone-600 dark:text-stone-400 font-mono">Workplace / Institution:</span>
-                <span className="font-bold text-gray-900 dark:text-white">{selectedMemberModal.workplace || 'Not listed'}</span>
+                <span className="text-stone-600 dark:text-stone-400 font-mono">{selectedMemberModal.membership_type === 'STUDENT' ? 'University:' : 'Workplace / Institution:'}</span>
+                <span className="font-bold text-gray-900 dark:text-white">{selectedMemberModal.membership_type === 'STUDENT' ? (selectedMemberModal.student_profile?.university_name || 'Not listed') : (selectedMemberModal.workplace || selectedMemberModal.corporate_profile?.organization_name || 'Not listed')}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-gray-100 dark:border-white/5">
                 <span className="text-stone-600 dark:text-stone-400 font-mono">EPA Membership:</span>
-                <span className="font-mono font-bold text-green-700 dark:text-[#d4ff00]">Active Full Member</span>
+                <span className="font-mono font-bold text-green-700 dark:text-[#d4ff00]">Active {selectedMemberModal.membership_type === 'STUDENT' ? 'Student' : selectedMemberModal.membership_type === 'CORPORATE' ? 'Corporate' : 'Full'} Member</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-stone-600 dark:text-stone-400 font-mono">Email:</span>

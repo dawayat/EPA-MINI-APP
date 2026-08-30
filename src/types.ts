@@ -69,6 +69,13 @@ export interface PaymentProof {
   receipt_url?: string;
 }
 
+export interface RenewalRequest {
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requested_at: string;
+  payment: PaymentProof;
+  reviewed_at?: string;
+}
+
 export interface Application {
   id: string;
   application_number: string;
@@ -153,6 +160,7 @@ export interface Member {
   
   // Admin
   is_admin?: boolean;
+  renewal_request?: RenewalRequest;
   
   // Corporate specific
   corporate_profile?: CorporateProfile;
@@ -179,6 +187,11 @@ export interface Announcement {
   is_published?: boolean;
   file_attachment_url?: string;
   is_draft?: boolean;
+  telegram_media_url?: string;
+  telegram_media_type?: 'image' | 'video';
+  publish_to_telegram?: boolean;
+  telegram_button_label?: string;
+  telegram_button_url?: string;
 }
 
 export type AnnouncementVoteChoice = 'approve' | 'adjust';

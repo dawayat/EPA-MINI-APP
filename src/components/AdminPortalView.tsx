@@ -3,7 +3,7 @@ import {
   Users, Clock, CreditCard, CheckCircle2, XCircle, AlertTriangle,
   Search, FileText, Plus, Building, ShieldCheck, Send, Eye, Check,
   X, ExternalLink, History, GraduationCap, Vote, BookOpen, BarChart2,
-  Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud, Settings, Mail, Phone, ClipboardCheck
+  Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud, Settings, Mail, Phone, ClipboardCheck, ScanLine, RefreshCw
 } from 'lucide-react';
 import { uploadFile } from '../lib/api';
 import { Application, Member, University, Announcement, AuditLog, ApplicationStatus, ResearchSubmission } from '../types';
@@ -21,7 +21,7 @@ interface AdminPortalViewProps {
   onRejectApplication: (appId: string, reason: string) => void;
   onRequestCorrection: (appId: string, notes: string) => void;
   onVerifyPayment: (appId: string) => void;
-  onAddAnnouncement: (ann: Partial<Announcement>) => void;
+  onAddAnnouncement: (ann: Partial<Announcement>) => Promise<boolean>;
   onDeleteMember?: (memberId: string) => void;
   onDeleteAnnouncement?: (annId: string) => void;
   onAddUniversity: (uni: Partial<University>) => void;
@@ -86,13 +86,28 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     cover_photo_url: '',
     is_draft: false,              // If true, opens voting before publishing
     file_attachment_url: '',      // Optional PDF/doc attachment
-    target_audience: [] as string[]
+    target_audience: [] as string[],
+    publish_to_telegram: true,
+    telegram_media_url: '',
+    telegram_media_type: 'image' as 'image' | 'video',
+    telegram_button_label: 'Open EPA Mini App',
+    telegram_button_url: ''
   });
   
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const annFileInputRef = React.useRef<HTMLInputElement>(null);
   const annCoverInputRef = React.useRef<HTMLInputElement>(null);
+  const annTelegramMediaInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUploadingTelegramMedia, setIsUploadingTelegramMedia] = useState(false);
+  const [attendanceEvent, setAttendanceEvent] = useState('EPA Member Event');
+  const [scanValue, setScanValue] = useState('');
+  const [scanResult, setScanResult] = useState<{ success: boolean; message: string; member?: Member } | null>(null);
+  const [isRecordingAttendance, setIsRecordingAttendance] = useState(false);
+  const [isCameraScanning, setIsCameraScanning] = useState(false);
+  const attendanceVideoRef = React.useRef<HTMLVideoElement>(null);
+  const attendanceStreamRef = React.useRef<MediaStream | null>(null);
+  const scannerActiveRef = React.useRef(false);
 
   // Draft votes local state: announcementId -> { approve: number, adjust: number, userVote: string | null }
   const [draftVotes, setDraftVotes] = useState<Record<string, { approve: number; adjust: number; userVote: string | null }>>({});
@@ -207,15 +222,75 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     }
   };
 
-  const handlePublishAnnouncement = () => {
+  const handlePublishAnnouncement = async () => {
     if (!newAnn.title || !newAnn.content) {
       onToast(lang === 'EN' ? 'Title and content are required' : 'ርዕስ እና ይዘት ያስፈልጋል', 'error');
       return;
     }
-    onAddAnnouncement(newAnn);
+    const published = await onAddAnnouncement(newAnn);
+    if (!published) return;
     setShowAnnModal(false);
-    setNewAnn({ title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '' });
-    onToast(lang === 'EN' ? 'Announcement published live to member portal!' : 'ማስታወቂያው ይፋ ሆኗል!', 'success');
+    setNewAnn({ title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '', is_draft: false, file_attachment_url: '', target_audience: [], publish_to_telegram: true, telegram_media_url: '', telegram_media_type: 'image', telegram_button_label: 'Open EPA Mini App', telegram_button_url: '' });
+  };
+
+  const stopAttendanceCamera = () => {
+    scannerActiveRef.current = false;
+    attendanceStreamRef.current?.getTracks().forEach(track => track.stop());
+    attendanceStreamRef.current = null;
+    setIsCameraScanning(false);
+  };
+
+  const recordAttendance = async (rawValue?: string) => {
+    const scanned = String(rawValue || scanValue).trim();
+    if (!scanned || !attendanceEvent.trim()) { onToast('Enter an event name and scan or paste an EPA ID.', 'error'); return; }
+    const tokenMatch = scanned.match(/[?&]verify=([^&]+)/i);
+    const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : (scanned.startsWith('epa_tok_') ? scanned : '');
+    const membership_number = token ? '' : scanned;
+    setIsRecordingAttendance(true); setScanResult(null);
+    try {
+      const response = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'record-attendance', token, membership_number, event_name: attendanceEvent.trim(), checked_in_by: 'EPA admin scanner' }) });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'ID could not be verified.');
+      setScanResult({ success: true, message: `${result.member.first_name} ${result.member.father_name} verified and checked in at ${attendanceEvent}.`, member: result.member });
+      setScanValue(''); onToast('EPA member verified and attendance recorded.', 'success');
+    } catch (error: any) {
+      setScanResult({ success: false, message: error.message || 'ID could not be verified.' });
+      onToast(error.message || 'ID could not be verified.', 'error');
+    } finally { setIsRecordingAttendance(false); }
+  };
+
+  const startAttendanceCamera = async () => {
+    const Scanner = (window as any).BarcodeDetector;
+    if (!Scanner) { onToast('Camera QR scanning is not supported by this browser. Paste the membership number or verification link instead.', 'info'); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      attendanceStreamRef.current = stream; scannerActiveRef.current = true; setIsCameraScanning(true);
+      window.setTimeout(async () => {
+        const video = attendanceVideoRef.current;
+        if (!video) return;
+        video.srcObject = stream; await video.play();
+        const detector = new Scanner({ formats: ['qr_code'] });
+        const scanFrame = async () => {
+          if (!scannerActiveRef.current) return;
+          try {
+            const codes = await detector.detect(video);
+            if (codes[0]?.rawValue) { stopAttendanceCamera(); setScanValue(codes[0].rawValue); await recordAttendance(codes[0].rawValue); return; }
+          } catch (error) { console.warn('[attendance scanner]', error); }
+          window.requestAnimationFrame(scanFrame);
+        };
+        void scanFrame();
+      }, 0);
+    } catch (error: any) { stopAttendanceCamera(); onToast(error.message || 'Camera access was not granted.', 'error'); }
+  };
+
+  const approvePendingRenewal = async (memberId: string) => {
+    try {
+      const response = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'approve-renewal', memberId }) });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Could not approve renewal.');
+      await onMembersImported();
+      onToast('Membership renewed for one year and activated.', 'success');
+    } catch (error: any) { onToast(error.message || 'Could not approve renewal.', 'error'); }
   };
 
   return (
@@ -505,6 +580,21 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             <div className="flex flex-wrap gap-2"><input ref={csvImportRef} type="file" accept=".csv,text/csv" className="hidden" onChange={event => importMemberCsv(event.target.files?.[0])} /><button onClick={downloadMemberCsvSample} className="px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/15 bg-white dark:bg-white/5 text-xs font-black uppercase text-gray-900 dark:text-white">Download CSV sample</button><button onClick={() => csvImportRef.current?.click()} disabled={isImportingMembers} className="px-3.5 py-2.5 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase disabled:opacity-50">{isImportingMembers ? 'Importing…' : 'Upload member CSV'}</button></div>
           </div>
           {memberImportResult && <div className={`p-4 rounded-2xl border text-xs ${memberImportResult.errors.length ? 'bg-amber-500/10 border-amber-500/25 text-amber-800 dark:text-amber-300' : 'bg-green-500/10 border-green-500/25 text-green-800 dark:text-green-300'}`}><b>{memberImportResult.created} account(s) created.</b>{memberImportResult.errors.length > 0 && <details className="mt-2"><summary className="cursor-pointer font-bold">{memberImportResult.errors.length} row issue(s) — review details</summary><ul className="mt-2 space-y-1 list-disc pl-5">{memberImportResult.errors.map(error => <li key={error}>{error}</li>)}</ul></details>}</div>}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="rounded-2xl p-5 bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2"><ScanLine className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" /><h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">ID verification & attendance</h3></div>
+              <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">Scan the QR code on an EPA Digital ID or paste a membership number. Only active members can be checked in.</p>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2"><input value={attendanceEvent} onChange={event => setAttendanceEvent(event.target.value)} placeholder="Event name" className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-xs text-gray-900 dark:text-white" /><button onClick={isCameraScanning ? stopAttendanceCamera : startAttendanceCamera} className={`px-3 py-2.5 rounded-xl text-xs font-black uppercase ${isCameraScanning ? 'bg-red-500 text-white' : 'bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white'}`}>{isCameraScanning ? 'Stop camera' : 'Scan QR'}</button></div>
+              {isCameraScanning && <video ref={attendanceVideoRef} muted playsInline className="mt-3 w-full aspect-video rounded-xl object-cover bg-black border border-[#d4ff00]/30" />}
+              <div className="mt-3 flex gap-2"><input value={scanValue} onChange={event => setScanValue(event.target.value)} onKeyDown={event => event.key === 'Enter' && void recordAttendance()} placeholder="Paste QR link, token, or membership number" className="min-w-0 flex-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-xs text-gray-900 dark:text-white" /><button onClick={() => void recordAttendance()} disabled={isRecordingAttendance} className="px-3 py-2.5 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase disabled:opacity-50">{isRecordingAttendance ? 'Checking…' : 'Verify'}</button></div>
+              {scanResult && <div className={`mt-3 p-3 rounded-xl text-xs ${scanResult.success ? 'bg-green-500/10 text-green-800 dark:text-green-300 border border-green-500/25' : 'bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/25'}`}><b>{scanResult.success ? 'Verified & checked in' : 'Not verified'}</b><p className="mt-1">{scanResult.message}</p></div>}
+            </div>
+            <div className="rounded-2xl p-5 bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" /><h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">Renewal review</h3></div>
+              <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">Approve verified CBE renewal requests to reactivate the member and extend their membership by one year.</p>
+              <div className="mt-3 space-y-2 max-h-44 overflow-y-auto">{members.filter(member => member.renewal_request?.status === 'PENDING').length === 0 ? <p className="py-5 text-center text-xs text-neutral-500">No CBE renewals are waiting for review.</p> : members.filter(member => member.renewal_request?.status === 'PENDING').map(member => <div key={member.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-black/20 border border-gray-200 dark:border-white/10"><div className="min-w-0"><p className="font-bold text-xs text-gray-900 dark:text-white truncate">{member.first_name} {member.father_name}</p><p className="text-[10px] font-mono text-neutral-500 truncate">CBE: {member.renewal_request?.payment.transaction_number}</p></div><button onClick={() => void approvePendingRenewal(member.id)} className="shrink-0 px-3 py-2 rounded-lg bg-[#d4ff00] text-black text-[10px] font-black uppercase">Approve</button></div>)}</div>
+            </div>
+          </div>
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <input type="checkbox" checked={selectedMembers.length === members.length && members.length > 0}
@@ -1252,6 +1342,18 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               <textarea rows={4} required placeholder="Detailed announcement text..."
                 value={newAnn.content} onChange={(e) => setNewAnn({ ...newAnn, content: e.target.value })}
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
+            </div>
+
+            <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 dark:border-sky-400/20 dark:bg-sky-500/5">
+              <div className="flex items-start justify-between gap-3">
+                <div><p className="text-xs font-black uppercase text-sky-950 dark:text-sky-100">Also publish to EPA TEST CHANNEL</p><p className="mt-1 text-[11px] leading-relaxed text-sky-800/80 dark:text-sky-200/70">Posts a caption, optional image or short video, and a secure button that opens the EPA Mini App.</p></div>
+                <input type="checkbox" checked={newAnn.publish_to_telegram} onChange={event => setNewAnn(current => ({ ...current, publish_to_telegram: event.target.checked }))} className="mt-1 h-4 w-4 accent-[#d4ff00]" aria-label="Publish to Telegram" />
+              </div>
+              {newAnn.publish_to_telegram && <div className="mt-4 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2"><input value={newAnn.telegram_button_label} onChange={event => setNewAnn(current => ({ ...current, telegram_button_label: event.target.value }))} placeholder="Button label" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" /><input value={newAnn.telegram_button_url} onChange={event => setNewAnn(current => ({ ...current, telegram_button_url: event.target.value }))} placeholder="Mini App URL (uses env default when blank)" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" /></div>
+                <div className="flex flex-wrap items-center gap-2"><input ref={annTelegramMediaInputRef} type="file" accept="image/*,video/mp4,video/webm" className="hidden" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; if (file.type.startsWith('video/') && file.size > 2.5 * 1024 * 1024) { onToast('Use a video smaller than 2.5 MB for reliable channel posting.', 'error'); event.currentTarget.value = ''; return; } setIsUploadingTelegramMedia(true); try { const url = await uploadFile(file); setNewAnn(current => ({ ...current, telegram_media_url: url, telegram_media_type: file.type.startsWith('video/') ? 'video' : 'image' })); } catch (error) { onToast('Could not prepare Telegram media.', 'error'); } finally { setIsUploadingTelegramMedia(false); event.currentTarget.value = ''; } }} /><button type="button" onClick={() => annTelegramMediaInputRef.current?.click()} disabled={isUploadingTelegramMedia} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs font-bold text-sky-950 disabled:opacity-60 dark:border-white/10 dark:bg-black dark:text-white"><UploadCloud className="h-4 w-4" />{isUploadingTelegramMedia ? 'Preparing media…' : newAnn.telegram_media_url ? 'Replace image/video' : 'Add image or video'}</button><span className="text-[10px] text-sky-800/70 dark:text-sky-200/60">Video limit: 2.5 MB</span>{newAnn.telegram_media_url && <button type="button" onClick={() => setNewAnn(current => ({ ...current, telegram_media_url: '' }))} className="text-[11px] font-bold text-red-600">Remove</button>}</div>
+                {newAnn.telegram_media_url && (newAnn.telegram_media_type === 'video' ? <video src={newAnn.telegram_media_url} controls className="h-32 w-full rounded-xl bg-black object-cover" /> : <img src={newAnn.telegram_media_url} alt="Telegram post preview" className="h-32 w-full rounded-xl object-cover" />)}
+              </div>}
             </div>
 
             {/* File Attachment */}

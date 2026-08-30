@@ -10,6 +10,7 @@ ALTER TABLE members ADD COLUMN IF NOT EXISTS date_of_birth text;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS phone_password text;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS corporate_profile jsonb;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS student_profile jsonb;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS renewal_request jsonb;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT false;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS phone_password text;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS corporate_profile jsonb;
@@ -72,6 +73,15 @@ CREATE TABLE IF NOT EXISTS research_submissions (
   review_notes text
 );
 
+CREATE TABLE IF NOT EXISTS member_attendance (
+  id text PRIMARY KEY,
+  member_id text NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  membership_number text NOT NULL,
+  event_name text NOT NULL,
+  checked_in_at timestamptz NOT NULL DEFAULT now(),
+  checked_in_by text
+);
+
 CREATE INDEX IF NOT EXISTS announcement_comments_announcement_idx
   ON announcement_comments(announcement_id, created_at);
 CREATE INDEX IF NOT EXISTS member_messages_sender_idx
@@ -80,12 +90,15 @@ CREATE INDEX IF NOT EXISTS member_messages_recipient_idx
   ON member_messages(recipient_id, created_at);
 CREATE INDEX IF NOT EXISTS research_submissions_status_idx
   ON research_submissions(status, submitted_at DESC);
+CREATE INDEX IF NOT EXISTS member_attendance_member_idx
+  ON member_attendance(member_id, checked_in_at DESC);
 
 ALTER TABLE announcement_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE announcement_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE member_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE research_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_verifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE member_attendance ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "open_announcement_comments" ON announcement_comments;
 CREATE POLICY "open_announcement_comments" ON announcement_comments FOR ALL USING (true) WITH CHECK (true);
@@ -96,3 +109,5 @@ CREATE POLICY "open_member_messages" ON member_messages FOR ALL USING (true) WIT
 DROP POLICY IF EXISTS "open_research_submissions" ON research_submissions;
 CREATE POLICY "open_research_submissions" ON research_submissions FOR ALL USING (true) WITH CHECK (true);
 DROP POLICY IF EXISTS "open_email_verifications" ON email_verifications;
+DROP POLICY IF EXISTS "open_member_attendance" ON member_attendance;
+CREATE POLICY "open_member_attendance" ON member_attendance FOR ALL USING (true) WITH CHECK (true);

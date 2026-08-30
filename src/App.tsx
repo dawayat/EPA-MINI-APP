@@ -49,6 +49,14 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('welcome');
   const [activeVerifyToken, setActiveVerifyToken] = useState<string>('epa_tok_9942a17b');
 
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('verify');
+    if (token) {
+      setActiveVerifyToken(token);
+      setCurrentTab('verify');
+    }
+  }, []);
+
   // Initialize Telegram Mini App
   useEffect(() => {
     initTelegramApp();
@@ -407,6 +415,11 @@ export default function App() {
       file_attachment_url: ann.file_attachment_url,
       target_audience: ann.target_audience,
       is_draft: ann.is_draft,
+      telegram_media_url: ann.telegram_media_url,
+      telegram_media_type: ann.telegram_media_type,
+      publish_to_telegram: ann.publish_to_telegram,
+      telegram_button_label: ann.telegram_button_label,
+      telegram_button_url: ann.telegram_button_url,
       likes_count: 0,
       views_count: 1
     };
@@ -415,11 +428,15 @@ export default function App() {
       if (!result.success) {
         console.error('[App] Announcement publish failed:', result.error);
         showToast(`Database error: ${result.error}`, 'error');
+        return false;
       } else {
-        showToast('Announcement published to database!', 'success');
+        if (ann.publish_to_telegram) {
+          showToast(result.telegram?.posted ? 'Announcement published to the portal, email list, and Telegram channel.' : `Announcement published to the portal. Telegram was not posted: ${result.telegram?.error || 'Telegram is not configured.'}`, result.telegram?.posted ? 'success' : 'error');
+        } else showToast('Announcement published to the member portal and email list.', 'success');
       }
     }
     setAnnouncements(prev => [fullAnn, ...prev]);
+    return true;
   };
 
   const handleAddUniversity = (uni: Partial<University>) => {

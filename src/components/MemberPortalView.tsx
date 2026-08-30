@@ -18,6 +18,7 @@ import {
   ResearchSubmission
 } from '../types';
 import { ResearchPortal } from './ResearchPortal';
+import { RenewalPanel } from './RenewalPanel';
 import {
   castAnnouncementVote,
   fetchAnnouncementComments,
@@ -578,6 +579,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
                 <p className="text-xs text-amber-600 dark:text-amber-400">{lang === 'EN' ? `Membership expires in ${daysLeft} days.` : `አባልነትዎ በ${daysLeft} ቀናት ያበቃል።`}</p>
               </div>
             )}
+            <RenewalPanel member={member} lang={lang} onToast={onToast} />
           </div>
 
           </div>
@@ -945,10 +947,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
                 <span className="font-mono font-bold text-gray-900 dark:text-white">{r.value}</span>
               </div>
             ))}
-            <button onClick={() => onToast(lang === 'EN' ? 'Renewal form opened. Complete payment.' : 'ማደሻ ሂደት ተጀምሯል።', 'info')}
-              className="w-full mt-4 py-3 rounded-xl bg-[#d4ff00] text-black font-black uppercase tracking-wider text-sm cursor-pointer active:scale-95">
-              {lang === 'EN' ? 'Renew Membership (ETB 1,500)' : 'አባልነት አድስ (ብር 1,500)'}
-            </button>
+            <RenewalPanel member={member} lang={lang} onToast={onToast} />
           </div>
         </div>
       )}
@@ -1068,6 +1067,7 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
               className="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-500 dark:text-amber-400 text-xs font-black uppercase tracking-wider cursor-pointer active:scale-95">
               {lang === 'EN' ? 'Download Membership Badge' : 'የአባልነት ምልክት አውርድ'}
             </button>
+            <RenewalPanel member={member} lang={lang} onToast={onToast} />
           </div>
         </div>
       )}

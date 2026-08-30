@@ -8,6 +8,9 @@ const dateValue = (value) => {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
+const safeMember = (member) => member ? { ...member, phone_password: undefined } : member;
+const isCurrentlyActive = (member) => member?.status === 'ACTIVE' && (!member.expires_at || new Date(member.expires_at).getTime() >= Date.now());
+
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -15,11 +18,55 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const rows = await dbSelect('members', 'order=created_at.desc');
-      return res.status(200).json(rows);
+      return res.status(200).json(rows.map(safeMember));
     }
 
     if (req.method === 'POST') {
       const m = req.body;
+      if (m.action === 'record-attendance') {
+        const token = String(m.token || '').trim();
+        const membershipNumber = String(m.membership_number || '').trim();
+        const eventName = String(m.event_name || '').trim();
+        if ((!token && !membershipNumber) || !eventName) return res.status(400).json({ success: false, error: 'A scanned ID and event name are required.' });
+        let member = token ? (await dbSelect('members', `verification_token=eq.${encodeURIComponent(token)}&limit=1`))[0] : null;
+        if (!member && membershipNumber) member = (await dbSelect('members', `membership_number=eq.${encodeURIComponent(membershipNumber)}&limit=1`))[0];
+        if (!member) return res.status(404).json({ success: false, error: 'No EPA membership record was found for this ID.' });
+        if (!isCurrentlyActive(member)) return res.status(409).json({ success: false, error: 'This EPA membership is expired, suspended, or inactive. Attendance was not recorded.', member: safeMember(member) });
+        const attendance = {
+          id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          member_id: member.id,
+          membership_number: member.membership_number,
+          event_name: eventName,
+          checked_in_by: String(m.checked_in_by || 'EPA admin')
+        };
+        await dbInsert('member_attendance', attendance);
+        return res.status(201).json({ success: true, member: safeMember(member), attendance: { ...attendance, checked_in_at: new Date().toISOString() } });
+      }
+      if (m.action === 'submit-renewal') {
+        const memberId = String(m.memberId || '').trim();
+        const reference = String(m.transaction_number || '').trim();
+        const receipt = String(m.receipt_url || '').trim();
+        if (!memberId || !reference || !receipt) return res.status(400).json({ success: false, error: 'CBE transaction reference and receipt are required for renewal.' });
+        const member = (await dbSelect('members', `id=eq.${encodeURIComponent(memberId)}&limit=1`))[0];
+        if (!member) return res.status(404).json({ success: false, error: 'Member account was not found.' });
+        const renewal_request = {
+          status: 'PENDING', requested_at: new Date().toISOString(),
+          payment: { id: `renew-${Date.now()}`, amount: Number(m.amount || 1500), currency: 'ETB', provider: 'CBE', transaction_number: reference, payment_date: new Date().toISOString().slice(0, 10), status: 'PENDING', receipt_url: receipt }
+        };
+        await dbUpdate('members', { renewal_request }, 'id', memberId);
+        return res.status(200).json({ success: true, renewal_request });
+      }
+      if (m.action === 'approve-renewal') {
+        const memberId = String(m.memberId || '').trim();
+        const member = (await dbSelect('members', `id=eq.${encodeURIComponent(memberId)}&limit=1`))[0];
+        if (!member?.renewal_request || member.renewal_request.status !== 'PENDING') return res.status(400).json({ success: false, error: 'No pending renewal was found for this member.' });
+        const currentExpiry = new Date(member.expires_at || 0);
+        const base = Number.isNaN(currentExpiry.getTime()) || currentExpiry.getTime() < Date.now() ? new Date() : currentExpiry;
+        const expiresAt = new Date(base); expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        const renewal_request = { ...member.renewal_request, status: 'APPROVED', reviewed_at: new Date().toISOString(), payment: { ...member.renewal_request.payment, status: 'VERIFIED' } };
+        await dbUpdate('members', { status: 'ACTIVE', expires_at: expiresAt.toISOString(), renewal_request }, 'id', memberId);
+        return res.status(200).json({ success: true, member: safeMember({ ...member, status: 'ACTIVE', expires_at: expiresAt.toISOString(), renewal_request }) });
+      }
       if (m.action === 'bulk-import') {
         if (!Array.isArray(m.rows) || m.rows.length === 0) return res.status(400).json({ success: false, error: 'Choose a CSV with at least one member row.' });
         if (m.rows.length > 200) return res.status(400).json({ success: false, error: 'Import a maximum of 200 members at a time.' });

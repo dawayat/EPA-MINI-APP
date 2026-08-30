@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import { 
   RotateCw, 
   Share2, 
@@ -30,12 +31,19 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
 
   const isFullMember = member.membership_type === 'FULL';
   const isStudent = member.membership_type === 'STUDENT';
+  const verifyUrl = `${window.location.origin}/?verify=${encodeURIComponent(member.verification_token)}`;
+
+  useEffect(() => {
+    QRCode.toDataURL(verifyUrl, { width: 320, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#080808', light: '#ffffff' } })
+      .then(setQrDataUrl)
+      .catch(error => console.error('[Digital ID] QR generation failed:', error));
+  }, [verifyUrl]);
 
   const handleShare = () => {
-    const verifyUrl = `${window.location.origin}/?verify=${member.verification_token}`;
     if (navigator.clipboard) {
       navigator.clipboard.writeText(verifyUrl);
       onToast(
@@ -47,13 +55,37 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
     }
   };
 
-  const handleDownloadWallet = () => {
-    if (isTelegramMiniApp()) {
-      onToast(lang === 'EN' ? 'Please open in browser to download ID card.' : 'መታወቂያውን ለማውረድ በብሮውዘር ይክፈቱ', 'info');
+  const handleDownloadWallet = async () => {
+    if (!qrDataUrl) {
+      onToast(lang === 'EN' ? 'Preparing your QR code. Please try again in a moment.' : 'የQR ኮድ በመዘጋጀት ላይ ነው።', 'info');
       return;
     }
     setIsDownloading(true);
-    setTimeout(() => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1600; canvas.height = 1000;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Your browser does not support ID download.');
+      const gradient = context.createLinearGradient(0, 0, 1600, 1000);
+      gradient.addColorStop(0, '#0a0a0c'); gradient.addColorStop(0.55, '#173719'); gradient.addColorStop(1, '#101712');
+      context.fillStyle = gradient; context.fillRect(0, 0, canvas.width, canvas.height);
+      context.strokeStyle = '#d4ff00'; context.lineWidth = 5; context.strokeRect(28, 28, canvas.width - 56, canvas.height - 56);
+      context.fillStyle = '#d4ff00'; context.font = '700 32px Arial'; context.fillText('ETHIOPIAN PSYCHOLOGISTS’ ASSOCIATION', 90, 115);
+      context.fillStyle = '#ffffff'; context.font = '700 64px Arial'; context.fillText(`${member.first_name} ${member.father_name}`, 90, 265);
+      context.fillStyle = '#d4ff00'; context.font = '600 32px Arial'; context.fillText(isStudent ? 'STUDENT MEMBER' : isFullMember ? 'FULL PROFESSIONAL MEMBER' : 'CORPORATE MEMBER', 90, 325);
+      context.fillStyle = '#c7d0c7'; context.font = '500 30px Arial'; context.fillText(`Membership No.  ${member.membership_number}`, 90, 410);
+      context.fillText(`Status  ${member.status}`, 90, 465);
+      context.fillText(`Valid through  ${new Date(member.expires_at).toLocaleDateString()}`, 90, 520);
+      context.fillStyle = '#93a493'; context.font = '500 23px Arial'; context.fillText('Scan the QR code to verify this EPA membership record.', 90, 870);
+      const qrImage = new Image();
+      await new Promise<void>((resolve, reject) => { qrImage.onload = () => resolve(); qrImage.onerror = () => reject(new Error('QR image could not be created.')); qrImage.src = qrDataUrl; });
+      context.fillStyle = '#ffffff'; context.fillRect(1120, 180, 350, 350); context.drawImage(qrImage, 1140, 200, 310, 310);
+      context.fillStyle = '#d4ff00'; context.font = '700 23px Arial'; context.fillText('SCAN TO VERIFY', 1165, 585);
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('Could not create your ID image.');
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a'); anchor.href = url; anchor.download = `EPA-${member.membership_number}-digital-id.png`; anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setIsDownloading(false);
       onToast(
         lang === 'EN'
@@ -61,7 +93,12 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
           : 'ዲጂታል የኢሳይባ አባልነት ካርድ በተሳካ ሁኔታ ወርዷል!',
         'success'
       );
-    }, 1200);
+    } catch (error: any) {
+      console.error('[Digital ID] Download failed:', error);
+      onToast(error.message || 'Could not download this ID card.', 'error');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handlePrint = () => {
@@ -235,22 +272,15 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
             <div className="pt-8">
               {/* Security Statement */}
               <div className="text-[8px] text-neutral-400 leading-tight border-b border-white/10 pb-2">
-                This credential confirms professional registration under the Ethiopian Psychologists’ Association Code of Ethics. 
-                Any misuse or forgery is strictly punishable under FDRE proclamation laws. Property of EPA.
+                This card confirms active EPA association membership and the member’s agreement to the EPA Code of Ethics. It does not represent government licensure or accreditation.
               </div>
             </div>
 
             {/* QR Code Verification Section */}
             <div className="flex items-center justify-between gap-4 my-auto bg-black/5 dark:bg-black/60 p-3.5 rounded-2xl border border-white/10">
               <div className="w-20 h-20 bg-white rounded-xl p-1 flex items-center justify-center shadow-md">
-                {/* Visual Representation of High Security QR Code */}
                 <div className="relative w-full h-full flex items-center justify-center bg-white border border-neutral-200 rounded-lg">
-                  <QrCode className="w-16 h-16 text-black" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-4 h-4 bg-black rounded-sm flex items-center justify-center text-[7px] font-black text-[#d4ff00]">
-                      E
-                    </div>
-                  </div>
+                  {qrDataUrl ? <img src={qrDataUrl} alt="EPA membership verification QR code" className="w-full h-full object-contain" /> : <QrCode className="w-16 h-16 text-black animate-pulse" />}
                 </div>
               </div>
 

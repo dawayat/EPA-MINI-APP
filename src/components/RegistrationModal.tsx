@@ -144,6 +144,7 @@ export default function RegistrationModal({
   const [emailVerificationSent, setEmailVerificationSent] = useState(false);
   const [emailVerificationCode, setEmailVerificationCode] = useState('');
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
 
   // Sync state when modal opens with a specific tier
   React.useEffect(() => {
@@ -153,6 +154,7 @@ export default function RegistrationModal({
       setIsSuccess(false);
       setEmailVerificationSent(false);
       setEmailVerificationCode('');
+      setShowEmailVerification(false);
     }
   }, [isOpen, initialTier]);
 
@@ -162,7 +164,7 @@ export default function RegistrationModal({
     qualifications: [{ degree_level: 'BSc', field: '', institution: '', graduation_year: new Date().getFullYear() }],
     student_profile: { academic_year: 1 },
     corporate_profile: { focus_areas: [] },
-    payment: { provider: 'Telebirr' }
+    payment: { provider: 'CBE' }
   });
 
   if (!isOpen) return null;
@@ -196,17 +198,32 @@ export default function RegistrationModal({
     setStep(s => Math.max(0, s - 1));
   };
 
+  const applicantEmail = tier === 'CORPORATE' ? formData.corporate_profile?.contact_email : formData.email;
+  const applicantName = tier === 'CORPORATE'
+    ? (formData.corporate_profile?.organization_name || formData.corporate_profile?.contact_person || 'EPA applicant')
+    : `${formData.first_name || ''} ${formData.father_name || ''}`.trim();
+
+  const validateBeforeEmailVerification = () => {
+    if (!applicantEmail || !String(applicantEmail).includes('@')) { onToast('Enter a valid email address before verification.', 'error'); return false; }
+    if (!formData.phone_password || String(formData.phone_password).length < 8) { onToast('Create a password with at least 8 characters before verifying your email.', 'error'); return false; }
+    if (formData.phone_password !== formData.phone_password_confirm) { onToast('Your password confirmation does not match.', 'error'); return false; }
+    if (!formData.agreed_to_ethics) { onToast('You must agree to the EPA Code of Ethics before submitting.', 'error'); return false; }
+    if (!formData.payment?.transaction_number || !formData.payment?.receipt_url) { onToast('Enter your CBE transaction reference and attach the payment receipt.', 'error'); return false; }
+    return true;
+  };
+
   const requestEmailVerification = async () => {
-    if (!formData.email) {
+    if (!applicantEmail) {
       onToast('Please enter a valid email address before submitting.', 'error');
       return false;
     }
     setIsVerifyingEmail(true);
     try {
-      const response = await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send-verification', email: formData.email, name: `${formData.first_name || ''} ${formData.father_name || ''}`.trim() }) });
+      const response = await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send-verification', email: applicantEmail, name: applicantName }) });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Could not send the verification code.');
       setEmailVerificationSent(true);
+      setShowEmailVerification(true);
       onToast('The verification email was sent. Check Inbox and Spam/Junk, then mark it “Not spam” if needed.', 'success');
       return true;
     } catch (error: any) {
@@ -219,6 +236,7 @@ export default function RegistrationModal({
 
   const handleSubmit = async () => {
     if (!emailVerificationSent) {
+      if (!validateBeforeEmailVerification()) return;
       await requestEmailVerification();
       return;
     }
@@ -228,14 +246,21 @@ export default function RegistrationModal({
     }
     setIsVerifyingEmail(true);
     try {
-      const verificationResponse = await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify-email', email: formData.email, verificationCode: emailVerificationCode.trim() }) });
+      const verificationResponse = await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify-email', email: applicantEmail, verificationCode: emailVerificationCode.trim() }) });
       const verification = await verificationResponse.json();
       if (!verificationResponse.ok || !verification.success) throw new Error(verification.error || 'Email verification failed.');
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const generatedAppNum = `EPA-${new Date().getFullYear()}-${randomNum}`;
     
+    const corporateIdentity = tier === 'CORPORATE' ? {
+      first_name: formData.corporate_profile?.organization_name || 'EPA Corporate',
+      father_name: 'Organisation',
+      email: applicantEmail,
+      phone: formData.corporate_profile?.contact_phone || '',
+      city: formData.corporate_profile?.headquarters_city || ''
+    } : {};
     await onSubmitApplication({
-      ...formData,
+      ...formData, ...corporateIdentity,
       membership_type: tier,
       application_number: generatedAppNum,
       id: `app-${Date.now()}`,
@@ -325,7 +350,7 @@ export default function RegistrationModal({
         <Input label="Phone Number" type="tel" required value={formData.phone || ''} onChange={(e: any) => updateForm('phone', e.target.value)} />
         <Select label="City" options={CITIES} required value={formData.city} onChange={(e: any) => updateForm('city', e.target.value)} />
         {tier !== 'STUDENT' && (
-          <Input label="National ID Number" required value={formData.national_id_number || ''} onChange={(e: any) => updateForm('national_id_number', e.target.value)} />
+          <Input label="National ID, Passport, or Kebele ID Number" required value={formData.national_id_number || ''} onChange={(e: any) => updateForm('national_id_number', e.target.value)} />
         )}
       </div>
     </div>
@@ -396,22 +421,10 @@ export default function RegistrationModal({
       </div>
 
       <div className="space-y-4">
-        <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">Payment Method *</label>
-        <div className="grid grid-cols-2 gap-4">
-          <div 
-            onClick={() => updateNested('payment', 'provider', 'Telebirr')}
-            className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center gap-2 ${formData.payment?.provider === 'Telebirr' ? 'border-green-700 dark:border-[#d4ff00] bg-green-50 dark:bg-[#d4ff00]/10' : 'border-gray-200 dark:border-white/10'}`}
-          >
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs">TB</div>
-            <span className="font-medium text-gray-900 dark:text-white">Telebirr</span>
-          </div>
-          <div 
-            onClick={() => updateNested('payment', 'provider', 'CBE')}
-            className={`p-4 rounded-xl border-2 cursor-pointer flex flex-col items-center justify-center gap-2 ${formData.payment?.provider === 'CBE' ? 'border-green-700 dark:border-[#d4ff00] bg-green-50 dark:bg-[#d4ff00]/10' : 'border-gray-200 dark:border-white/10'}`}
-          >
-            <div className="w-10 h-10 bg-purple-700 rounded-full flex items-center justify-center text-white font-bold text-xs">CBE</div>
-            <span className="font-medium text-gray-900 dark:text-white">CBE Birr</span>
-          </div>
+        <label className="block text-sm font-medium text-gray-900 dark:text-white mb-1">Payment Method</label>
+        <div className="p-4 rounded-xl border-2 border-green-700 dark:border-[#d4ff00] bg-green-50 dark:bg-[#d4ff00]/10 flex items-center gap-3">
+          <div className="w-10 h-10 bg-purple-700 rounded-full flex items-center justify-center text-white font-bold text-xs">CBE</div>
+          <div><span className="font-bold text-gray-900 dark:text-white block">Commercial Bank of Ethiopia (CBE)</span><span className="text-xs text-neutral-500">CBE is the only accepted registration payment method.</span></div>
         </div>
 
         <Input label="Transaction Reference Number *" value={formData.payment?.transaction_number || ''} onChange={(e: any) => updateNested('payment', 'transaction_number', e.target.value)} />
@@ -442,6 +455,12 @@ export default function RegistrationModal({
           value={formData.phone_password_confirm || ''} 
           onChange={(e: any) => updateForm('phone_password_confirm', e.target.value)} 
         />
+      </div>
+
+      <div className="bg-gray-50 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/10">
+        <h4 className="font-bold text-gray-900 dark:text-white mb-2 text-sm flex items-center gap-2"><FileText className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />EPA Code of Ethics</h4>
+        <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 leading-relaxed">EPA members commit to ethical practice, confidentiality, respect, and professional integrity. Agreement is mandatory for every membership type.</p>
+        <label className="flex items-start gap-3 cursor-pointer"><input type="checkbox" required className="mt-1 w-4 h-4 accent-green-700 dark:accent-[#d4ff00]" checked={formData.agreed_to_ethics || false} onChange={(e) => updateForm('agreed_to_ethics', e.target.checked)} /><span className="text-sm font-medium text-gray-900 dark:text-white">I have read and agree to the EPA Code of Ethics *</span></label>
       </div>
 
       <div className="bg-gray-100 dark:bg-[#080808] p-4 rounded-xl mt-6">
@@ -548,7 +567,13 @@ export default function RegistrationModal({
       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Professional Information</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input label="Current Workplace" required value={formData.current_workplace || ''} onChange={(e: any) => updateForm('current_workplace', e.target.value)} />
-        <Select label="Primary Specialty" options={SPECIALTIES} required value={formData.current_specialty || ''} onChange={(e: any) => updateForm('current_specialty', e.target.value)} />
+        <div className="mb-4">
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">Primary Specialty <span className="text-red-500">*</span></label>
+          <input list="epa-specialties" value={formData.current_specialty || ''} onChange={(e: any) => updateForm('current_specialty', e.target.value)} placeholder="Choose from the list or write your specialty"
+            className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00]" />
+          <datalist id="epa-specialties">{SPECIALTIES.map(specialty => <option key={specialty} value={specialty} />)}</datalist>
+          <p className="mt-1 text-[10px] text-neutral-500">You may select a suggested specialty or type your own.</p>
+        </div>
         <Input label="Years of Experience" type="number" required value={formData.years_of_experience || ''} onChange={(e: any) => updateForm('years_of_experience', parseInt(e.target.value))} />
         <Input label="Existing License Number (Optional)" value={formData.license_number || ''} onChange={(e: any) => updateForm('license_number', e.target.value)} />
       </div>
@@ -558,10 +583,10 @@ export default function RegistrationModal({
   const renderFullStep4 = () => (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Upload Documents</h3>
-      <FileUpload label="Degree Certificate(s) *" hint="Upload a combined PDF or image of your highest degree" onChange={(url: string) => updateForm('degree_certificate_url', url)} />
+      <FileUpload label="Degree Certificate or Proof of Qualification *" hint="Upload a degree certificate, transcript, temporary graduation letter, or other proof of your psychology qualification" onChange={(url: string) => updateForm('degree_certificate_url', url)} />
       {formData.degree_certificate_url && <div className="text-sm text-green-600 dark:text-[#d4ff00] mb-4">✓ Degree uploaded</div>}
       
-      <FileUpload label="National ID / Passport *" hint="Clear photo of your official ID" onChange={(url: string) => updateForm('id_document_url', url)} />
+      <FileUpload label="National ID, Passport, or Kebele ID *" hint="Clear photo of a valid National ID, Passport, or Kebele ID" onChange={(url: string) => updateForm('id_document_url', url)} />
       {formData.id_document_url && <div className="text-sm text-green-600 dark:text-[#d4ff00] mb-4">✓ ID uploaded</div>}
       
       <div className="flex flex-col items-center mb-2">
@@ -579,27 +604,9 @@ export default function RegistrationModal({
   );
 
 
-  const renderFullStep5 = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-      <div className="bg-gray-50 dark:bg-white/5 p-5 rounded-xl border border-gray-200 dark:border-white/10">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-          <FileText className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" /> 
-          EPA Code of Ethics
-        </h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
-          As a member of the Ethiopian Psychologists' Association, you are required to abide by our strict Code of Ethics. This includes maintaining client confidentiality, practicing within your boundaries of competence, and upholding the integrity of the profession.
-        </p>
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input type="checkbox" className="mt-1 w-4 h-4 accent-green-700 dark:accent-[#d4ff00]" checked={formData.agreed_to_ethics || false} onChange={(e) => updateForm('agreed_to_ethics', e.target.checked)} />
-          <span className="text-sm font-medium text-gray-900 dark:text-white">I agree to uphold the EPA Code of Ethics</span>
-        </label>
-      </div>
+  const renderFullStep5 = () => <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">{renderPaymentStep('ETB 1,500')}</div>;
 
-      {renderPaymentStep('ETB 1,500')}
-    </div>
-  );
-
-  // Corporate Flow Steps - step 1 is now renderPersonalInfoStep()
+  // Corporate registration starts with the organisation itself, not personal information.
   const renderCorporateStep1 = () => (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Organization Information</h3>
@@ -726,6 +733,23 @@ export default function RegistrationModal({
     );
   }
 
+  if (showEmailVerification) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white dark:bg-[#080808] flex items-center justify-center p-5 animate-in fade-in">
+        <div className="w-full max-w-md bg-gray-50 dark:bg-[#121214] p-7 sm:p-8 rounded-3xl border border-gray-200 dark:border-white/10 shadow-2xl text-center">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-[#d4ff00]/15 border border-[#d4ff00]/30 flex items-center justify-center"><FileText className="w-7 h-7 text-green-700 dark:text-[#d4ff00]" /></div>
+          <span className="text-[10px] font-mono font-black uppercase tracking-[0.2em] text-green-700 dark:text-[#d4ff00]">Email confirmation</span>
+          <h2 className="mt-2 text-2xl font-black font-syne uppercase text-gray-900 dark:text-white">Check your email</h2>
+          <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">We sent a six-digit confirmation code to <b className="text-gray-900 dark:text-white">{applicantEmail}</b>. Please check your Inbox and Spam/Junk folder. If it appears in Spam, mark it as “Not spam”.</p>
+          <input autoFocus value={emailVerificationCode} onChange={event => setEmailVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="000000" className="mt-6 w-full px-5 py-4 rounded-2xl bg-white dark:bg-black border border-gray-200 dark:border-white/10 text-center text-xl font-mono font-black tracking-[0.45em] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00]" />
+          <p className="mt-3 text-[11px] text-neutral-500">The code expires in 15 minutes.</p>
+          <div className="mt-6 grid grid-cols-2 gap-3"><button onClick={() => setShowEmailVerification(false)} disabled={isVerifyingEmail} className="py-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs font-black uppercase text-gray-900 dark:text-white">Back</button><button onClick={handleSubmit} disabled={isVerifyingEmail || emailVerificationCode.length !== 6} className="py-3 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase disabled:opacity-50">{isVerifyingEmail ? 'Verifying…' : 'Verify & Submit'}</button></div>
+          <button onClick={requestEmailVerification} disabled={isVerifyingEmail} className="mt-4 text-[11px] font-black uppercase text-green-700 dark:text-[#d4ff00] disabled:opacity-50">Resend confirmation code</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-white dark:bg-[#080808]/40 md:bg-black/40 backdrop-blur-sm flex md:items-center justify-center">
       <div className="w-full h-full md:h-auto md:max-w-2xl bg-white/95 dark:bg-[#080808]/95 backdrop-blur-2xl md:rounded-3xl flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.1)] dark:shadow-[0_0_60px_rgba(212,255,0,0.05)] overflow-hidden relative border border-white/40 dark:border-white/10">
@@ -758,13 +782,6 @@ export default function RegistrationModal({
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
-          {emailVerificationSent && step === maxFormSteps && (
-            <div className="mb-5 p-4 rounded-2xl bg-[#d4ff00]/10 border border-[#d4ff00]/30">
-              <div className="flex items-center gap-2 text-sm font-black text-gray-900 dark:text-white"><Check className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" /> Verify your email to submit</div>
-              <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-300">We sent a six-digit code to <b>{formData.email}</b>. It expires in 15 minutes.</p>
-              <div className="mt-3 flex gap-2"><input value={emailVerificationCode} onChange={event => setEmailVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="000000" className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-black border border-gray-200 dark:border-white/10 text-sm font-mono font-black tracking-[0.35em] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00]" /><button onClick={requestEmailVerification} disabled={isVerifyingEmail} className="px-3 rounded-xl text-[10px] font-black uppercase text-green-700 dark:text-[#d4ff00] hover:bg-white/50 dark:hover:bg-white/5 disabled:opacity-50">Resend</button></div>
-            </div>
-          )}
           {/* Step 0: Tier Selection */}
           {step === 0 && renderTierSelection()}
           
@@ -792,9 +809,9 @@ export default function RegistrationModal({
           {/* CORPORATE FLOW */}
           {tier === 'CORPORATE' && step > 0 && (
             <>
-              {step === 1 && renderPersonalInfoStep()}
-              {step === 2 && renderCorporateStep1()}
-              {step === 3 && renderCorporateStep2()}
+              {step === 1 && renderCorporateStep1()}
+              {step === 2 && renderCorporateStep2()}
+              {step === 3 && renderCorporateStep3()}
               {step === 4 && renderCorporateStep4()}
             </>
           )}
@@ -819,7 +836,7 @@ export default function RegistrationModal({
             disabled={isVerifyingEmail}
             className="px-8 py-3 rounded-xl font-black bg-green-700 text-white dark:bg-[#d4ff00] dark:text-black hover:opacity-90 transition-opacity flex items-center gap-2 ml-auto text-xs uppercase tracking-wider shadow-lg shadow-green-700/20 dark:shadow-[#d4ff00]/20 cursor-pointer"
           >
-            {isVerifyingEmail ? 'Please wait…' : step === 0 ? 'Continue' : isLastStep ? (emailVerificationSent ? 'Verify & Submit' : 'Verify Email & Submit') : 'Continue'}
+            {isVerifyingEmail ? 'Please wait…' : step === 0 ? 'Continue' : isLastStep ? 'Continue to Email Verification' : 'Continue'}
             {!(step > 0 && isLastStep) && <ChevronRight className="w-4 h-4" />}
           </button>
         </div>

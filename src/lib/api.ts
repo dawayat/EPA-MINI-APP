@@ -25,7 +25,8 @@ async function apiGet<T>(path: string): Promise<T[]> {
   }
 }
 
-async function apiPost(path: string, body: any): Promise<{ success: boolean; error?: string }> {
+type TelegramPublishStatus = { attempted: boolean; posted: boolean; error?: string; message_id?: number };
+async function apiPost(path: string, body: any): Promise<{ success: boolean; error?: string; telegram?: TelegramPublishStatus }> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
@@ -37,7 +38,7 @@ async function apiPost(path: string, body: any): Promise<{ success: boolean; err
       console.error(`[API] POST ${path} failed:`, res.status, data);
       return { success: false, error: data.error || `HTTP ${res.status}` };
     }
-    return { success: true };
+    return { success: true, telegram: data.telegram };
   } catch (err: any) {
     console.error(`[API] POST ${path} error:`, err);
     return { success: false, error: err.message };
@@ -94,6 +95,8 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
     is_draft: Boolean(r.is_draft),
     cover_photo_url: r.attachments?.find((a: any) => a.type === 'cover')?.url || null,
     file_attachment_url: r.attachments?.find((a: any) => a.type === 'file')?.url || null,
+    telegram_media_url: r.attachments?.find((a: any) => a.type === 'telegram_media')?.url || null,
+    telegram_media_type: r.attachments?.find((a: any) => a.type === 'telegram_media')?.media_type || undefined,
   }));
 }
 
@@ -140,7 +143,7 @@ export async function submitApplication(appData: Partial<Application>): Promise<
   return apiPost('/api/applications', sanitized);
 }
 
-export async function publishAnnouncement(announcementData: Partial<Announcement>): Promise<{ success: boolean; error?: string }> {
+export async function publishAnnouncement(announcementData: Partial<Announcement>): Promise<{ success: boolean; error?: string; telegram?: TelegramPublishStatus }> {
   const dbRow: Record<string, any> = {
     id: announcementData.id,
     title: announcementData.title,
@@ -159,11 +162,28 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
   if ((announcementData as any).file_attachment_url) {
     attachments.push({ type: 'file', url: (announcementData as any).file_attachment_url });
   }
+  // Telegram media is added to the stored attachments by the server. Keeping the
+  // base64 payload out of this array prevents it being sent twice to Vercel.
   if (attachments.length > 0) dbRow.attachments = attachments;
   if (announcementData.target_audience) dbRow.target_audience = announcementData.target_audience;
 
   console.log('[API] Publishing announcement:', dbRow.title);
-  return apiPost('/api/announcements', dbRow);
+  return apiPost('/api/announcements', {
+    ...dbRow,
+    publish_to_telegram: Boolean(announcementData.publish_to_telegram),
+    telegram_media_url: announcementData.telegram_media_url,
+    telegram_media_type: announcementData.telegram_media_type,
+    telegram_button_label: announcementData.telegram_button_label,
+    telegram_button_url: announcementData.telegram_button_url
+  });
+}
+
+export async function submitRenewal(memberId: string, transactionNumber: string, receiptUrl: string, amount = 1500) {
+  return apiPost('/api/members', { action: 'submit-renewal', memberId, transaction_number: transactionNumber, receipt_url: receiptUrl, amount });
+}
+
+export async function approveRenewal(memberId: string) {
+  return apiPost('/api/members', { action: 'approve-renewal', memberId });
 }
 
 export async function updateApplicationStatus(id: string, status: string, adminNotes?: string) {
