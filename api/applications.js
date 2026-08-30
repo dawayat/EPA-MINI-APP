@@ -1,4 +1,16 @@
 import { dbSelect, dbInsert, dbUpdate, cors } from './_db.js';
+import { applicationReceivedEmail, applicationStatusEmail, isEmailConfigured, sendEmail } from './_email.js';
+
+async function deliverEmail(address, message) {
+  if (!address || !isEmailConfigured()) return { attempted: false, delivered: false };
+  try {
+    await sendEmail({ to: address, ...message });
+    return { attempted: true, delivered: true };
+  } catch (error) {
+    console.error('[applications] email delivery failed:', error.message);
+    return { attempted: true, delivered: false, error: error.message };
+  }
+}
 
 export default async function handler(req, res) {
   cors(res);
@@ -35,13 +47,19 @@ export default async function handler(req, res) {
       if (!row.updated_at) row.updated_at = new Date().toISOString();
 
       await dbInsert('applications', row);
-      return res.status(201).json({ success: true });
+      const email = await deliverEmail(row.email, applicationReceivedEmail(`${row.first_name || ''} ${row.father_name || ''}`.trim(), row.application_number));
+      return res.status(201).json({ success: true, email });
     }
 
     if (req.method === 'PATCH') {
       const { id, status, admin_notes } = req.body;
+      const applications = await dbSelect('applications', `id=eq.${encodeURIComponent(id)}&select=email,first_name,father_name,application_number&limit=1`);
+      const application = applications[0];
+      if (!application) return res.status(404).json({ success: false, error: 'Application was not found.' });
       await dbUpdate('applications', { status, admin_notes, updated_at: new Date().toISOString() }, 'id', id);
-      return res.status(200).json({ success: true });
+      const shouldNotify = ['APPROVED', 'REJECTED', 'CORRECTION_REQUIRED'].includes(status);
+      const email = shouldNotify ? await deliverEmail(application.email, applicationStatusEmail(`${application.first_name || ''} ${application.father_name || ''}`.trim(), application.application_number, status, admin_notes)) : { attempted: false, delivered: false };
+      return res.status(200).json({ success: true, email });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

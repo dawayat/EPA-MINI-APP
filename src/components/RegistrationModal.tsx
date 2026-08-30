@@ -207,7 +207,7 @@ export default function RegistrationModal({
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Could not send the verification code.');
       setEmailVerificationSent(true);
-      onToast('A six-digit verification code was sent to your email.', 'success');
+      onToast('The verification email was sent. Check Inbox and Spam/Junk, then mark it “Not spam” if needed.', 'success');
       return true;
     } catch (error: any) {
       onToast(error.message || 'Could not send the verification code.', 'error');

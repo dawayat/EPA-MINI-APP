@@ -178,7 +178,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   };
 
   const downloadMemberCsvSample = () => {
-    const sample = 'email,temporary_password,first_name,father_name,grandfather_name,phone,city,membership_type,membership_number,membership_start_date,membership_expiry_date,specialty,workplace,license_number,cpd_points\nmember@example.com,TempPass2026!,Alem,Tesfaye,Kebede,0911223344,Addis Ababa,FULL,EPA-1998-0042,2018-06-15,2027-06-14,Counseling Psychology,Addis Wellness Centre,EPA-LIC-0042,24\nstudent@example.com,TempPass2026!,Marta,Getachew,,0922334455,Hawassa,STUDENT,EPA-S-2024-0081,2024-09-01,2027-08-31,,, ,0';
+    const sample = 'email,temporary_password,first_name,father_name,grandfather_name,phone,city,gender,date_of_birth,membership_type,membership_number,membership_start_date,membership_expiry_date,specialty,workplace,license_number,cpd_points\nmember@example.com,TempPass2026!,Alem,Tesfaye,Kebede,0911223344,Addis Ababa,M,1985-04-16,FULL,EPA-1998-0042,2018-06-15,2027-06-14,Counseling Psychology,Addis Wellness Centre,EPA-LIC-0042,24\nstudent@example.com,TempPass2026!,Marta,Getachew,,0922334455,Hawassa,F,2002-09-04,STUDENT,EPA-S-2024-0081,2024-09-01,2027-08-31,,,,0';
     const url = URL.createObjectURL(new Blob([sample], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'epa-member-import-sample.csv'; anchor.click(); URL.revokeObjectURL(url);
   };

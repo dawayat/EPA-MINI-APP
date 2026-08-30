@@ -5,6 +5,8 @@ ALTER TABLE announcements ADD COLUMN IF NOT EXISTS is_draft boolean NOT NULL DEF
 ALTER TABLE members ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT false;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT false;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS onboarding_completed boolean NOT NULL DEFAULT true;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS gender text;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS date_of_birth text;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS email_verifications (

@@ -185,14 +185,6 @@ export default function App() {
       showToast('Application submitted and saved successfully!', 'success');
     }
 
-    if (fullApp.email) {
-      try {
-        await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'application-received', email: fullApp.email, name: `${fullApp.first_name} ${fullApp.father_name}`, applicationNumber: fullApp.application_number }) });
-      } catch (error) {
-        console.error('[email] application receipt could not be sent', error);
-      }
-    }
-
     setApplications(prev => [fullApp, ...prev]);
 
     // Add audit log
@@ -228,10 +220,12 @@ export default function App() {
       email: app.email,
       phone: app.phone,
       city: app.city,
+      gender: app.gender,
+      date_of_birth: app.date_of_birth,
       membership_type: app.membership_type,
       status: 'ACTIVE',
       specialty: app.membership_type === 'STUDENT' ? undefined : (app.current_specialty || app.qualifications?.[0]?.field || 'Psychology'),
-      workplace: app.student_profile?.university_name || 'Accredited Psychological Practice',
+      workplace: app.membership_type === 'STUDENT' ? app.student_profile?.university_name : app.membership_type === 'CORPORATE' ? app.corporate_profile?.organization_name : (app.current_workplace || 'Accredited Psychological Practice'),
       bio: "Newly registered and accredited member of the Ethiopian Psychologists' Association.",
       cpd_points: 10,
       issued_at: new Date().toISOString(),
@@ -265,9 +259,6 @@ export default function App() {
       try {
         await createMember(newMember);
         await updateApplicationStatus(appId, 'APPROVED');
-        if (app.email) {
-          await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'application-status', email: app.email, name: `${app.first_name} ${app.father_name}`, applicationNumber: app.application_number, status: 'APPROVED' }) });
-        }
       } catch (err: any) {
         showToast(`Note: Member approved locally but DB save failed: ${err.message}`, 'error');
       }
@@ -276,7 +267,6 @@ export default function App() {
 
 
   const handleRejectApplication = async (appId: string, reason: string) => {
-    const app = applications.find(application => application.id === appId);
     if (isSupabaseConfigured) {
       await updateApplicationStatus(appId, 'REJECTED', reason);
     }
@@ -289,32 +279,11 @@ export default function App() {
       admin_username: 'superadmin_council',
       created_at: new Date().toISOString()
     }, ...prev]);
-    if (app?.email) {
-      try {
-        await fetch('/api/email', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'application-status', email: app.email, name: `${app.first_name} ${app.father_name}`, applicationNumber: app.application_number, status: 'REJECTED', note: reason })
-        });
-      } catch (error) {
-        console.error('[email] rejection update could not be sent', error);
-      }
-    }
   };
 
   const handleRequestCorrection = async (appId: string, notes: string) => {
-    const app = applications.find(application => application.id === appId);
     if (isSupabaseConfigured) await updateApplicationStatus(appId, 'CORRECTION_REQUIRED', notes);
     setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'CORRECTION_REQUIRED', admin_notes: notes } : a));
-    if (app?.email) {
-      try {
-        await fetch('/api/email', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'application-status', email: app.email, name: `${app.first_name} ${app.father_name}`, applicationNumber: app.application_number, status: 'CORRECTION_REQUIRED', note: notes })
-        });
-      } catch (error) {
-        console.error('[email] correction update could not be sent', error);
-      }
-    }
     showToast('Sent revision request to applicant', 'info');
   };
 
