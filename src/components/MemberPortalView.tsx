@@ -313,9 +313,29 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
           ))}
         </div>
       )}
+
+      {section === 'news' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Bell className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
+            <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'All News & Announcements' : 'ሁሉም ዜናዎች'}</h3>
+          </div>
+          <div className="space-y-3">
+            {announcements.map(ann => (
+              <div key={ann.id} className="flex flex-col gap-2 p-4 rounded-xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 hover:border-[#d4ff00]/40 transition-colors">
+                <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
+                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-1">{ann.content}</p>
+                <p className="text-[10px] text-neutral-500">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+
 
 // ── FULL MEMBER PORTAL ─────────────────────────────────────────────────────────
 const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
@@ -865,38 +885,29 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
           </div>
         </div>
       )}
-    </div>
-  );
-};
-
-// ── MAIN ROUTER ────────────────────────────────────────────────────────────────
 
       {section === 'news' && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-4">
             <Bell className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
-            <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'All News & Announcements' : 'ሁሉም ዜናዎች እና ማስታወቂያዎች'}</h3>
+            <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'All News & Announcements' : 'ሁሉም ዜናዎች'}</h3>
           </div>
           <div className="space-y-3">
             {announcements.map(ann => (
-              <div key={ann.id} className="flex flex-col gap-2 p-4 rounded-xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 hover:border-[#d4ff00]/40 transition-colors">
-                <div className="flex-1">
-                  <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
-                  <p className="text-[11px] text-gray-700 dark:text-gray-300 mt-2">{ann.content}</p>
-                  <div className="flex items-center gap-2 mt-3">
-                    <p className="text-[10px] text-neutral-500">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
-                    {(ann as any).file_attachment_url && (
-                      <a href={(ann as any).file_attachment_url} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center gap-1 text-blue-500 hover:underline ml-2" onClick={e => e.stopPropagation()}>
-                        <FileText className="w-3 h-3" /> {lang === 'EN' ? 'Attachment' : 'ፋይል'}
-                      </a>
-                    )}
-                  </div>
-                </div>
+              <div key={ann.id} className="flex flex-col gap-2 p-4 rounded-xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 hover:border-amber-400/40 transition-colors">
+                <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
+                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-1">{ann.content}</p>
+                <p className="text-[10px] text-neutral-500">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
               </div>
             ))}
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+
 
 // ── MAIN ROUTER ────────────────────────────────────────────────────────────────
 export const MemberPortalView: React.FC<MemberPortalViewProps> = (props) => {
