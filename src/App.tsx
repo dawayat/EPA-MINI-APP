@@ -428,6 +428,7 @@ export default function App() {
             <MemberPortalView
               member={activeMember}
               lang={lang}
+              allMembers={members}
               cpdCourses={cpdCourses}
               announcements={announcements}
               onOpenIdCard={() => setCurrentTab('idcard')}

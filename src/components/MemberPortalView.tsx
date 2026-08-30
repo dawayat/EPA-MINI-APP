@@ -13,6 +13,7 @@ interface MemberPortalViewProps {
   member: Member;
   lang: 'EN' | 'AM';
   cpdCourses: CPDCourse[];
+  allMembers: Member[];
   announcements: Announcement[];
   onOpenIdCard: () => void;
   onOpenVoting: () => void;
@@ -108,26 +109,31 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ ann, lang, onToast, likedAnn
 interface ConnectProps {
   member: Member;
   lang: 'EN' | 'AM';
+  allMembers: Member[];
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
-const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, onToast }) => {
+const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, onToast }) => {
   const [chatPerson, setChatPerson] = useState<{ name: string; role: string } | null>(null);
   const [msgInput, setMsgInput] = useState('');
   const [messages, setMessages] = useState<{ from: 'me' | 'them'; text: string }[]>([]);
   const [activeTab, setActiveTab] = useState<'mentors' | 'peers' | 'chat'>('mentors');
 
-  const mentors = [
-    { name: 'Dr. Selamawit Bekele', specialty: 'Clinical & Trauma Psychology', workplace: 'Addis Ababa University', available: true, photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200' },
-    { name: 'Dr. Dawit Mekonnen', specialty: 'Neuropsychology & Psychometrics', workplace: 'Jimma University', available: true, photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200' },
-    { name: 'Aster Haile, M.Sc.', specialty: 'Counseling Psychology', workplace: 'St. Paul Hospital', available: false, photo: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=200' },
-    { name: 'Dr. Yonas Biruk', specialty: 'Child & Adolescent Psychology', workplace: 'ALERT Hospital', available: true, photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=200' },
-  ];
 
-  const peers = [
-    { name: 'Sara Bekele', year: 'Year 3', university: 'Addis Ababa University', photo: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=200' },
-    { name: 'Temesgen Alemu', year: 'Year 4', university: 'Jimma University', photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200' },
-    { name: 'Hana Tadesse', year: 'Year 2', university: 'AAU', photo: 'https://images.unsplash.com/photo-1554727242-741c14fa561c?auto=format&fit=crop&q=80&w=200' },
-  ];
+
+  const mentors = (allMembers || []).filter(m => m.membership_type === 'FULL' && m.id !== member.id).map(m => ({
+    name: m.first_name + ' ' + m.father_name,
+    specialty: m.specialty || 'General Psychology',
+    workplace: m.workplace || m.city || 'Private Practice',
+    available: m.is_available_for_consultation ?? true,
+    photo: m.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'
+  }));
+
+  const peers = (allMembers || []).filter(m => m.membership_type === 'STUDENT' && m.id !== member.id).map(m => ({
+    name: m.first_name + ' ' + m.father_name,
+    year: m.student_profile?.academic_year ? `Year ${m.student_profile.academic_year}` : 'Student',
+    university: m.student_profile?.university_name || 'Psychology Student',
+    photo: m.photo_url || 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=200'
+  }));
 
   const openChat = (name: string, role: string) => {
     setChatPerson({ name, role });
@@ -259,7 +265,7 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, onToast }) =
 // ── STUDENT PORTAL ─────────────────────────────────────────────────────────────
 
 const StudentPortal: React.FC<MemberPortalViewProps> = ({
-  member, lang, cpdCourses, announcements, onOpenIdCard, onOpenDirectory, onRegisterCPD, onToast
+  member, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenDirectory, onRegisterCPD, onToast
 }) => {
   const [section, setSection] = useState<'overview' | 'cpd' | 'mentor' | 'jobs' | 'news'>('overview');
   const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
@@ -352,50 +358,9 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
               <Bell className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
               <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'Latest News' : 'ወቅታዊ ዜናዎች'}</h3>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {announcements.slice(0, 4).map(ann => (
-                <div key={ann.id} className="flex flex-col gap-2 p-4 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent hover:border-gray-200 dark:hover:border-white/10 transition-colors">
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full bg-[#d4ff00] shrink-0 mt-1.5" />
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-[10px] text-neutral-500">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
-                        {(ann as any).file_attachment_url && (
-                          <a href={(ann as any).file_attachment_url} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center gap-1 text-blue-500 hover:underline ml-2" onClick={e => e.stopPropagation()}>
-                            <FileText className="w-3 h-3" /> {lang === 'EN' ? 'Attachment' : 'ፋይል'}
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="pl-5 flex items-center justify-between mt-1">
-                    {ann.category === 'Election' || ann.is_draft ? (
-                      <div className="flex gap-2 flex-wrap">
-                        <button onClick={() => onToast(lang === 'EN' ? 'Vote cast: Approve' : 'ድምጽ: አጽድቁ', 'success')} className="px-3 py-1 rounded bg-green-500/10 hover:bg-green-500/20 text-green-600 text-[10px] font-bold uppercase cursor-pointer">
-                          ✓ Approve
-                        </button>
-                        <button onClick={() => onToast(lang === 'EN' ? 'Vote cast: Needs Adjustment' : 'ድምጽ: ማስተካከያ', 'info')} className="px-3 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 text-[10px] font-bold uppercase cursor-pointer">
-                          ↺ Adjust
-                        </button>
-                        <button onClick={() => onToast(lang === 'EN' ? 'Comment panel opening...' : 'አስተያየት ይስጡ', 'info')} className="px-3 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 text-[10px] font-bold uppercase cursor-pointer flex items-center gap-1">
-                          <MessageSquare className="w-3 h-3" /> Comment
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-3">
-                        <button onClick={() => setLikedAnn(p => ({ ...p, [ann.id]: !p[ann.id] }))}
-                          className={`text-[10px] flex items-center gap-1 cursor-pointer ${likedAnn[ann.id] ? 'text-red-400' : 'text-neutral-500'}`}>
-                          <Heart className={`w-3 h-3 ${likedAnn[ann.id] ? 'fill-current' : ''}`} />
-                          <span>{ann.likes_count + (likedAnn[ann.id] ? 1 : 0)}</span>
-                        </button>
-                        <button onClick={() => onToast('Comment opened.', 'info')} className="text-[10px] flex items-center gap-1 cursor-pointer text-neutral-500 hover:text-blue-400">
-                          <MessageSquare className="w-3 h-3" /> Comment
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <AnnouncementCard key={ann.id} ann={ann} lang={lang} onToast={onToast} likedAnn={likedAnn} setLikedAnn={setLikedAnn} />
               ))}
             </div>
             <button 
@@ -497,7 +462,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
       )}
 
       {section === 'mentor' && (
-        <ConnectChatSection member={member} lang={lang} onToast={onToast} />
+        <ConnectChatSection member={member} lang={lang} allMembers={allMembers} onToast={onToast} />
       )}
 
       {section === 'jobs' && (
@@ -508,36 +473,11 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
               <p className="text-xs text-neutral-500 mt-0.5">{lang === 'EN' ? 'Graduate & internship opportunities in psychology across Ethiopia.' : 'የምሩቃን እና ልምምድ እድሎች'}</p>
             </div>
           </div>
-          {[
-            { title: 'Psychosocial Support Intern', org: 'UNHCR Ethiopia', location: 'Addis Ababa', type: 'Internship', deadline: 'Sep 15, 2026', pay: 'Stipend: 3,500 ETB/mo' },
-            { title: 'Research Assistant – Mental Health', org: 'Jimma University', location: 'Jimma', type: 'Part-time', deadline: 'Sep 20, 2026', pay: '4,000 ETB/mo' },
-            { title: 'School Counselor (Graduate)', org: 'Addis Ababa Education Bureau', location: 'Addis Ababa', type: 'Full-time', deadline: 'Oct 1, 2026', pay: 'Gov. Scale' },
-            { title: 'Community Mental Health Worker', org: 'Partners in Health Ethiopia', location: 'Gondar', type: 'Contract', deadline: 'Sep 30, 2026', pay: 'Negotiable' },
-          ].map((job, i) => (
-            <div key={i} className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-                      job.type === 'Internship' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20' :
-                      job.type === 'Full-time' ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20' :
-                      'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
-                    }`}>{job.type}</span>
-                  </div>
-                  <h4 className="font-black text-sm text-gray-900 dark:text-white">{job.title}</h4>
-                  <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">{job.org} • {job.location}</p>
-                  <div className="flex items-center gap-3 mt-2 text-[10px] text-neutral-500">
-                    <span>Deadline: {job.deadline}</span>
-                    <span className="text-[#d4ff00]/80">{job.pay}</span>
-                  </div>
-                </div>
-                <button onClick={() => onToast(lang === 'EN' ? 'Opening application form...' : 'ማመልከቻ እየተከፈተ ነው...', 'info')}
-                  className="shrink-0 px-3 py-2 rounded-xl bg-[#d4ff00] text-black text-[10px] font-black uppercase cursor-pointer active:scale-95 hover:bg-[#c3eb00]">
-                  Apply
-                </button>
-              </div>
-            </div>
-          ))}
+          <div className="flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 text-center">
+            <Briefcase className="w-8 h-8 text-neutral-400 mb-3" />
+            <h4 className="text-sm font-bold text-gray-900 dark:text-white">{lang === 'EN' ? 'No active opportunities' : 'ምንም ክፍት የስራ ቦታዎች የሉም'}</h4>
+            <p className="text-xs text-neutral-500 mt-1 max-w-xs">{lang === 'EN' ? 'Check back soon for new graduate and internship opportunities posted by EPA partner organizations.' : 'በቅርቡ አዳዲስ የስራ እድሎች ሲወጡ እዚህ ያገኛሉ።'}</p>
+          </div>
         </div>
       )}
 
@@ -563,9 +503,9 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
 
 // ── FULL MEMBER PORTAL ─────────────────────────────────────────────────────────
 const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
-  member, lang, cpdCourses, announcements, onOpenIdCard, onOpenVoting, onOpenDirectory, onRegisterCPD, onToast
+  member, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenVoting, onOpenDirectory, onRegisterCPD, onToast
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'cpd' | 'announcements' | 'license' | 'research'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'cpd' | 'announcements' | 'license' | 'research' | 'connect'>('overview');
   const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
   const [bookmarkedAnn, setBookmarkedAnn] = useState<Record<string, boolean>>({});
   const [draftVotes, setDraftVotes] = useState<Record<string, 'approve' | 'adjust' | null>>({});
@@ -650,6 +590,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
       <div className="flex items-center gap-2 border-b border-gray-200 dark:border-white/10 mb-8 overflow-x-auto no-scrollbar">
         {[
           { id: 'overview', label: lang === 'EN' ? 'Dashboard Overview' : 'ዳሽቦርድ' },
+          { id: 'connect', label: lang === 'EN' ? 'Connect & Chat' : 'ይገናኙ' },
           { id: 'cpd', label: lang === 'EN' ? 'CPD & Continuing Education' : 'CPD ማሻሻያ' },
           { id: 'research', label: lang === 'EN' ? 'Research & Articles' : 'ምርምር' },
           { id: 'announcements', label: lang === 'EN' ? 'News Feed' : 'ዜናዎች' },
@@ -678,24 +619,9 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
                 {lang === 'EN' ? 'View All' : 'ሁሉንም እይ'}
               </button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {announcements.slice(0, 4).map(ann => (
-                <div key={ann.id} className="flex flex-col gap-2 p-4 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent hover:border-gray-200 dark:hover:border-white/10 transition-colors">
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full bg-[#d4ff00] shrink-0 mt-1.5" />
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <p className="text-[10px] text-neutral-500">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
-                        {(ann as any).file_attachment_url && (
-                          <a href={(ann as any).file_attachment_url} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center gap-1 text-blue-500 hover:underline ml-2" onClick={e => e.stopPropagation()}>
-                            <FileText className="w-3 h-3" /> {lang === 'EN' ? 'Attachment' : 'ፋይል'}
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <AnnouncementCard key={ann.id} ann={ann} lang={lang} onToast={onToast} likedAnn={likedAnn} setLikedAnn={setLikedAnn} />
               ))}
             </div>
           </div>
@@ -772,6 +698,11 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
           }}
           onToast={onToast}
         />
+      )}
+
+      {/* Connect Tab */}
+      {activeTab === 'connect' && (
+        <ConnectChatSection member={member} lang={lang} allMembers={allMembers} onToast={onToast} />
       )}
 
       {/* CPD Tab */}
