@@ -69,6 +69,10 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   const [isImportingMembers, setIsImportingMembers] = useState(false);
   const [memberImportResult, setMemberImportResult] = useState<{ created: number; errors: string[] } | null>(null);
 
+  const openDatabaseSetup = () => {
+    alert('Database setup is completed in Supabase, not from the public website. In Supabase SQL Editor, apply supabase/migrations/20260830_member_community.sql from this project. This keeps migrations protected from public access.');
+  };
+
   // New Announcement Modal state
   const [showAnnModal, setShowAnnModal] = useState<boolean>(false);
   const [newAnn, setNewAnn] = useState({
@@ -232,23 +236,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
 
           <div className="flex items-center gap-2">
             <button 
-              onClick={async () => {
-                try {
-                  onToast('Checking database...', 'info');
-                  const res = await fetch('/api/migrate');
-                  const data = await res.json();
-                  if (data.success) {
-                    onToast('✅ Database schema is correct!', 'success');
-                  } else {
-                    // Show the SQL in an alert for easy copying
-                    const sqlMsg = data.sql_to_run || 'Check /api/migrate for details';
-                    alert(`⚠️ DATABASE NEEDS UPDATING\n\n${data.message}\n\nCOPY AND RUN THIS IN SUPABASE SQL EDITOR:\n\n${sqlMsg}\n\nGo to: https://supabase.com/dashboard → Your Project → SQL Editor → Paste & Run`);
-                    onToast(`DB needs SQL update — check the popup!`, 'error');
-                  }
-                } catch (e: any) {
-                  onToast(`Error: ${e.message}`, 'error');
-                }
-              }}
+              onClick={openDatabaseSetup}
               className="flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 cursor-pointer"
             >
               <Settings className="w-4 h-4" />
@@ -678,25 +666,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               {lang === 'EN' ? 'Published Announcements & Drafts' : 'ማስታወቂያዎች እና ረቂቆች'}
             </h3>
             <div className="flex items-center gap-3">
-              <button 
-                onClick={async () => {
-                  try {
-                    onToast('Running database migration...', 'info');
-                    const res = await fetch('/api/migrate');
-                    const data = await res.json();
-                    if (data.success) {
-                      onToast(data.message, 'success');
-                    } else {
-                      onToast(`Migration failed: ${data.error}`, 'error');
-                    }
-                  } catch (e: any) {
-                    onToast('Error running migration', 'error');
-                  }
-                }}
-                className="px-4 py-2 bg-red-600/20 text-red-600 dark:text-red-400 font-bold text-xs rounded-lg hover:bg-red-600/30 transition-colors flex items-center gap-2"
-              >
-                <Settings className="w-4 h-4" />
-                Fix Database Schema
+              <button onClick={openDatabaseSetup} className="px-4 py-2 bg-gray-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300 font-bold text-xs rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors flex items-center gap-2">
+                Database setup guide
               </button>
               <button
                 onClick={() => setShowAnnModal(true)}
