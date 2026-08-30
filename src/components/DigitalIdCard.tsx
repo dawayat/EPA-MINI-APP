@@ -13,6 +13,7 @@ import {
   QrCode
 } from 'lucide-react';
 import { Member } from '../types';
+import { isTelegramMiniApp } from '../lib/telegram';
 
 interface DigitalIdCardProps {
   member: Member;
@@ -47,6 +48,10 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
   };
 
   const handleDownloadWallet = () => {
+    if (isTelegramMiniApp()) {
+      onToast(lang === 'EN' ? 'Please open in browser to download ID card.' : 'መታወቂያውን ለማውረድ በብሮውዘር ይክፈቱ', 'info');
+      return;
+    }
     setIsDownloading(true);
     setTimeout(() => {
       setIsDownloading(false);
@@ -60,12 +65,20 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
   };
 
   const handlePrint = () => {
+    if (isTelegramMiniApp()) {
+      onToast(lang === 'EN' ? 'Please open in browser to print ID card.' : 'መታወቂያውን ለማተም በብሮውዘር ይክፈቱ', 'info');
+      return;
+    }
     // Ensure we print the front face of the card
     const wasFlipped = isFlipped;
     if (isFlipped) setIsFlipped(false);
     // Give time for the flip animation to settle before printing
     setTimeout(() => {
-      window.print();
+      try {
+        window.print();
+      } catch (err) {
+        onToast('Printing is not supported in this environment.', 'error');
+      }
       // Restore flip state after print dialog closes
       if (wasFlipped) setIsFlipped(true);
     }, 400);

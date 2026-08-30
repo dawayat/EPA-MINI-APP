@@ -20,6 +20,8 @@ interface AdminPortalViewProps {
   onRequestCorrection: (appId: string, notes: string) => void;
   onVerifyPayment: (appId: string) => void;
   onAddAnnouncement: (ann: Partial<Announcement>) => void;
+  onDeleteMember?: (memberId: string) => void;
+  onDeleteAnnouncement?: (annId: string) => void;
   onAddUniversity: (uni: Partial<University>) => void;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -36,6 +38,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   onRequestCorrection,
   onVerifyPayment,
   onAddAnnouncement,
+  onDeleteMember,
+  onDeleteAnnouncement,
   onAddUniversity,
   onToast,
 }) => {
@@ -445,6 +449,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                   <th className="p-4">CPD</th>
                   <th className="p-4">Expires</th>
                   <th className="p-4">Status</th>
+                  <th className="p-4">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-white/5">
@@ -473,6 +478,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     <td className="p-4 font-mono text-[11px] text-neutral-500">{new Date(m.expires_at).toLocaleDateString()}</td>
                     <td className="p-4">
                       <span className={`text-[10px] font-mono font-bold ${m.status === 'ACTIVE' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{m.status}</span>
+                    </td>
+                    <td className="p-4">
+                      {onDeleteMember && (
+                        <button onClick={() => { if(window.confirm('Delete member? This will force them to re-register.')) onDeleteMember(m.id); }}
+                          className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 cursor-pointer" title="Delete Member">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -631,9 +644,17 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                           <p className="text-xs text-neutral-500 line-clamp-2">{ann.content}</p>
                           <p className="text-[10px] font-mono text-neutral-400 mt-1">{ann.author} · {new Date(ann.published_at).toLocaleDateString()}</p>
                         </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-[10px] font-mono text-neutral-400 block">{ann.views_count} views</span>
-                          <span className="text-[10px] font-mono text-green-700 dark:text-[#d4ff00] block">{ann.likes_count} likes</span>
+                        <div className="text-right shrink-0 flex flex-col items-end gap-2">
+                          {onDeleteAnnouncement && (
+                            <button onClick={() => { if(window.confirm('Delete announcement?')) onDeleteAnnouncement(ann.id); }}
+                              className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 cursor-pointer" title="Delete Announcement">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                          <div>
+                            <span className="text-[10px] font-mono text-neutral-400 block">{ann.views_count} views</span>
+                            <span className="text-[10px] font-mono text-green-700 dark:text-[#d4ff00] block">{ann.likes_count} likes</span>
+                          </div>
                         </div>
                       </div>
 
@@ -817,20 +838,20 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                   </h4>
                   {reviewingApp.membership_type === 'CORPORATE' && reviewingApp.corporate_profile ? (
                     <div className="p-4 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
-                      <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.corporate_profile.organization_name}</div>
-                      <div className="text-neutral-700 dark:text-neutral-300 mt-0.5">Type: {reviewingApp.corporate_profile.org_type}</div>
-                      <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px] mt-1">TIN: {reviewingApp.corporate_profile.tin_number} | HQ: {reviewingApp.corporate_profile.headquarters_city}</div>
+                      <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.corporate_profile.organization_name || 'N/A'}</div>
+                      <div className="text-neutral-700 dark:text-neutral-300 mt-0.5">Type: {reviewingApp.corporate_profile.org_type || 'N/A'}</div>
+                      <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px] mt-1">TIN: {reviewingApp.corporate_profile.tin_number || 'N/A'} | HQ: {reviewingApp.corporate_profile.headquarters_city || 'N/A'}</div>
                       {reviewingApp.corporate_profile.website && (
                         <div className="text-blue-500 text-[10px] mt-1 break-all">{reviewingApp.corporate_profile.website}</div>
                       )}
                     </div>
-                  ) : reviewingApp.student_profile ? (
+                  ) : reviewingApp.membership_type === 'STUDENT' && reviewingApp.student_profile ? (
                     <div className="p-4 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
-                      <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.student_profile.university_name}</div>
-                      <div className="text-neutral-700 dark:text-neutral-300 mt-0.5">{reviewingApp.student_profile.field_of_study} (Year {reviewingApp.student_profile.academic_year})</div>
-                      <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px] mt-1">Student ID: {reviewingApp.student_profile.student_id_number}</div>
+                      <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.student_profile.university_name || 'N/A'}</div>
+                      <div className="text-neutral-700 dark:text-neutral-300 mt-0.5">{reviewingApp.student_profile.field_of_study || 'N/A'} (Year {reviewingApp.student_profile.academic_year || 'N/A'})</div>
+                      <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px] mt-1">Student ID: {reviewingApp.student_profile.student_id_number || 'N/A'}</div>
                     </div>
-                  ) : reviewingApp.qualifications && reviewingApp.qualifications.length > 0 ? (
+                  ) : reviewingApp.membership_type === 'FULL' && reviewingApp.qualifications && reviewingApp.qualifications.length > 0 ? (
                     <div className="space-y-2">
                       {reviewingApp.qualifications.map((q: any, idx: number) => (
                         <div key={idx} className="p-4 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10 flex justify-between">
@@ -842,7 +863,9 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                         </div>
                       ))}
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="text-xs text-neutral-500 italic">No additional details provided.</div>
+                  )}
                 </div>
               )}
 

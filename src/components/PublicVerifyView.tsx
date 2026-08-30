@@ -41,7 +41,8 @@ export const PublicVerifyView: React.FC<PublicVerifyViewProps> = ({
       const match = members.find(
         m => m.verification_token.toLowerCase() === clean || 
              m.membership_number.toLowerCase() === clean ||
-             m.id.toLowerCase() === clean
+             m.id.toLowerCase() === clean ||
+             (m.license_number && m.license_number.toLowerCase() === clean)
       );
 
       setVerifiedMember(match || null);

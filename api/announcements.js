@@ -1,4 +1,4 @@
-import { dbSelect, dbInsert, cors } from './_db.js';
+import { dbSelect, dbInsert, dbUpdate, cors } from './_db.js';
 
 export default async function handler(req, res) {
   cors(res);
@@ -12,20 +12,36 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       const a = req.body;
-      const row = {
-        id: a.id,
-        title: a.title,
-        content: a.content || '',
-        type: a.type || 'General',
-        published_at: a.published_at || new Date().toISOString(),
-        author_name: a.author_name || 'EPA Executive Directorate',
-        status: a.status || 'PUBLISHED',
-      };
-      if (a.attachments) row.attachments = a.attachments;
-      if (a.target_audience) row.target_audience = a.target_audience;
-
+      const row = {};
+      const fields = [
+        'id','title','content','type','status','published_at','author_name',
+        'attachments','target_audience'
+      ];
+      for (const f of fields) {
+        if (a[f] !== undefined && a[f] !== null) row[f] = a[f];
+      }
       await dbInsert('announcements', row);
       return res.status(201).json({ success: true });
+    }
+
+    if (req.method === 'DELETE') {
+      const { id } = req.body;
+      if (!id) return res.status(400).json({ error: 'Announcement id required' });
+      const base = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+      const delRes = await fetch(`${base}/rest/v1/announcements?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: {
+          'apikey': key,
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+        }
+      });
+      if (!delRes.ok && delRes.status !== 204) {
+        const text = await delRes.text();
+        throw new Error(`DELETE failed: ${text}`);
+      }
+      return res.status(200).json({ success: true });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });

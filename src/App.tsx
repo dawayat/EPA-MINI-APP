@@ -3,7 +3,7 @@ import { isSupabaseConfigured } from './lib/supabase';
 import { 
   fetchMembers, fetchApplications, fetchAnnouncements, 
   fetchUniversities, fetchCPDCourses, fetchAuditLogs, fetchElectionCandidates,
-  submitApplication, updateApplicationStatus, publishAnnouncement, createMember
+  submitApplication, updateApplicationStatus, publishAnnouncement, createMember, deleteMember, deleteAnnouncement
 } from './lib/api';
 import { 
   Member, 
@@ -221,7 +221,7 @@ export default function App() {
       bio: "Newly registered and accredited member of the Ethiopian Psychologists' Association.",
       cpd_points: 10,
       issued_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000 * 2).toISOString(),
+      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       is_verified: true,
       license_number: app.membership_type === 'FULL' ? `EPA-LIC-CL-${Math.floor(1000 + Math.random() * 9000)}` : undefined,
       corporate_profile: app.corporate_profile,
@@ -274,6 +274,46 @@ export default function App() {
 
   const handleRequestCorrection = (appId: string, notes: string) => {
     setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'CORRECTION_REQUIRED', admin_notes: notes } : a));
+    showToast('Sent revision request to applicant', 'info');
+  };
+
+  const handleDeleteMember = async (memberId: string) => {
+    // 1. Update local state
+    const member = members.find(m => m.id === memberId);
+    setMembers(prev => prev.filter(m => m.id !== memberId));
+    if (activeMemberId === memberId) {
+      setActiveMemberId(null);
+      setCurrentTab('welcome');
+    }
+    showToast('Member deleted successfully', 'success');
+
+    // 2. Persist to DB
+    if (isSupabaseConfigured) {
+      try {
+        const { success, error } = await deleteMember(memberId);
+        if (!success) throw new Error(error);
+      } catch (err: any) {
+        console.error('Failed to delete member in DB:', err.message);
+        showToast('DB Error: ' + err.message, 'error');
+      }
+    }
+  };
+
+  const handleDeleteAnnouncement = async (annId: string) => {
+    // 1. Update local state
+    setAnnouncements(prev => prev.filter(a => a.id !== annId));
+    showToast('Announcement deleted', 'success');
+
+    // 2. Persist to DB
+    if (isSupabaseConfigured) {
+      try {
+        const { success, error } = await deleteAnnouncement(annId);
+        if (!success) throw new Error(error);
+      } catch (err: any) {
+        console.error('Failed to delete announcement in DB:', err.message);
+        showToast('DB Error: ' + err.message, 'error');
+      }
+    }
   };
 
   const handleVerifyPayment = (appId: string) => {
@@ -359,10 +399,10 @@ export default function App() {
         setLang={setLang}
         activeMember={activeMember}
         pendingApplicationsCount={pendingAppsCount}
-        unreadNotificationsCount={2}
+        unreadNotificationsCount={announcements.length}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         onOpenRegisterModal={() => {
-          setSelectedRegTier('FULL');
+          setSelectedRegTier(null as any); // null = show tier selection step
           setIsRegisterModalOpen(true);
         }}
       />
@@ -498,6 +538,8 @@ export default function App() {
             onRequestCorrection={handleRequestCorrection}
             onVerifyPayment={handleVerifyPayment}
             onAddAnnouncement={handleAddAnnouncement}
+            onDeleteMember={handleDeleteMember}
+            onDeleteAnnouncement={handleDeleteAnnouncement}
             onAddUniversity={handleAddUniversity}
             onToast={showToast}
           />
@@ -545,7 +587,7 @@ export default function App() {
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
         lang={lang}
-        initialTier={selectedRegTier}
+        initialTier={selectedRegTier || null}
         universities={universities}
         onSubmitApplication={handleApplicationSubmit}
         onToast={showToast}
@@ -556,6 +598,7 @@ export default function App() {
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
         lang={lang}
+        announcements={announcements}
         onNavigateTab={(tab) => setCurrentTab(tab)}
       />
 

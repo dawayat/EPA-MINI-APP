@@ -59,6 +59,21 @@ async function apiPatch(path: string, body: any): Promise<{ success: boolean; er
   }
 }
 
+async function apiDelete(path: string, body: any): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) return { success: false, error: data.error || `HTTP ${res.status}` };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 // ─── FETCHERS ───────────────────────────────────────────────────────────────
 
 export async function fetchMembers(): Promise<Member[]> {
@@ -153,6 +168,14 @@ export async function updateApplicationStatus(id: string, status: string, adminN
 
 export async function createMember(memberData: Partial<Member>) {
   return apiPost('/api/members', memberData);
+}
+
+export async function deleteMember(id: string) {
+  return apiDelete('/api/members', { id });
+}
+
+export async function deleteAnnouncement(id: string) {
+  return apiDelete('/api/announcements', { id });
 }
 
 export async function createCPDCourse(courseData: Partial<CPDCourse>) {

@@ -142,6 +142,15 @@ export default function RegistrationModal({
   const [isSuccess, setIsSuccess] = useState(false);
   const [appNumber, setAppNumber] = useState('');
 
+  // Sync state when modal opens with a specific tier
+  React.useEffect(() => {
+    if (isOpen) {
+      setTier(initialTier || null);
+      setStep(initialTier ? 1 : 0);
+      setIsSuccess(false);
+    }
+  }, [isOpen, initialTier]);
+
   const [formData, setFormData] = useState<any>({
     gender: 'M',
     city: 'Addis Ababa',
