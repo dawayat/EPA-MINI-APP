@@ -184,7 +184,7 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
                 )}
                 
                 <div className="inline-block mt-1 px-2.5 py-0.5 rounded bg-white/10 text-[10px] font-mono font-bold tracking-wide uppercase text-white border border-white/15">
-                  {isFullMember ? 'Licensed Clinical Member' : isStudent ? 'Student Member' : 'Corporate Member'}
+                  {isFullMember ? `Licensed ${member.specialty || 'Professional'} Member` : isStudent ? 'Student Member' : 'Corporate Member'}
                 </div>
 
                 <div className="text-[10px] text-neutral-300 truncate mt-1">

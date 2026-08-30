@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Award, CreditCard, FileText, CheckCircle2, Calendar, Users, Vote,
   BookOpen, Clock, ExternalLink, Sparkles, ShieldCheck, Check, Download,
@@ -8,6 +8,12 @@ import {
 } from 'lucide-react';
 import { Member, CPDCourse, Announcement, ResearchArticle } from '../types';
 import { ResearchPortal } from './ResearchPortal';
+
+// ── IN-MEMORY MOCK STATE FOR DEMO (Persists across tabs) ──────────────────
+const GLOBAL_COMMENTS: Record<string, { id: string, author: string, text: string, time: string }[]> = {};
+const GLOBAL_VOTES: Record<string, 'approve' | 'adjust' | null> = {};
+const GLOBAL_CHATS: Record<string, { from: 'me' | 'them', text: string }[]> = {};
+
 
 interface MemberPortalViewProps {
   member: Member;
@@ -24,17 +30,42 @@ interface MemberPortalViewProps {
 
 // ── ANNOUNCEMENT CARD (shared across all portals) ───────────────────────────
 interface AnnCardProps {
+  member: Member;
   ann: Announcement;
   lang: 'EN' | 'AM';
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
   likedAnn: Record<string, boolean>;
   setLikedAnn: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
-const AnnouncementCard: React.FC<AnnCardProps> = ({ ann, lang, onToast, likedAnn, setLikedAnn }) => {
+const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, likedAnn, setLikedAnn }) => {
   const [showComment, setShowComment] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [localComments, setLocalComments] = useState(GLOBAL_COMMENTS[ann.id] || []);
+  const [myVote, setMyVote] = useState(GLOBAL_VOTES[ann.id] || null);
+  
   const isVoting = ann.category === 'Election' || ann.is_draft;
   const coverImg = ann.cover_image_url || ann.cover_photo_url;
+
+  const handleVote = (type: 'approve' | 'adjust') => {
+    GLOBAL_VOTES[ann.id] = type;
+    setMyVote(type);
+    onToast(lang === 'EN' ? `Vote cast: ${type}` : `ድምጽ: ${type}`, 'success');
+  };
+
+  const handleComment = () => {
+    if (!commentText.trim()) return;
+    const newComment = {
+      id: Date.now().toString(),
+      author: `${member.first_name} ${member.father_name}`,
+      text: commentText,
+      time: new Date().toLocaleDateString()
+    };
+    const updated = [...(GLOBAL_COMMENTS[ann.id] || []), newComment];
+    GLOBAL_COMMENTS[ann.id] = updated;
+    setLocalComments(updated);
+    setCommentText('');
+    onToast(lang === 'EN' ? 'Comment submitted!' : 'አስተያየት ተልኳል!', 'success');
+  };
   return (
     <div className="rounded-2xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 overflow-hidden hover:border-[#d4ff00]/40 transition-colors">
       {coverImg && (
@@ -56,17 +87,25 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ ann, lang, onToast, likedAnn
         <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 dark:border-white/5">
           {isVoting ? (
             <div className="flex gap-2 flex-wrap">
-              <button onClick={() => onToast(lang === 'EN' ? 'Vote: Approved!' : 'ድምጽ: አጽድቁ!', 'success')}
-                className="px-3 py-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 text-[11px] font-black uppercase cursor-pointer flex items-center gap-1">
-                ✓ Approve
+              <button onClick={() => handleVote('approve')}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase cursor-pointer flex items-center gap-1 transition-colors ${
+                  myVote === 'approve' 
+                    ? 'bg-green-600 text-white' 
+                    : 'bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400'
+                }`}>
+                ✓ Approve {myVote === 'approve' && '(Voted)'}
               </button>
-              <button onClick={() => onToast(lang === 'EN' ? 'Vote: Needs Adjustment' : 'ድምጽ: ማስተካከያ', 'info')}
-                className="px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-black uppercase cursor-pointer flex items-center gap-1">
-                ↺ Adjust
+              <button onClick={() => handleVote('adjust')}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase cursor-pointer flex items-center gap-1 transition-colors ${
+                  myVote === 'adjust'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                }`}>
+                ↺ Adjust {myVote === 'adjust' && '(Voted)'}
               </button>
               <button onClick={() => setShowComment(v => !v)}
                 className="px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 text-[11px] font-black uppercase cursor-pointer flex items-center gap-1">
-                <MessageSquare className="w-3 h-3" /> Comment
+                <MessageSquare className="w-3 h-3" /> {localComments.length} Comments
               </button>
             </div>
           ) : (
@@ -78,26 +117,54 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ ann, lang, onToast, likedAnn
               </button>
               <button onClick={() => setShowComment(v => !v)}
                 className="flex items-center gap-1.5 text-[11px] text-neutral-500 hover:text-blue-400 cursor-pointer transition-colors">
-                <MessageSquare className="w-4 h-4" /> Comment
+                <MessageSquare className="w-4 h-4" /> {localComments.length} Comments
               </button>
             </div>
           )}
         </div>
+        
+        {/* Comments Section */}
         {showComment && (
-          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-white/5">
-            <textarea
-              rows={2}
-              value={commentText}
-              onChange={e => setCommentText(e.target.value)}
-              placeholder={lang === 'EN' ? 'Write your comment...' : 'አስተያየትዎን ይጻፉ...'}
-              className="w-full p-2.5 rounded-xl text-xs border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00] resize-none"
-            />
-            <button
-              onClick={() => { if (commentText.trim()) { onToast(lang === 'EN' ? 'Comment submitted!' : 'አስተያየት ተልኳል!', 'success'); setCommentText(''); setShowComment(false); } }}
-              className="mt-2 px-4 py-1.5 rounded-lg bg-[#d4ff00] text-black text-[11px] font-black uppercase cursor-pointer active:scale-95"
-            >
-              {lang === 'EN' ? 'Submit' : 'አስገባ'}
-            </button>
+          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/5 space-y-4">
+            {localComments.length > 0 && (
+              <div className="space-y-3">
+                {localComments.map(c => (
+                  <div key={c.id} className="flex items-start gap-2.5">
+                    <div className="w-6 h-6 rounded-full bg-[#d4ff00]/20 flex items-center justify-center text-[9px] font-black text-gray-900 dark:text-[#d4ff00] shrink-0">
+                      {c.author.charAt(0)}
+                    </div>
+                    <div className="flex-1 bg-white dark:bg-white/5 rounded-xl rounded-tl-sm p-2.5 border border-gray-100 dark:border-white/10">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-gray-900 dark:text-white">{c.author}</span>
+                        <span className="text-[9px] text-neutral-500">{c.time}</span>
+                      </div>
+                      <p className="text-[11px] text-neutral-700 dark:text-neutral-300">{c.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2 items-start mt-2">
+              <div className="w-6 h-6 rounded-full bg-[#d4ff00] flex items-center justify-center text-[9px] font-black text-black shrink-0">
+                {member.first_name.charAt(0)}
+              </div>
+              <div className="flex-1">
+                <textarea
+                  rows={2}
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  placeholder={lang === 'EN' ? 'Add a comment...' : 'አስተያየትዎን ይጻፉ...'}
+                  className="w-full p-2.5 rounded-xl text-xs border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00] resize-none"
+                />
+                <button
+                  onClick={handleComment}
+                  disabled={!commentText.trim()}
+                  className="mt-2 px-4 py-1.5 rounded-lg bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-[10px] font-black uppercase cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  {lang === 'EN' ? 'Post Comment' : 'አስገባ'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -116,6 +183,17 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
   const [chatPerson, setChatPerson] = useState<{ name: string; role: string } | null>(null);
   const [msgInput, setMsgInput] = useState('');
   const [messages, setMessages] = useState<{ from: 'me' | 'them'; text: string }[]>([]);
+  
+  // Sync when opening chat
+  useEffect(() => {
+    if (chatPerson) {
+      const chatId = chatPerson.name;
+      if (!GLOBAL_CHATS[chatId]) {
+        GLOBAL_CHATS[chatId] = [{ from: 'them', text: `Hello! I'm ${chatPerson.name}. How can I help you?` }];
+      }
+      setMessages(GLOBAL_CHATS[chatId]);
+    }
+  }, [chatPerson]);
   const [activeTab, setActiveTab] = useState<'mentors' | 'peers' | 'chat'>('mentors');
 
 
@@ -137,17 +215,22 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
 
   const openChat = (name: string, role: string) => {
     setChatPerson({ name, role });
-    setMessages([{ from: 'them', text: `Hello! I'm ${name}. How can I help you?` }]);
     setActiveTab('chat');
   };
 
   const sendMessage = () => {
-    if (!msgInput.trim()) return;
-    const newMessages = [...messages, { from: 'me' as const, text: msgInput }];
+    if (!msgInput.trim() || !chatPerson) return;
+    const chatId = chatPerson.name;
+    const newMessages = [...(GLOBAL_CHATS[chatId] || []), { from: 'me' as const, text: msgInput }];
+    GLOBAL_CHATS[chatId] = newMessages;
     setMessages(newMessages);
     setMsgInput('');
+    
+    // Auto-reply mock
     setTimeout(() => {
-      setMessages(prev => [...prev, { from: 'them', text: 'Thank you for your message! I\'ll get back to you soon.' }]);
+      const replied = [...GLOBAL_CHATS[chatId], { from: 'them' as const, text: 'Thank you for your message! I\'ll get back to you soon.' }];
+      GLOBAL_CHATS[chatId] = replied;
+      setMessages(replied);
     }, 800);
   };
 
@@ -360,7 +443,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
             </div>
             <div className="space-y-4">
               {announcements.slice(0, 4).map(ann => (
-                <AnnouncementCard key={ann.id} ann={ann} lang={lang} onToast={onToast} likedAnn={likedAnn} setLikedAnn={setLikedAnn} />
+                <AnnouncementCard key={ann.id} member={member} ann={ann} lang={lang} onToast={onToast} likedAnn={likedAnn} setLikedAnn={setLikedAnn} />
               ))}
             </div>
             <button 
@@ -489,7 +572,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
           </div>
           <div className="space-y-4">
             {announcements.map(ann => (
-              <AnnouncementCard key={ann.id} ann={ann} lang={lang} onToast={onToast}
+              <AnnouncementCard key={ann.id} member={member} ann={ann} lang={lang} onToast={onToast}
                 likedAnn={likedAnn} setLikedAnn={setLikedAnn} />
             ))}
           </div>
@@ -621,7 +704,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
             </div>
             <div className="space-y-4">
               {announcements.slice(0, 4).map(ann => (
-                <AnnouncementCard key={ann.id} ann={ann} lang={lang} onToast={onToast} likedAnn={likedAnn} setLikedAnn={setLikedAnn} />
+                <AnnouncementCard key={ann.id} member={member} ann={ann} lang={lang} onToast={onToast} likedAnn={likedAnn} setLikedAnn={setLikedAnn} />
               ))}
             </div>
           </div>
