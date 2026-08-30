@@ -1,3 +1,5 @@
+import nodemailer from 'nodemailer';
+
 const RESEND_API_URL = 'https://api.resend.com/emails';
 
 function escapeHtml(value = '') {
@@ -9,11 +11,27 @@ function emailShell({ eyebrow, title, body, actionLabel, actionUrl, footer = 'Et
 }
 
 export function isEmailConfigured() {
-  return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
+  return Boolean(
+    (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) ||
+    (process.env.RESEND_API_KEY && process.env.EMAIL_FROM)
+  );
 }
 
 export async function sendEmail({ to, subject, html }) {
-  if (!isEmailConfigured()) throw new Error('Email delivery is not configured. Add RESEND_API_KEY and EMAIL_FROM to Vercel.');
+  if (!isEmailConfigured()) throw new Error('Email delivery is not configured. Add GMAIL_USER and GMAIL_APP_PASSWORD to Vercel, or configure Resend.');
+
+  // Gmail SMTP is the primary no-domain option. Use a Google App Password,
+  // never the Gmail account password. Resend remains available as a fallback.
+  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }
+    });
+    const from = process.env.EMAIL_FROM || `EPA Membership <${process.env.GMAIL_USER}>`;
+    const result = await transporter.sendMail({ from, to, subject, html });
+    return { provider: 'gmail', messageId: result.messageId };
+  }
+
   const response = await fetch(RESEND_API_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
