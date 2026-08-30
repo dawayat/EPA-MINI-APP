@@ -29,10 +29,28 @@ export default async function handler(req, res) {
       return (await dbSelect('members', `phone=like.*${last9}&limit=1`))[0];
     };
 
+    if (action === 'telegram-login') {
+      const cleanTelegramId = String(telegramId || '').trim();
+      if (!/^\d+$/.test(cleanTelegramId)) {
+        return res.status(400).json({ success: false, error: 'A valid Telegram account is required.' });
+      }
+      const member = (await dbSelect('members', `telegram_id=eq.${encodeURIComponent(cleanTelegramId)}&status=eq.ACTIVE&limit=1`))[0];
+      if (!member) {
+        return res.status(401).json({ success: false, error: 'No active EPA member account is linked to this Telegram profile yet.' });
+      }
+      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined } });
+    }
+
     if (action === 'bind-telegram') {
-      if (!memberId || !telegramId) return res.status(400).json({ success: false, error: 'Member and Telegram identifiers are required.' });
-      await dbUpdate('members', { telegram_id: String(telegramId) }, 'id', memberId);
-      return res.status(200).json({ success: true });
+      const cleanTelegramId = String(telegramId || '').trim();
+      if (!memberId || !/^\d+$/.test(cleanTelegramId)) return res.status(400).json({ success: false, error: 'Member and Telegram identifiers are required.' });
+      const member = (await dbSelect('members', `id=eq.${encodeURIComponent(memberId)}&limit=1`))[0];
+      if (!member) return res.status(404).json({ success: false, error: 'Member account was not found.' });
+      if (member.telegram_id && String(member.telegram_id) !== cleanTelegramId) {
+        return res.status(409).json({ success: false, error: 'This EPA account is already linked to another Telegram profile. Please contact EPA support if this needs to change.' });
+      }
+      await dbUpdate('members', { telegram_id: cleanTelegramId }, 'id', memberId);
+      return res.status(200).json({ success: true, member: { ...member, telegram_id: cleanTelegramId, phone_password: undefined } });
     }
 
     if (action === 'change-password') {

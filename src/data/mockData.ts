@@ -28,7 +28,7 @@ export const MEMBERSHIP_TYPES: MembershipType[] = [
     benefits: [
       'Digital student membership ID card with QR verification',
       'Free access to EPA student research webinars & workshops',
-      'Mentorship pairing with licensed clinical practitioners',
+      'Mentorship opportunities with EPA full professional members',
       'Discounted access to annual national psychology symposium',
       'Access to digital Ethiopian journal of psychology archives'
     ]
@@ -44,19 +44,19 @@ export const MEMBERSHIP_TYPES: MembershipType[] = [
     amharicDescription: 'በስነ-ልቦና የትምህርት ዘርፍ የተመረቁ እና በሙያው በመስራት ላይ ላሉ ባለሙያዎች የተዘጋጀ።',
     badgeColor: '#1565C0',
     requirements: [
-      'Accredited Bachelor’s, Master’s or PhD degree certificate',
+      'Recognized Bachelor’s, Master’s or PhD degree certificate',
       'Official academic transcript',
       'Valid national ID / Kebele ID or Passport',
       'Passport size digital photograph',
       'Signed agreement to the EPA Code of Ethics'
     ],
     benefits: [
-      'Official EPA Accredited Digital ID & License Credential',
-      'Listing in the National Verified Psychologist Directory',
+      'Official EPA Digital Membership ID',
+      'Optional listing in the EPA member directory',
       'Voting rights and eligibility for EPA Executive Council elections',
-      'Continuing Professional Development (CPD) accreditation points',
+      'EPA continuing professional development (CPD) participation records',
       'Legal & ethical advisory support for private or clinical practice',
-      'Official certification for healthcare facility credentialing'
+      'Association membership certificate and professional community support'
     ]
   },
   {
@@ -76,10 +76,10 @@ export const MEMBERSHIP_TYPES: MembershipType[] = [
       'Organization profile and mental health service summary'
     ],
     benefits: [
-      'Corporate accreditation seal & partner badge for official publications',
+      'EPA corporate membership badge for official publications',
       'Free registration for up to 5 institutional staff in EPA conferences',
       'Priority mental health workplace training workshops',
-      'Institutional consultation and diagnostic tool licensing discounts',
+      'Institutional consultation and learning-resource discounts',
       'Job board posting priority for mental health professional recruitment'
     ]
   }

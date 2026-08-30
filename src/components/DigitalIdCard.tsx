@@ -90,14 +90,14 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
       <div className="text-center max-w-lg mb-8">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/5 dark:bg-white/5 border border-gray-200 dark:border-white/15 text-green-700 dark:text-[#d4ff00] text-xs font-mono font-bold uppercase tracking-widest mb-3">
           <Sparkles className="w-3.5 h-3.5 text-green-700 dark:text-[#d4ff00]" />
-          <span>{lang === 'EN' ? 'ACCREDITED BIOMETRIC CREDENTIAL' : 'ተቀባይነት ያለው ባዮሜትሪክ ዲጂታል መታወቂያ'}</span>
+          <span>{lang === 'EN' ? 'EPA DIGITAL MEMBERSHIP CARD' : 'የEPA ዲጂታል አባልነት መታወቂያ'}</span>
         </div>
         <h2 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white font-syne uppercase tracking-tight">
           {lang === 'EN' ? 'Official EPA Digital ID' : 'ይፋዊ የኢሳይባ ዲጂታል መታወቂያ'}
         </h2>
         <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">
           {lang === 'EN' 
-            ? 'Cryptographically signed membership credential recognized by Ethiopian health authorities, academic institutions, and international associations.'
+            ? 'An association-issued digital card showing an active Ethiopian Psychologists’ Association membership record.'
             : 'በጤና ተቋማት እና በዩኒቨርሲቲዎች ዘንድ ህጋዊ እውቅና ያለው የኢትዮጵያ ሳይኮሎጂ ባለሙያዎች ማኅበር መታወቂያ።'}
         </p>
       </div>
@@ -184,19 +184,19 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
                 )}
                 
                 <div className="inline-block mt-1 px-2.5 py-0.5 rounded bg-white/10 text-[10px] font-mono font-bold tracking-wide uppercase text-white border border-white/15">
-                  {isFullMember ? `Licensed ${(member.specialty && member.specialty !== 'undefined' ? member.specialty : 'Full')} Member` : isStudent ? 'Student Member' : 'Corporate Member'}
+                  {isFullMember ? 'Full Professional Member' : isStudent ? 'Student Member' : 'Corporate Member'}
                 </div>
 
-                {!isStudent && <div className="text-[10px] text-neutral-300 truncate mt-1">{member.specialty && member.specialty !== 'undefined' ? member.specialty : 'EPA Accredited Member'}</div>}
+                {!isStudent && <div className="text-[10px] text-neutral-300 truncate mt-1">{member.specialty && member.specialty !== 'undefined' ? member.specialty : 'EPA Member'}</div>}
               </div>
             </div>
 
-            {/* Bottom Row: License Info, Expiry & Micro Security Chip */}
+            {/* Bottom Row: Membership Info, Expiry & CPD */}
             <div className="relative z-10 flex items-end justify-between pt-2 border-t border-white/10 text-[9px]">
               <div>
-                <div className="text-neutral-400 uppercase text-[8px] font-mono font-bold">{isStudent ? 'Member class' : 'License / Spec'}</div>
+                <div className="text-neutral-400 uppercase text-[8px] font-mono font-bold">{isStudent ? 'Member class' : 'Member class'}</div>
                 <div className="font-mono font-bold text-white tracking-wide">
-                  {isStudent ? 'STUDENT MEMBER' : (member.license_number || 'EPA FULL MEMBER')}
+                  {isStudent ? 'STUDENT MEMBER' : isFullMember ? 'FULL MEMBER' : 'CORPORATE MEMBER'}
                 </div>
               </div>
 
@@ -341,18 +341,18 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
         </button>
       </div>
 
-      {/* Security & Accreditation Seal Card */}
+      {/* Membership record card */}
       <div className="w-full max-w-xl mt-8 bg-[#141416] border border-gray-200 dark:border-white/10 rounded-2xl p-5 flex items-start gap-4">
         <div className="p-2.5 bg-[#d4ff00]/10 border border-[#d4ff00]/30 text-green-700 dark:text-[#d4ff00] rounded-xl shrink-0">
           <CheckCircle className="w-5 h-5" />
         </div>
         <div className="text-xs text-gray-900 dark:text-white">
           <span className="font-black font-syne uppercase tracking-tight block text-sm mb-1 text-gray-900 dark:text-white">
-            {lang === 'EN' ? 'Official Health Sector Accreditation' : 'በኢትዮጵያ ጤና ጥበቃ ሚኒስቴር የታወቀ'}
+            {lang === 'EN' ? 'Official EPA Membership Record' : 'ይፋዊ የEPA አባልነት መረጃ'}
           </span>
           <p className="text-neutral-600 dark:text-neutral-400 leading-relaxed">
             {lang === 'EN'
-              ? 'This credential matches federal registry records under the Ministry of Health & Education. Verification QR is valid for real-time institutional queries.'
+              ? 'This card confirms active membership in the Ethiopian Psychologists’ Association. It is not a government professional licence or accreditation credential.'
               : 'ይህ መታወቂያ በጤና ሚኒስቴር እና በትምህርት ሚኒስቴር ዳታቤዝ የተረጋገጠ ሲሆን በማንኛውም የህክምና እና የትምህርት ተቋም ተቀባይነት አለው።'}
           </p>
         </div>

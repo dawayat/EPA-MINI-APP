@@ -88,7 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
           <span className="hidden sm:inline text-neutral-600">•</span>
           <span className="hidden sm:inline text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400">
-            {lang === 'EN' ? 'Official Accreditation Registry' : 'ብሔራዊ የሙያ ፈቃድና ምዝገባ መድረክ'}
+            {lang === 'EN' ? 'Ethiopian Psychologists’ Association' : 'የኢትዮጵያ ሳይኮሎጂ ባለሙያዎች ማኅበር'}
           </span>
 
           <div className="ml-auto flex items-center gap-3">

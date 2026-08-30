@@ -318,7 +318,7 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
 
       {activeTab === 'mentors' && (
         <div className="space-y-3">
-          <p className="text-xs text-neutral-500">{lang === 'EN' ? 'Connect with licensed full members for professional mentorship and guidance.' : 'ለሙያ ምክር ከሙሉ አባላት ጋር ይገናኙ።'}</p>
+          <p className="text-xs text-neutral-500">{lang === 'EN' ? 'Connect with EPA full professional members for mentorship and guidance.' : 'ለሙያ ምክር ከሙሉ አባላት ጋር ይገናኙ።'}</p>
           {mentors.map((m, i) => (
             <div key={i} className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-4 flex items-center gap-4">
               <div className="relative shrink-0">
@@ -696,7 +696,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <span className="px-2.5 py-0.5 rounded-full bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/30 text-[10px] font-mono font-black uppercase tracking-wider">
-                  ● {member.status} ACCREDITED
+                  ● {member.status} EPA MEMBER
                 </span>
                 <span className="text-xs text-neutral-600 dark:text-neutral-400 font-mono">{member.membership_number}</span>
               </div>
@@ -705,7 +705,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
               </h1>
               {member.amharic_full_name && <p className="text-xs font-semibold text-green-700 dark:text-[#d4ff00]">{member.amharic_full_name}</p>}
               <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 flex items-center gap-2 font-mono">
-                <span>{member.specialty}</span><span>•</span><span>{member.workplace}</span>
+                <span>{member.specialty || 'Psychology'}</span><span>•</span><span>{member.workplace || 'EPA member'}</span>
               </p>
             </div>
           </div>
@@ -725,7 +725,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           {[
             { label: lang === 'EN' ? 'Annual CPD Score' : 'CPD ነጥቦች', value: `${member.cpd_points} / 50 PTS`, color: 'text-green-700 dark:text-[#d4ff00]' },
-            { label: lang === 'EN' ? 'License Number' : 'የፈቃድ ቁጥር', value: member.license_number || 'LICENSED', color: 'text-gray-900 dark:text-white' },
+            { label: lang === 'EN' ? 'Membership Number' : 'የአባልነት ቁጥር', value: member.membership_number, color: 'text-gray-900 dark:text-white' },
             { label: lang === 'EN' ? 'Valid Until' : 'ያበቃበት ቀን', value: new Date(member.expires_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), color: 'text-gray-900 dark:text-white' },
             { label: lang === 'EN' ? 'Voting Rights' : 'መምረጥ መብት', value: '✓ Eligible', color: 'text-green-700 dark:text-[#d4ff00]' },
           ].map((s, i) => (
@@ -755,7 +755,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
           { id: 'cpd', label: lang === 'EN' ? 'CPD & Continuing Education' : 'CPD ማሻሻያ' },
           { id: 'research', label: lang === 'EN' ? 'Research & Articles' : 'ምርምር' },
           { id: 'announcements', label: lang === 'EN' ? 'News Feed' : 'ዜናዎች' },
-          { id: 'license', label: lang === 'EN' ? 'License & Renewal' : 'ፈቃድ / ማደስ' },
+          { id: 'license', label: lang === 'EN' ? 'Membership & Renewal' : 'አባልነት / ማደስ' },
         ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id as any)}
             className={`pb-3 px-4 text-xs font-mono font-black uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
@@ -809,14 +809,14 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
                 <span className="text-[10px] font-mono font-black text-green-700 dark:text-[#d4ff00]">{member.cpd_points}/50 PTS</span>
               </div>
               <h4 className="font-black text-base text-gray-900 dark:text-white uppercase tracking-tight">{lang === 'EN' ? 'CPD Progress Hub' : 'CPD ነጥቦች'}</h4>
-              <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">{lang === 'EN' ? 'Register for accredited workshops and earn points.' : 'ነጥቦቹን ያሟሉ።'}</p>
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">{lang === 'EN' ? 'Register for EPA workshops and record your participation.' : 'ነጥቦቹን ያሟሉ።'}</p>
             </div>
           </div>
           <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl p-6 sm:p-7 border border-gray-200 dark:border-white/10 shadow-md">
             <h3 className="text-base font-black text-gray-900 dark:text-white uppercase mb-3 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Accreditation Dossier' : 'የሙያ መረጃ ማጠቃለያ'}
+              <ShieldCheck className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Membership Profile' : 'የአባልነት መረጃ ማጠቃለያ'}
             </h3>
-            <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">{member.bio || 'Accredited member of the Ethiopian Psychologists\' Association in good standing.'}</p>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">{member.bio || 'Active member of the Ethiopian Psychologists\' Association.'}</p>
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
               {[
                 { label: 'Registered Workplace', value: member.workplace },
@@ -870,7 +870,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
           <div className="bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h4 className="font-black text-gray-900 dark:text-white uppercase text-sm">{lang === 'EN' ? 'Annual CPD Target: 50 Points' : 'ዓመታዊ CPD ግብ: 50 ነጥቦች'}</h4>
-              <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">{lang === 'EN' ? `${member.cpd_points} of 50 accredited points completed.` : `${member.cpd_points} ነጥቦች አጠናቅቀዋል።`}</p>
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">{lang === 'EN' ? `${member.cpd_points} of 50 EPA CPD points recorded.` : `${member.cpd_points} ነጥቦች አጠናቅቀዋል።`}</p>
             </div>
             <div className="w-full sm:w-48">
               <div className="w-full h-3 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
@@ -926,15 +926,15 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
         </div>
       )}
 
-      {/* License & Renewal Tab */}
+      {/* Membership & Renewal Tab */}
       {activeTab === 'license' && (
         <div className="space-y-4 max-w-lg">
           <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-6">
             <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <Shield className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'License & Renewal' : 'ፈቃድ / ማደስ'}
+              <Shield className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Membership & Renewal' : 'አባልነት / ማደስ'}
             </h3>
             {[
-              { label: lang === 'EN' ? 'License No.' : 'የፈቃድ ቁጥር', value: member.license_number || 'Not yet assigned' },
+              { label: lang === 'EN' ? 'Membership No.' : 'የአባልነት ቁጥር', value: member.membership_number },
               { label: lang === 'EN' ? 'Membership Status' : 'አባልነት ሁኔታ', value: member.status },
               { label: lang === 'EN' ? 'Expires On' : 'ያበቃል', value: new Date(member.expires_at).toLocaleDateString() },
               { label: lang === 'EN' ? 'Renewal Fee' : 'ማደሻ ክፍያ', value: 'ETB 1,500' },
@@ -992,7 +992,7 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
                 {lang === 'EN' ? 'Corporate Member' : 'ድርጅታዊ አባል'}
               </span>
               <span className="text-[10px] font-mono font-bold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full border border-green-400/20 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Accredited
+                <CheckCircle2 className="w-3 h-3" /> EPA Member
               </span>
             </div>
             <h2 className="text-xl font-black text-white mt-1 uppercase">{member.corporate_profile?.organization_name || `${member.first_name} Org`}</h2>
@@ -1060,13 +1060,13 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 bg-amber-500/20 rounded-xl"><Shield className="w-5 h-5 text-amber-400" /></div>
               <div>
-                <h3 className="font-black text-sm text-gray-900 dark:text-white">{lang === 'EN' ? 'EPA Accreditation Seal' : 'የEPA ማረጋገጫ ምልክት'}</h3>
+                <h3 className="font-black text-sm text-gray-900 dark:text-white">{lang === 'EN' ? 'EPA Membership Badge' : 'የEPA አባልነት ምልክት'}</h3>
                 <p className="text-[11px] text-neutral-500">{lang === 'EN' ? 'Valid for official publications & documents' : 'ለይፋዊ ሰነዶች ዋጋ አለው'}</p>
               </div>
             </div>
-            <button onClick={() => onToast(lang === 'EN' ? 'Accreditation badge downloaded!' : 'ምልክት ወርዷል!', 'success')}
+            <button onClick={() => onToast(lang === 'EN' ? 'Membership badge downloaded!' : 'ምልክት ወርዷል!', 'success')}
               className="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-500 dark:text-amber-400 text-xs font-black uppercase tracking-wider cursor-pointer active:scale-95">
-              {lang === 'EN' ? 'Download Accreditation Badge' : 'ማረጋገጫ ምልክት አውርድ'}
+              {lang === 'EN' ? 'Download Membership Badge' : 'የአባልነት ምልክት አውርድ'}
             </button>
           </div>
         </div>
@@ -1135,7 +1135,7 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
           <div className="text-center py-12 text-neutral-500">
             <Briefcase className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">{lang === 'EN' ? 'No active job postings.' : 'ንቁ ማስታወቂያዎች የሉም።'}</p>
-            <p className="text-xs mt-1">{lang === 'EN' ? 'Post a job to reach accredited EPA psychologists.' : 'ሙያተኛ ለመፈለግ ስራ ይለቀቁ።'}</p>
+            <p className="text-xs mt-1">{lang === 'EN' ? 'Post a job to reach EPA full professional members.' : 'ሙያተኛ ለመፈለግ ስራ ይለቀቁ።'}</p>
           </div>
         </div>
       )}

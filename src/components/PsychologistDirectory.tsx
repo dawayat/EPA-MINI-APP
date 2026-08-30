@@ -42,9 +42,12 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
     'Industrial & Organizational Psychology'
   ];
 
-  const filtered = members.filter(m => {
+  // The public directory is a member directory, not a licensing register.
+  // Students and organisations therefore never appear as psychologists.
+  const directoryMembers = members.filter(member => member.membership_type === 'FULL' && member.status === 'ACTIVE');
+  const filtered = directoryMembers.filter(m => {
     const matchesCity = selectedCity === 'ALL' || m.city === selectedCity;
-    const matchesSpec = selectedSpecialty === 'ALL' || m.specialty.includes(selectedSpecialty);
+    const matchesSpec = selectedSpecialty === 'ALL' || (m.specialty || '').includes(selectedSpecialty);
     const searchString = `${m.first_name} ${m.father_name} ${m.specialty} ${m.workplace} ${m.city}`.toLowerCase();
     const matchesSearch = !searchQuery || searchString.includes(searchQuery.toLowerCase());
     return matchesCity && matchesSpec && matchesSearch;
@@ -55,14 +58,14 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
       {/* Header */}
       <div className="text-center max-w-2xl mx-auto mb-8">
         <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-green-700 dark:text-[#d4ff00] bg-[#d4ff00]/10 px-3 py-1 rounded-full border border-[#d4ff00]/30">
-          {lang === 'EN' ? 'National Verified Registry' : 'ብሔራዊ የተረጋገጡ ባለሙያዎች ማውጫ'}
+          {lang === 'EN' ? 'EPA Member Directory' : 'የEPA አባላት ማውጫ'}
         </span>
         <h1 className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white font-syne uppercase tracking-tight mt-3">
-          {lang === 'EN' ? 'Accredited Psychologists in Ethiopia' : 'እውቅና ያላቸውን የስነ-ልቦና ባለሙያዎች ይፈልጉ'}
+          {lang === 'EN' ? 'Find EPA Professional Members' : 'የEPA ሙሉ አባላትን ይፈልጉ'}
         </h1>
         <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 mt-2">
           {lang === 'EN'
-            ? 'Connect with licensed clinicians, academic researchers, and counseling specialists across Ethiopian regional cities.'
+            ? 'Discover active EPA full professional members by name, field, workplace, or city.'
             : 'በአዲስ አበባ እና በክልል ከተሞች የሚገኙ የተመሰከረላቸውን የስነ-ልቦና ባለሙያዎች በቀላሉ ያግኙ።'}
         </p>
       </div>
@@ -74,7 +77,7 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
             <Search className="w-4 h-4 text-stone-600 dark:text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder={lang === 'EN' ? 'Search by psychologist name, institution, or keyword...' : 'በስም ወይም በተቋም ይፈልጉ...'}
+              placeholder={lang === 'EN' ? 'Search by member name, institution, or keyword...' : 'በስም ወይም በተቋም ይፈልጉ...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-xs sm:text-sm focus:outline-none focus:border-[#d4ff00] bg-gray-50 dark:bg-[#09090b] text-gray-900 dark:text-white"
@@ -153,12 +156,12 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
               <div className="space-y-2 text-xs">
                 <div className="font-semibold text-stone-700 dark:text-stone-200 flex items-start gap-1.5">
                   <Award className="w-3.5 h-3.5 text-green-700 dark:text-[#d4ff00] shrink-0 mt-0.5" />
-                  <span>{member.specialty}</span>
+                  <span>{member.specialty || 'Psychology'}</span>
                 </div>
 
                 <div className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
                   <Building className="w-3.5 h-3.5 text-stone-600 dark:text-stone-500 shrink-0" />
-                  <span className="truncate">{member.workplace}</span>
+                  <span className="truncate">{member.workplace || 'EPA full professional member'}</span>
                 </div>
 
                 <div className="text-stone-600 dark:text-stone-400 flex items-center gap-1.5">
@@ -218,15 +221,15 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
             <div className="space-y-2 text-xs pt-2">
               <div className="flex justify-between py-1 border-b border-gray-100 dark:border-white/5">
                 <span className="text-stone-600 dark:text-stone-400 font-mono">Specialization:</span>
-                <span className="font-bold text-gray-900 dark:text-white">{selectedMemberModal.specialty}</span>
+                <span className="font-bold text-gray-900 dark:text-white">{selectedMemberModal.specialty || 'Psychology'}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-gray-100 dark:border-white/5">
-                <span className="text-stone-600 dark:text-stone-400 font-mono">Workplace / Clinic:</span>
-                <span className="font-bold text-gray-900 dark:text-white">{selectedMemberModal.workplace}</span>
+                <span className="text-stone-600 dark:text-stone-400 font-mono">Workplace / Institution:</span>
+                <span className="font-bold text-gray-900 dark:text-white">{selectedMemberModal.workplace || 'Not listed'}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-gray-100 dark:border-white/5">
-                <span className="text-stone-600 dark:text-stone-400 font-mono">Clinical License No.:</span>
-                <span className="font-mono font-bold text-green-700 dark:text-[#d4ff00]">{selectedMemberModal.license_number || 'ACTIVE-MEMBER'}</span>
+                <span className="text-stone-600 dark:text-stone-400 font-mono">EPA Membership:</span>
+                <span className="font-mono font-bold text-green-700 dark:text-[#d4ff00]">Active Full Member</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-stone-600 dark:text-stone-400 font-mono">Email:</span>

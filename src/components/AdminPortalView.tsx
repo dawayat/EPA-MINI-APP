@@ -16,7 +16,8 @@ interface AdminPortalViewProps {
   announcements: Announcement[];
   auditLogs: AuditLog[];
   researchSubmissions: ResearchSubmission[];
-  onApproveApplication: (appId: string) => void;
+  onApproveApplication: (appId: string) => Promise<boolean>;
+  onResendApprovalEmail: (appId: string) => Promise<boolean>;
   onRejectApplication: (appId: string, reason: string) => void;
   onRequestCorrection: (appId: string, notes: string) => void;
   onVerifyPayment: (appId: string) => void;
@@ -38,6 +39,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   auditLogs,
   researchSubmissions,
   onApproveApplication,
+  onResendApprovalEmail,
   onRejectApplication,
   onRequestCorrection,
   onVerifyPayment,
@@ -225,12 +227,12 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono font-black uppercase tracking-widest text-green-700 dark:text-[#d4ff00] bg-[#d4ff00]/10 px-3 py-1 rounded-full border border-[#d4ff00]/30">
-                {lang === 'EN' ? 'Accreditation Board Access' : 'የአስተዳዳሪ መቆጣጠሪያ ገጽ'}
+                {lang === 'EN' ? 'EPA Administration' : 'የአስተዳዳሪ መቆጣጠሪያ ገጽ'}
               </span>
               <span className="text-xs text-neutral-600 dark:text-neutral-500 dark:text-neutral-500 font-mono">ID: EPA-ADMIN-SECURE</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-gray-900 dark:text-white font-syne uppercase tracking-tight mt-2">
-              {lang === 'EN' ? 'EPA Accreditation & Council Admin' : 'የማኅበሩ አስተዳደር መድረክ'}
+              {lang === 'EN' ? 'EPA Association Administration' : 'የማኅበሩ አስተዳደር መድረክ'}
             </h1>
           </div>
 
@@ -256,7 +258,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {[
-            { label: lang === 'EN' ? 'Active Members' : 'ንቁ አባላት', value: members.length, sub: '✓ Verified & Licensed', icon: <Users className="w-4 h-4" />, color: 'text-green-700 dark:text-[#d4ff00]' },
+            { label: lang === 'EN' ? 'Active Members' : 'ንቁ አባላት', value: members.length, sub: '✓ Active EPA records', icon: <Users className="w-4 h-4" />, color: 'text-green-700 dark:text-[#d4ff00]' },
             { label: lang === 'EN' ? 'Pending Review' : 'በግምገማ ላይ', value: pendingAppsCount, sub: lang === 'EN' ? 'Awaiting council' : 'ውሳኔ የሚጠብቁ', icon: <Clock className="w-4 h-4" />, color: 'text-green-700 dark:text-[#d4ff00]' },
             { label: lang === 'EN' ? 'Unverified Payments' : 'ያልተረጋገጡ ክፍያዎች', value: unverifiedPaymentsCount, sub: 'Telebirr & CBE Slips', icon: <CreditCard className="w-4 h-4" />, color: 'text-amber-600 dark:text-amber-400' },
             { label: lang === 'EN' ? 'MoE Universities' : 'ተቋማት', value: universities.length, sub: 'Accredited Departments', icon: <GraduationCap className="w-4 h-4" />, color: 'text-gray-900 dark:text-white' },
@@ -441,13 +443,21 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                           {app.status !== 'APPROVED' && (
                             <button
                               onClick={() => {
-                                onApproveApplication(app.id);
-                                onToast(lang === 'EN' ? `Approved ${app.first_name} and issued digital ID!` : 'ተፈቅዷል!', 'success');
+                                void onApproveApplication(app.id);
                               }}
                               className="p-1.5 rounded-lg bg-[#d4ff00] hover:bg-[#c3eb00] text-black transition-colors cursor-pointer"
                               title="Quick Approve"
                             >
                               <Check className="w-4 h-4 text-black" />
+                            </button>
+                          )}
+                          {app.status === 'APPROVED' && (
+                            <button
+                              onClick={() => { void onResendApprovalEmail(app.id); }}
+                              className="p-1.5 rounded-lg bg-black/5 dark:bg-white/5 hover:bg-[#d4ff00]/15 text-green-700 dark:text-[#d4ff00] transition-colors cursor-pointer"
+                              title="Resend approval email"
+                            >
+                              <Mail className="w-4 h-4" />
                             </button>
                           )}
                         </div>
@@ -1052,7 +1062,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               {/* Council Notes */}
               <div>
                 <label className="block font-mono font-bold text-xs text-neutral-700 dark:text-neutral-300 mb-1">
-                  Accreditation Board Notes (Visible to Applicant)
+                  Membership Review Notes (Visible to Applicant)
                 </label>
                 <textarea
                   rows={2}
@@ -1120,10 +1130,9 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 )}
 
                 <button
-                  onClick={() => {
-                    onApproveApplication(reviewingApp.id);
-                    setReviewingApp(null);
-                    onToast(`Approved ${reviewingApp.first_name} and generated Digital ID!`, 'success');
+                  onClick={async () => {
+                    const approved = await onApproveApplication(reviewingApp.id);
+                    if (approved) setReviewingApp(null);
                   }}
                   className="px-5 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider shadow-sm cursor-pointer flex items-center gap-1.5"
                 >

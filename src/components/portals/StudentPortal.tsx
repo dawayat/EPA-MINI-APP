@@ -293,7 +293,7 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
 
       {activeSection === 'mentor' && (
         <div className="space-y-4">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">{lang === 'EN' ? 'Connect with licensed EPA members for mentorship and professional guidance.' : 'ለሙያ መምሪያ ከተፈቀዱ የEPA አባላት ጋር ይገናኙ።'}</p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">{lang === 'EN' ? 'Connect with EPA full professional members for mentorship and professional guidance.' : 'ለሙያ መምሪያ ከEPA ሙሉ አባላት ጋር ይገናኙ።'}</p>
           {/* Sample mentors from directory */}
           {[
             { name: 'Dr. Selamawit Bekele', specialty: 'Clinical & Trauma Psychology', workplace: 'Addis Ababa University', photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200' },

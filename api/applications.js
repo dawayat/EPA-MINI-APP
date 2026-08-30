@@ -2,7 +2,8 @@ import { dbSelect, dbInsert, dbUpdate, cors } from './_db.js';
 import { applicationReceivedEmail, applicationStatusEmail, isEmailConfigured, sendEmail } from './_email.js';
 
 async function deliverEmail(address, message) {
-  if (!address || !isEmailConfigured()) return { attempted: false, delivered: false };
+  if (!address) return { attempted: false, delivered: false, error: 'The application has no email address.' };
+  if (!isEmailConfigured()) return { attempted: false, delivered: false, error: 'Email delivery is not configured in Vercel.' };
   try {
     await sendEmail({ to: address, ...message });
     return { attempted: true, delivered: true };

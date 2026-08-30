@@ -30,7 +30,7 @@ import RegistrationModal from './components/RegistrationModal';
 import { NotificationDrawer } from './components/NotificationDrawer';
 import { SplashScreen } from './components/SplashScreen';
 import { BottomBar } from './components/BottomBar';
-import { initTelegramApp, getTelegramColorScheme, isTelegramMiniApp } from './lib/telegram';
+import { initTelegramApp, getTelegramColorScheme, getTelegramUser, isTelegramMiniApp } from './lib/telegram';
 import { CheckCircle2, AlertCircle, Info, ShieldCheck, CreditCard } from 'lucide-react';
 import { PhoneLoginModal } from './components/PhoneLoginModal';
 
@@ -88,7 +88,7 @@ export default function App() {
             fetchMembers(), fetchApplications(), fetchAnnouncements(),
             fetchUniversities(), fetchCPDCourses(), fetchAuditLogs(), fetchElectionCandidates(), fetchResearchSubmissions()
           ]);
-          setMembers(fetchedMembers);
+          let resolvedMembers = fetchedMembers;
           setApplications(fetchedApps);
           setAnnouncements(fetchedAnnouncements);
           setUniversities(fetchedUnivs);
@@ -97,18 +97,35 @@ export default function App() {
           setCandidates(fetchedCandidates);
           setResearchSubmissions(fetchedResearchSubmissions);
 
-          // Telegram Auto-Login
-          const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+          // Telegram Auto-Login: resolve the active account from the server so
+          // approval and login use the same persisted member record.
+          const tgUser = getTelegramUser();
           if (tgUser && tgUser.id) {
-            const matchedMember = fetchedMembers.find(m => m.telegram_id === tgUser.id || m.telegram_id?.toString() === tgUser.id.toString());
-            if (matchedMember) {
-              setActiveMemberId(matchedMember.id);
-            } else {
+            try {
+              const response = await fetch('/api/auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'telegram-login', telegramId: tgUser.id })
+              });
+              const data = await response.json();
+              if (data.success && data.member) {
+                const telegramMember = data.member as Member;
+                resolvedMembers = fetchedMembers.some(member => member.id === telegramMember.id)
+                  ? fetchedMembers.map(member => member.id === telegramMember.id ? { ...member, ...telegramMember } : member)
+                  : [telegramMember, ...fetchedMembers];
+                setActiveMemberId(telegramMember.id);
+                setCurrentTab('portal');
+              } else {
+                setActiveMemberId(null);
+              }
+            } catch (error) {
+              console.warn('[App] Telegram login could not be completed:', error);
               setActiveMemberId(null);
             }
           } else {
             setActiveMemberId(null);
           }
+          setMembers(resolvedMembers);
         } else {
           // If Supabase isn't configured, we leave the app empty!
           // No more mock data demo mode.
@@ -160,7 +177,7 @@ export default function App() {
 
   // Handler: Application submission from registration modal
   const handleApplicationSubmit = async (newApp: Partial<Application>) => {
-    const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+    const tgUser = getTelegramUser();
     
     const fullApp: Application = {
       ...newApp,
@@ -202,7 +219,7 @@ export default function App() {
   // Handler: Admin approves application -> generates Member Record & Digital ID
   const handleApproveApplication = async (appId: string) => {
     const app = applications.find(a => a.id === appId);
-    if (!app) return;
+    if (!app) return false;
 
     const newMembershipNum = `EPA-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const newVerificationToken = `epa_tok_${Math.random().toString(36).substring(2, 10)}`;
@@ -225,43 +242,64 @@ export default function App() {
       membership_type: app.membership_type,
       status: 'ACTIVE',
       specialty: app.membership_type === 'STUDENT' ? undefined : (app.current_specialty || app.qualifications?.[0]?.field || 'Psychology'),
-      workplace: app.membership_type === 'STUDENT' ? app.student_profile?.university_name : app.membership_type === 'CORPORATE' ? app.corporate_profile?.organization_name : (app.current_workplace || 'Accredited Psychological Practice'),
-      bio: "Newly registered and accredited member of the Ethiopian Psychologists' Association.",
+      workplace: app.membership_type === 'STUDENT' ? app.student_profile?.university_name : app.membership_type === 'CORPORATE' ? app.corporate_profile?.organization_name : (app.current_workplace || 'Psychology practice or institution'),
+      bio: "Newly registered member of the Ethiopian Psychologists' Association.",
       cpd_points: 10,
       issued_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       is_verified: true,
-      license_number: app.membership_type === 'FULL' ? `EPA-LIC-CL-${Math.floor(1000 + Math.random() * 9000)}` : undefined,
+      license_number: app.license_number || undefined,
       corporate_profile: app.corporate_profile,
       student_profile: app.student_profile,
       phone_password: (app as any).phone_password,
       email_verified: Boolean(app.email_verified)
     };
 
-    // ✅ ALWAYS update local state first — user gets access immediately regardless of DB
-    setMembers(prev => [newMember, ...prev]);
-    setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'APPROVED' } : a));
-    setActiveMemberId(newMember.id);
-    setCurrentTab('idcard');
-    showToast('Application approved! Digital ID issued ✅', 'success');
+    // Persist first. A member must never appear approved locally if their
+    // account cannot be found after a refresh or by the Telegram sign-in flow.
+    try {
+      const memberResult = await createMember(newMember);
+      if (!memberResult.success) throw new Error(memberResult.error || 'Member account could not be created.');
+      const approvalUpdate = await updateApplicationStatus(appId, 'APPROVED');
 
-    setAuditLogs(prev => [{
-      id: 'log-' + Date.now(),
-      action: `Approved Application & Issued ID: ${newMembershipNum}`,
-      entity_type: 'Member',
-      entity_id: newMember.membership_number,
-      admin_username: 'superadmin_council',
-      created_at: new Date().toISOString()
-    }, ...prev]);
-
-    // 💾 Then try to persist to DB in background (non-blocking)
-    if (isSupabaseConfigured) {
-      try {
-        await createMember(newMember);
-        await updateApplicationStatus(appId, 'APPROVED');
-      } catch (err: any) {
-        showToast(`Note: Member approved locally but DB save failed: ${err.message}`, 'error');
+      setMembers(prev => [newMember, ...prev]);
+      setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'APPROVED' } : a));
+      setActiveMemberId(newMember.id);
+      setCurrentTab('idcard');
+      if (approvalUpdate.email?.delivered) {
+        showToast('Application approved, member account created, and approval email sent.', 'success');
+      } else {
+        showToast(`Application approved and member account created. Approval email was not delivered: ${approvalUpdate.email?.error || 'email service is not configured in Vercel.'}`, 'error');
       }
+
+      setAuditLogs(prev => [{
+        id: 'log-' + Date.now(),
+        action: `Approved Application & Issued ID: ${newMembershipNum}`,
+        entity_type: 'Member',
+        entity_id: newMember.membership_number,
+        admin_username: 'superadmin_council',
+        created_at: new Date().toISOString()
+      }, ...prev]);
+      return true;
+    } catch (err: any) {
+      console.error('[App] Approval failed before completion:', err);
+      showToast(`Approval was not completed: ${err.message || 'Please try again.'}`, 'error');
+      return false;
+    }
+  };
+
+  const handleResendApprovalEmail = async (appId: string) => {
+    try {
+      const result = await updateApplicationStatus(appId, 'APPROVED');
+      if (result.email?.delivered) {
+        showToast('Approval email sent again.', 'success');
+        return true;
+      }
+      showToast(`Approval email could not be delivered: ${result.email?.error || 'email service is not configured in Vercel.'}`, 'error');
+      return false;
+    } catch (err: any) {
+      showToast(`Approval email could not be resent: ${err.message || 'Please try again.'}`, 'error');
+      return false;
     }
   };
 
@@ -568,6 +606,7 @@ export default function App() {
             auditLogs={auditLogs}
             researchSubmissions={researchSubmissions}
             onApproveApplication={handleApproveApplication}
+            onResendApprovalEmail={handleResendApprovalEmail}
             onRejectApplication={handleRejectApplication}
             onRequestCorrection={handleRequestCorrection}
             onVerifyPayment={handleVerifyPayment}

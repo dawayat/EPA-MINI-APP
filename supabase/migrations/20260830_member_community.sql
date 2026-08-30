@@ -7,7 +7,13 @@ ALTER TABLE members ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NU
 ALTER TABLE members ADD COLUMN IF NOT EXISTS onboarding_completed boolean NOT NULL DEFAULT true;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS gender text;
 ALTER TABLE members ADD COLUMN IF NOT EXISTS date_of_birth text;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS phone_password text;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS corporate_profile jsonb;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS student_profile jsonb;
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT false;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS phone_password text;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS corporate_profile jsonb;
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS student_profile jsonb;
 
 CREATE TABLE IF NOT EXISTS email_verifications (
   id text PRIMARY KEY,

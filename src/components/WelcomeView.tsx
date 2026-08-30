@@ -51,7 +51,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             {/* Top Pill */}
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/5 dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/15 text-green-700 dark:text-[#d4ff00] text-xs font-mono font-bold uppercase tracking-widest mb-6">
               <span className="flex h-2 w-2 rounded-full bg-[#d4ff00] animate-pulse"></span>
-              <span>{lang === 'EN' ? 'OFFICIAL NATIONAL REGISTRY • EST. 1992' : 'ብሔራዊ የስነ-ልቦና ባለሙያዎች ማኅበር'}</span>
+              <span>{lang === 'EN' ? 'NATIONAL PROFESSIONAL ASSOCIATION • EST. 1992' : 'ብሔራዊ የስነ-ልቦና ባለሙያዎች ማኅበር'}</span>
             </div>
 
             {/* Main Headline */}
@@ -70,7 +70,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             {/* Subtitle */}
             <p className="mt-6 text-base sm:text-lg text-neutral-700 dark:text-neutral-300 font-normal leading-relaxed max-w-2xl">
               {lang === 'EN'
-                ? 'The official professional regulatory council for Ethiopian psychologists, researchers, clinicians, and students. Verified digital accreditation credentials, CPD tracking, and national member directory.'
+                ? 'A national professional association representing Ethiopian psychologists, researchers, practitioners, and students. EPA supports community, learning, research, advocacy, and member services.'
                 : 'ለኢትዮጵያ ስነ-ልቦና ባለሙያዎች፣ ተመራማሪዎች እና ተማሪዎች የተዘጋጀ ይፋዊ መድረክ። አባል በመሆን የሙያ እውቅና ያግኙ፤ ዲጂታል መታወቂያዎን ይያዙ።'}
             </p>
 
@@ -91,7 +91,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 className="flex-1 min-w-[160px] flex items-center justify-center gap-2 px-8 py-4 rounded-2xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:bg-white/10 backdrop-blur-md border border-white/20 text-gray-900 dark:text-white text-xs font-black uppercase tracking-wider transition-all hover:scale-[1.02] active:scale-98 cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />
-                <span>{lang === 'EN' ? 'Verify License / ID' : 'መታወቂያ ያረጋግጡ'}</span>
+                <span>{lang === 'EN' ? 'Verify Membership / ID' : 'መታወቂያ ያረጋግጡ'}</span>
               </button>
             </div>
 
@@ -99,7 +99,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             <div className="mt-14 grid grid-cols-2 sm:grid-cols-4 gap-4 w-full pt-10 border-t border-gray-200 dark:border-white/10 text-center">
               <div className="p-4 bg-black/5 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
                 <div className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white font-syne">1,280+</div>
-                <div className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mt-1">{lang === 'EN' ? 'Accredited Members' : 'እውቅና ያላቸው ባለሙያዎች'}</div>
+                <div className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mt-1">{lang === 'EN' ? 'EPA Members' : 'የEPA አባላት'}</div>
               </div>
               <div className="p-4 bg-black/5 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
                 <div className="text-3xl sm:text-4xl font-black text-green-700 dark:text-[#d4ff00] font-syne">24</div>
@@ -250,11 +250,11 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <h4 className="font-black text-base text-gray-900 dark:text-white font-syne uppercase">
-                {lang === 'EN' ? 'Licensing & Ethics' : 'የሙያ ፈቃድና ስነ-ምግባር'}
+                {lang === 'EN' ? 'Ethics & Advocacy' : 'ስነ-ምግባርና ተሟጋችነት'}
               </h4>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-2 leading-relaxed">
                 {lang === 'EN'
-                  ? 'Upholding national ethical standards, client confidentiality, and diagnostic practice guidelines in accordance with Ethiopian law.'
+                  ? 'Promoting ethical practice, client confidentiality, professional dialogue, and advocacy alongside the appropriate authorities.'
                   : 'የሙያ ስነ-ምግባር ደንቦችን ማስከበር እና የታካሚዎችን ሚስጥር መጠበቅ።'}
               </p>
             </div>
@@ -282,7 +282,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
               </h4>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-2 leading-relaxed">
                 {lang === 'EN'
-                  ? 'Providing certified workshops, trauma care seminars, and clinical supervision points for license renewal.'
+                  ? 'Providing learning opportunities, workshops, seminars, and participation records for members’ professional development.'
                   : 'የዕውቀትና ክህሎት ማሻሻያ ስልጠናዎችን በመስጠት የCPD ነጥቦችን ማስመዝገብ።'}
               </p>
             </div>
@@ -296,7 +296,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
               </h4>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-2 leading-relaxed">
                 {lang === 'EN'
-                  ? 'Connecting the public and healthcare facilities with accredited psychologists across all regions of Ethiopia.'
+                  ? 'Helping people discover active EPA full professional members who choose to be listed in the association directory.'
                   : 'ህብረተሰቡ እውቅና ካላቸው የስነ-ልቦና ባለሙያዎች ጋር በቀላሉ እንዲገናኝ ማድረግ።'}
               </p>
             </div>

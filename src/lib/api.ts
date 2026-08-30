@@ -44,7 +44,7 @@ async function apiPost(path: string, body: any): Promise<{ success: boolean; err
   }
 }
 
-async function apiPatch(path: string, body: any): Promise<{ success: boolean; error?: string }> {
+async function apiPatch(path: string, body: any): Promise<{ success: boolean; error?: string; email?: { attempted: boolean; delivered: boolean; error?: string } }> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'PATCH',
@@ -53,7 +53,7 @@ async function apiPatch(path: string, body: any): Promise<{ success: boolean; er
     });
     const data = await res.json();
     if (!res.ok) return { success: false, error: data.error || `HTTP ${res.status}` };
-    return { success: true };
+    return { success: true, email: data.email };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
@@ -169,7 +169,7 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
 export async function updateApplicationStatus(id: string, status: string, adminNotes?: string) {
   const result = await apiPatch('/api/applications', { id, status, admin_notes: adminNotes });
   if (!result.success) throw new Error(result.error || 'Update failed');
-  return { id, status };
+  return { id, status, email: result.email };
 }
 
 export async function createMember(memberData: Partial<Member>) {

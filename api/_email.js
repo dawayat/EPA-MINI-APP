@@ -83,9 +83,9 @@ export function applicationReceivedEmail(name, applicationNumber) {
     html: emailShell({
       eyebrow: 'Application received',
       title: 'Thank you — your application is under review',
-      body: `<p>Hello ${escapeHtml(name)},</p><p>We have received your EPA membership application and it is now with the accreditation team.</p><p style="background:#f3f8ef;border-left:3px solid #1d5b35;border-radius:8px;padding:14px"><b>Application reference:</b> ${escapeHtml(applicationNumber)}</p><p>We will update you within <b>1–2 working days</b>. Once approved, you can access your portal with your registered email or phone number and password, or through Telegram when available.</p>`
+      body: `<p>Hello ${escapeHtml(name)},</p><p>We have received your EPA membership application and it is now with the membership review team.</p><p style="background:#f3f8ef;border-left:3px solid #1d5b35;border-radius:8px;padding:14px"><b>Application reference:</b> ${escapeHtml(applicationNumber)}</p><p>We will update you within <b>1–2 working days</b>. Once approved, you can access your portal with your registered email or phone number and password, or through Telegram when available.</p>`
     }),
-    text: `Ethiopian Psychologists’ Association\n\nHello ${name},\n\nWe received your membership application (${applicationNumber}). Our accreditation team will update you within 1–2 working days.`
+    text: `Ethiopian Psychologists’ Association\n\nHello ${name},\n\nWe received your membership application (${applicationNumber}). Our membership review team will update you within 1–2 working days.`
   };
 }
 
@@ -96,7 +96,7 @@ export function applicationStatusEmail(name, applicationNumber, status, note) {
     html: emailShell({
       eyebrow: 'EPA application update',
       title: statusText,
-      body: `<p>Hello ${escapeHtml(name)},</p><p><b>Application reference:</b> ${escapeHtml(applicationNumber)}</p>${status === 'APPROVED' ? '<p>Your membership has been approved. Your Digital ID and portal access are now ready. Sign in with your registered email or phone number and password, or open EPA through Telegram when available.</p>' : '<p>The EPA Accreditation Team has reviewed your application and posted an update.</p>'}${note ? `<p style="background:#f3f8ef;border-left:3px solid #1d5b35;border-radius:8px;padding:14px"><b>Message from EPA:</b><br>${escapeHtml(note)}</p>` : ''}`
+      body: `<p>Hello ${escapeHtml(name)},</p><p><b>Application reference:</b> ${escapeHtml(applicationNumber)}</p>${status === 'APPROVED' ? '<p>Your EPA membership has been approved. Your Digital ID and portal access are now ready. Sign in with your registered email or phone number and password, or open EPA through Telegram when available.</p>' : '<p>The EPA membership review team has reviewed your application and posted an update.</p>'}${note ? `<p style="background:#f3f8ef;border-left:3px solid #1d5b35;border-radius:8px;padding:14px"><b>Message from EPA:</b><br>${escapeHtml(note)}</p>` : ''}`
     }),
     text: `Ethiopian Psychologists’ Association\n\nHello ${name},\n\n${statusText}.\nApplication reference: ${applicationNumber}${note ? `\n\nMessage from EPA: ${note}` : ''}`
   };
