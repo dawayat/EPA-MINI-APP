@@ -31,7 +31,7 @@ TELEGRAM_CHANNEL_ID=@epaminiapp
 TELEGRAM_BOT_USERNAME=your_bot_username_without_the_at_sign
 ```
 
-Optional: set `TELEGRAM_MINI_APP_SHORT_NAME` when using a named Direct Mini App rather than the Main Mini App. The publisher generates Telegram's `t.me` Mini App link, which opens inside Telegram instead of treating the deployed URL as an external website.
+Do not set `TELEGRAM_MINI_APP_SHORT_NAME`: channel posts use the bot's Main Mini App link (`https://t.me/<bot>?startapp=epa`), which opens inside Telegram instead of treating the deployed URL as an external website.
 
 ## Stack
 - React

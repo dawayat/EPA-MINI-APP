@@ -3,16 +3,13 @@ import { announcementEmail, isEmailConfigured, sendEmail } from './_email.js';
 
 const escapeHtml = (value = '') => String(value).replace(/[&<>]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[char]));
 const configuredTelegramAppLink = () => {
-  const explicitLink = String(process.env.TELEGRAM_MINI_APP_LINK || '').trim();
-  if (explicitLink.startsWith('https://t.me/')) return explicitLink;
-
   // A t.me bot link is resolved by Telegram as a Mini App, while a raw Vercel
   // URL is treated as a regular external website by the Telegram client.
   const botUsername = String(process.env.TELEGRAM_BOT_USERNAME || '').trim().replace(/^@/, '');
-  const shortName = String(process.env.TELEGRAM_MINI_APP_SHORT_NAME || '').trim();
   if (!botUsername) return '';
-  const appPath = shortName ? `/${shortName}` : '';
-  return `https://t.me/${botUsername}${appPath}?startapp=epa&mode=compact`;
+  // Always prefer the bot's Main Mini App. A /short-name URL only works when a
+  // separate Direct Mini App was registered to that exact bot in BotFather.
+  return `https://t.me/${botUsername}?startapp=epa&mode=compact`;
 };
 
 async function postToTelegram(a) {
