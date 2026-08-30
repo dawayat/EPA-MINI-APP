@@ -69,7 +69,7 @@ export const FullMemberPortal: React.FC<FullMemberPortalProps> = ({
               {member.first_name} {member.father_name}
             </h2>
             {member.amharic_full_name && <p className="text-blue-300/70 text-sm">{member.amharic_full_name}</p>}
-            <p className="text-neutral-400 text-xs mt-0.5">{member.specialty || member.current_specialty || 'Clinical Psychology'} • {member.workplace || member.current_workplace || member.city || 'EPA Member'}</p>
+            <p className="text-neutral-400 text-xs mt-0.5">{(member.specialty && member.specialty !== 'undefined') ? member.specialty : (member.current_specialty || 'Clinical Psychology')} • {(member.workplace && member.workplace !== 'undefined') ? member.workplace : (member.current_workplace || member.city || 'EPA Member')}</p>
             {member.license_number && (
               <p className="text-[10px] font-mono text-neutral-500 mt-0.5">License: {member.license_number}</p>
             )}

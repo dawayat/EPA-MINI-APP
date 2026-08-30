@@ -37,6 +37,8 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
     { id: 'cpd', label: lang === 'EN' ? 'Webinars' : 'ዌቢናሮች', icon: <BookOpen className="w-4 h-4" /> },
     { id: 'mentor', label: lang === 'EN' ? 'Mentors' : 'አማካሪዎች', icon: <Users className="w-4 h-4" /> },
     { id: 'jobs', label: lang === 'EN' ? 'Jobs' : 'ስራ', icon: <Briefcase className="w-4 h-4" /> },
+    { id: 'news', label: lang === 'EN' ? 'News' : 'ዜና', icon: <Bell className="w-4 h-4" /> },
+    { id: 'news', label: lang === 'EN' ? 'News' : 'ዜና', icon: <Bell className="w-4 h-4" /> },
   ];
 
   return (
@@ -61,7 +63,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
             </div>
             <h2 className="text-xl font-black text-white mt-1 uppercase">{member.first_name} {member.father_name}</h2>
             {member.amharic_full_name && <p className="text-[#d4ff00]/70 text-sm">{member.amharic_full_name}</p>}
-            <p className="text-neutral-400 text-xs mt-0.5">{member.specialty || (member.student_profile?.field_of_study) || 'Psychology'} • {member.workplace || member.student_profile?.university_name || member.city || 'EPA Member'}</p>
+            <p className="text-neutral-400 text-xs mt-0.5">{(member.specialty && member.specialty !== 'undefined') ? member.specialty : (member.student_profile?.field_of_study || 'Psychology')} • {(member.workplace && member.workplace !== 'undefined') ? member.workplace : (member.student_profile?.university_name || member.city || 'EPA Member')}</p>
             <p className="text-neutral-500 text-[10px] font-mono mt-0.5">{member.membership_number}</p>
           </div>
         </div>
@@ -109,30 +111,6 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
 
       {section === 'overview' && (
         <div className="space-y-4">
-          {/* Membership status */}
-          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Award className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
-              <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'Membership Status' : 'የአባልነት ሁኔታ'}</h3>
-            </div>
-            {[
-              { label: lang === 'EN' ? 'Membership No.' : 'የአባልነት ቁጥር', value: member.membership_number },
-              { label: lang === 'EN' ? 'Valid Until' : 'ዋጋ ያለው እስከ', value: new Date(member.expires_at).toLocaleDateString() },
-              { label: 'Status', value: member.status },
-            ].map((r, i) => (
-              <div key={i} className="flex justify-between text-xs py-1.5 border-b border-gray-100 dark:border-white/5 last:border-0">
-                <span className="text-neutral-600 dark:text-neutral-400">{r.label}</span>
-                <span className="font-mono font-bold text-gray-900 dark:text-white">{r.value}</span>
-              </div>
-            ))}
-            {daysLeft < 60 && (
-              <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-                <p className="text-xs text-amber-600 dark:text-amber-400">{lang === 'EN' ? `Membership expires in ${daysLeft} days.` : `አባልነትዎ በ${daysLeft} ቀናት ያበቃል።`}</p>
-              </div>
-            )}
-          </div>
-
           {/* Announcements */}
           <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-5">
             <div className="flex items-center gap-2 mb-3">
@@ -157,13 +135,16 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
                     </div>
                   </div>
                   <div className="pl-5 flex items-center justify-between mt-1">
-                    {ann.category === 'Vote' ? (
+                    {ann.category === 'Election' || ann.is_draft ? (
                       <div className="flex gap-2">
                         <button onClick={() => onToast(lang === 'EN' ? 'Vote Approved!' : 'ድምጽዎ ጸድቋል!', 'success')} className="px-3 py-1 rounded bg-green-500/10 hover:bg-green-500/20 text-green-600 text-[10px] font-bold uppercase cursor-pointer">
                           Approve
                         </button>
                         <button onClick={() => onToast(lang === 'EN' ? 'Adjustment requested.' : 'ማስተካከያ ተጠይቋል!', 'info')} className="px-3 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 text-[10px] font-bold uppercase cursor-pointer">
                           Adjust
+                        </button>
+                        <button onClick={() => onToast(lang === 'EN' ? 'Comment opened.' : 'አስተያየት ክፈት', 'info')} className="px-3 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 text-[10px] font-bold uppercase cursor-pointer flex items-center gap-1">
+                          <MessageSquare className="w-3 h-3" /> Comment
                         </button>
                         <button onClick={() => onToast(lang === 'EN' ? 'Comment opened.' : 'አስተያየት ክፈት', 'info')} className="px-3 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 text-[10px] font-bold uppercase cursor-pointer flex items-center gap-1">
                           <MessageSquare className="w-3 h-3" /> Comment
@@ -182,7 +163,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
             </div>
             {announcements.length > 4 && (
               <button 
-                onClick={() => onToast('Opening full news feed...', 'info')}
+                onClick={() => setSection('news' as any)}
                 className="w-full mt-4 py-2.5 rounded-xl bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-900 dark:text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer"
               >
                 {lang === 'EN' ? 'View All News' : 'ሁሉንም ዜናዎች እይ'}
@@ -214,7 +195,31 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
               ))}
             </div>
           )}
-        </div>
+        {/* Membership status */}
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Award className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
+              <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'Membership Status' : 'የአባልነት ሁኔታ'}</h3>
+            </div>
+            {[
+              { label: lang === 'EN' ? 'Membership No.' : 'የአባልነት ቁጥር', value: member.membership_number },
+              { label: lang === 'EN' ? 'Valid Until' : 'ዋጋ ያለው እስከ', value: new Date(member.expires_at).toLocaleDateString() },
+              { label: 'Status', value: member.status },
+            ].map((r, i) => (
+              <div key={i} className="flex justify-between text-xs py-1.5 border-b border-gray-100 dark:border-white/5 last:border-0">
+                <span className="text-neutral-600 dark:text-neutral-400">{r.label}</span>
+                <span className="font-mono font-bold text-gray-900 dark:text-white">{r.value}</span>
+              </div>
+            ))}
+            {daysLeft < 60 && (
+              <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                <p className="text-xs text-amber-600 dark:text-amber-400">{lang === 'EN' ? `Membership expires in ${daysLeft} days.` : `አባልነትዎ በ${daysLeft} ቀናት ያበቃል።`}</p>
+              </div>
+            )}
+          </div>
+
+          </div>
       )}
 
       {section === 'cpd' && (
@@ -418,6 +423,38 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
       {/* Overview */}
       {activeTab === 'overview' && (
         <div className="space-y-8">
+
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Bell className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
+                <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'Latest News' : 'ወቅታዊ ዜናዎች'}</h3>
+              </div>
+              <button onClick={() => setActiveTab('announcements')} className="text-[10px] font-black uppercase text-blue-500 hover:underline">
+                {lang === 'EN' ? 'View All' : 'ሁሉንም እይ'}
+              </button>
+            </div>
+            <div className="space-y-3">
+              {announcements.slice(0, 4).map(ann => (
+                <div key={ann.id} className="flex flex-col gap-2 p-4 rounded-xl bg-black/5 dark:bg-white/5 border border-transparent hover:border-gray-200 dark:hover:border-white/10 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-[#d4ff00] shrink-0 mt-1.5" />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-[10px] text-neutral-500">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
+                        {(ann as any).file_attachment_url && (
+                          <a href={(ann as any).file_attachment_url} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center gap-1 text-blue-500 hover:underline ml-2" onClick={e => e.stopPropagation()}>
+                            <FileText className="w-3 h-3" /> {lang === 'EN' ? 'Attachment' : 'ፋይል'}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
             <div onClick={onOpenVoting} className="bg-[#d4ff00] rounded-2xl p-6 text-black shadow-lg cursor-pointer hover:bg-[#c3eb00] transition-all hover:scale-[1.01]">
               <div className="flex items-center justify-between mb-3">
@@ -730,19 +767,6 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
 
       {section === 'overview' && (
         <div className="space-y-4">
-          <div className="bg-gradient-to-br from-amber-500/10 to-yellow-500/5 rounded-2xl border border-amber-500/20 p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 bg-amber-500/20 rounded-xl"><Shield className="w-5 h-5 text-amber-400" /></div>
-              <div>
-                <h3 className="font-black text-sm text-gray-900 dark:text-white">{lang === 'EN' ? 'EPA Accreditation Seal' : 'የEPA ማረጋገጫ ምልክት'}</h3>
-                <p className="text-[11px] text-neutral-500">{lang === 'EN' ? 'Valid for official publications & documents' : 'ለይፋዊ ሰነዶች ዋጋ አለው'}</p>
-              </div>
-            </div>
-            <button onClick={() => onToast(lang === 'EN' ? 'Accreditation badge downloaded!' : 'ምልክት ወርዷል!', 'success')}
-              className="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-500 dark:text-amber-400 text-xs font-black uppercase tracking-wider cursor-pointer active:scale-95">
-              {lang === 'EN' ? 'Download Accreditation Badge' : 'ማረጋገጫ ምልክት አውርድ'}
-            </button>
-          </div>
           <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-5">
             <div className="flex items-center gap-2 mb-3">
               <Bell className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
@@ -757,6 +781,19 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+          <div className="bg-gradient-to-br from-amber-500/10 to-yellow-500/5 rounded-2xl border border-amber-500/20 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2 bg-amber-500/20 rounded-xl"><Shield className="w-5 h-5 text-amber-400" /></div>
+              <div>
+                <h3 className="font-black text-sm text-gray-900 dark:text-white">{lang === 'EN' ? 'EPA Accreditation Seal' : 'የEPA ማረጋገጫ ምልክት'}</h3>
+                <p className="text-[11px] text-neutral-500">{lang === 'EN' ? 'Valid for official publications & documents' : 'ለይፋዊ ሰነዶች ዋጋ አለው'}</p>
+              </div>
+            </div>
+            <button onClick={() => onToast(lang === 'EN' ? 'Accreditation badge downloaded!' : 'ምልክት ወርዷል!', 'success')}
+              className="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-500 dark:text-amber-400 text-xs font-black uppercase tracking-wider cursor-pointer active:scale-95">
+              {lang === 'EN' ? 'Download Accreditation Badge' : 'ማረጋገጫ ምልክት አውርድ'}
+            </button>
           </div>
         </div>
       )}
@@ -831,6 +868,35 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
     </div>
   );
 };
+
+// ── MAIN ROUTER ────────────────────────────────────────────────────────────────
+
+      {section === 'news' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Bell className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
+            <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'All News & Announcements' : 'ሁሉም ዜናዎች እና ማስታወቂያዎች'}</h3>
+          </div>
+          <div className="space-y-3">
+            {announcements.map(ann => (
+              <div key={ann.id} className="flex flex-col gap-2 p-4 rounded-xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 hover:border-[#d4ff00]/40 transition-colors">
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</p>
+                  <p className="text-[11px] text-gray-700 dark:text-gray-300 mt-2">{ann.content}</p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <p className="text-[10px] text-neutral-500">{ann.category} • {new Date(ann.published_at).toLocaleDateString()}</p>
+                    {(ann as any).file_attachment_url && (
+                      <a href={(ann as any).file_attachment_url} target="_blank" rel="noopener noreferrer" className="text-[10px] flex items-center gap-1 text-blue-500 hover:underline ml-2" onClick={e => e.stopPropagation()}>
+                        <FileText className="w-3 h-3" /> {lang === 'EN' ? 'Attachment' : 'ፋይል'}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
 // ── MAIN ROUTER ────────────────────────────────────────────────────────────────
 export const MemberPortalView: React.FC<MemberPortalViewProps> = (props) => {

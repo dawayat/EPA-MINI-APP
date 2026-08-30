@@ -72,7 +72,7 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
             {member.amharic_full_name && (
               <p className="text-[#d4ff00]/70 text-sm">{member.amharic_full_name}</p>
             )}
-            <p className="text-neutral-400 text-xs mt-1">{member.specialty || member.student_profile?.field_of_study || 'Psychology'} • {member.workplace || member.student_profile?.university_name || member.city || 'EPA Member'}</p>
+            <p className="text-neutral-400 text-xs mt-1">{(member.specialty && member.specialty !== 'undefined') ? member.specialty : (member.student_profile?.field_of_study || 'Psychology')} • {(member.workplace && member.workplace !== 'undefined') ? member.workplace : (member.student_profile?.university_name || member.city || 'EPA Member')}</p>
           </div>
         </div>
 

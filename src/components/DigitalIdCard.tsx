@@ -205,7 +205,7 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
               <div>
                 <div className="text-neutral-400 uppercase text-[8px] font-mono font-bold">Valid Period</div>
                 <div className="font-mono font-semibold text-neutral-700 dark:text-neutral-200">
-                  2025 — {new Date(member.expires_at).getFullYear()}
+                  {new Date(member.expires_at).getFullYear() - 1} — {new Date(member.expires_at).getFullYear()}
                 </div>
               </div>
 
