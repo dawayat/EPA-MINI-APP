@@ -3,13 +3,10 @@ import { announcementEmail, isEmailConfigured, sendEmail } from './_email.js';
 
 const escapeHtml = (value = '') => String(value).replace(/[&<>]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[char]));
 const configuredTelegramAppLink = () => {
-  // A t.me bot link is resolved by Telegram as a Mini App, while a raw Vercel
-  // URL is treated as a regular external website by the Telegram client.
-  const botUsername = String(process.env.TELEGRAM_BOT_USERNAME || '').trim().replace(/^@/, '');
-  if (!botUsername) return '';
-  // Always prefer the bot's Main Mini App. A /short-name URL only works when a
-  // separate Direct Mini App was registered to that exact bot in BotFather.
-  return `https://t.me/${botUsername}?startapp=epa&mode=compact`;
+  // This is the EPA bot's verified Direct Mini App link. Telegram recognizes
+  // it as an in-app launch, unlike a raw website/Vercel URL.
+  const configuredLink = String(process.env.TELEGRAM_MINI_APP_LINK || '').trim();
+  return configuredLink || 'https://t.me/EPAMINIAPP_bot/EPAPORTAL';
 };
 
 async function postToTelegram(a) {
@@ -19,7 +16,7 @@ async function postToTelegram(a) {
   if (!botToken || !channelId) return { attempted: false, posted: false, error: 'Telegram is not configured. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID in Vercel.' };
 
   const buttonUrl = String(a.telegram_button_url || configuredTelegramAppLink()).trim();
-  if (!buttonUrl.startsWith('https://t.me/')) return { attempted: false, posted: false, error: 'Telegram Mini App is not configured. Set TELEGRAM_BOT_USERNAME after configuring the bot’s Main Mini App in BotFather.' };
+  if (!buttonUrl.startsWith('https://t.me/')) return { attempted: false, posted: false, error: 'Use a Telegram Mini App link beginning with https://t.me/ for the channel button.' };
   const reply_markup = { inline_keyboard: [[{ text: String(a.telegram_button_label || 'Open EPA Mini App').slice(0, 64), url: buttonUrl }]] };
   const caption = `<b>${escapeHtml(a.title || 'EPA Update').slice(0, 180)}</b>\n\n${escapeHtml(a.content || '').slice(0, 760)}`;
   const mediaUrl = String(a.telegram_media_url || '').trim();

@@ -23,15 +23,14 @@ If the editor reports a database deadlock, wait until active API requests finish
 
 ## Telegram Mini App channel posts
 
-Configure the bot's **Main Mini App** in @BotFather with the deployed HTTPS application URL. Then set these Vercel environment variables:
+Set these Vercel environment variables:
 
 ```text
 TELEGRAM_BOT_TOKEN=...
 TELEGRAM_CHANNEL_ID=@epaminiapp
-TELEGRAM_BOT_USERNAME=your_bot_username_without_the_at_sign
 ```
 
-Do not set `TELEGRAM_MINI_APP_SHORT_NAME`: channel posts use the bot's Main Mini App link (`https://t.me/<bot>?startapp=epa`), which opens inside Telegram instead of treating the deployed URL as an external website.
+Channel buttons use `https://t.me/EPAMINIAPP_bot/EPAPORTAL` by default, which opens the EPA Mini App inside Telegram. If it ever changes, set `TELEGRAM_MINI_APP_LINK` to the replacement `https://t.me/...` Mini App link.
 
 ## Stack
 - React
