@@ -2,9 +2,17 @@ import { dbSelect, dbInsert, dbUpdate, cors } from './_db.js';
 import { announcementEmail, isEmailConfigured, sendEmail } from './_email.js';
 
 const escapeHtml = (value = '') => String(value).replace(/[&<>]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[char]));
-const configuredAppUrl = () => {
-  const value = process.env.TELEGRAM_MINI_APP_URL || process.env.APP_URL || process.env.VERCEL_URL || '';
-  return value ? (value.startsWith('http') ? value : `https://${value}`) : '';
+const configuredTelegramAppLink = () => {
+  const explicitLink = String(process.env.TELEGRAM_MINI_APP_LINK || '').trim();
+  if (explicitLink.startsWith('https://t.me/')) return explicitLink;
+
+  // A t.me bot link is resolved by Telegram as a Mini App, while a raw Vercel
+  // URL is treated as a regular external website by the Telegram client.
+  const botUsername = String(process.env.TELEGRAM_BOT_USERNAME || '').trim().replace(/^@/, '');
+  const shortName = String(process.env.TELEGRAM_MINI_APP_SHORT_NAME || '').trim();
+  if (!botUsername) return '';
+  const appPath = shortName ? `/${shortName}` : '';
+  return `https://t.me/${botUsername}${appPath}?startapp=epa&mode=compact`;
 };
 
 async function postToTelegram(a) {
@@ -13,8 +21,8 @@ async function postToTelegram(a) {
   const channelId = process.env.TELEGRAM_CHANNEL_ID;
   if (!botToken || !channelId) return { attempted: false, posted: false, error: 'Telegram is not configured. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID in Vercel.' };
 
-  const buttonUrl = String(a.telegram_button_url || configuredAppUrl()).trim();
-  if (!buttonUrl.startsWith('https://')) return { attempted: false, posted: false, error: 'A secure Mini App URL is required for the Telegram button.' };
+  const buttonUrl = String(a.telegram_button_url || configuredTelegramAppLink()).trim();
+  if (!buttonUrl.startsWith('https://t.me/')) return { attempted: false, posted: false, error: 'Telegram Mini App is not configured. Set TELEGRAM_BOT_USERNAME after configuring the bot’s Main Mini App in BotFather.' };
   const reply_markup = { inline_keyboard: [[{ text: String(a.telegram_button_label || 'Open EPA Mini App').slice(0, 64), url: buttonUrl }]] };
   const caption = `<b>${escapeHtml(a.title || 'EPA Update').slice(0, 180)}</b>\n\n${escapeHtml(a.content || '').slice(0, 760)}`;
   const mediaUrl = String(a.telegram_media_url || '').trim();

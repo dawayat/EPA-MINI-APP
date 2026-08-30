@@ -1259,9 +1259,9 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
 
       {/* ════════ NEW ANNOUNCEMENT MODAL ════════ */}
       {showAnnModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl w-full max-w-lg shadow-2xl border border-white/20 p-6 space-y-4 text-gray-900 dark:text-white">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-white/10">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-start sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-gray-50 dark:bg-[#121214] rounded-none sm:rounded-3xl w-full max-w-2xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[calc(100dvh-2rem)] shadow-2xl border border-white/20 overflow-hidden flex flex-col text-gray-900 dark:text-white">
+            <div className="flex shrink-0 items-center justify-between px-5 sm:px-6 py-4 border-b border-gray-200 dark:border-white/10 bg-white/70 dark:bg-[#0a0a0c]/70">
               <h3 className="text-base font-black text-gray-900 dark:text-white font-syne uppercase">
                 {lang === 'EN' ? 'Publish Association Announcement' : 'አዲስ ማስታወቂያ ያውጡ'}
               </h3>
@@ -1270,6 +1270,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </button>
             </div>
 
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-4">
             <div>
               <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Announcement Title (English) *</label>
               <input type="text" required placeholder="e.g. Call for Papers 2026..."
@@ -1350,7 +1351,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 <input type="checkbox" checked={newAnn.publish_to_telegram} onChange={event => setNewAnn(current => ({ ...current, publish_to_telegram: event.target.checked }))} className="mt-1 h-4 w-4 accent-[#d4ff00]" aria-label="Publish to Telegram" />
               </div>
               {newAnn.publish_to_telegram && <div className="mt-4 space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2"><input value={newAnn.telegram_button_label} onChange={event => setNewAnn(current => ({ ...current, telegram_button_label: event.target.value }))} placeholder="Button label" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" /><input value={newAnn.telegram_button_url} onChange={event => setNewAnn(current => ({ ...current, telegram_button_url: event.target.value }))} placeholder="Mini App URL (uses env default when blank)" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" /></div>
+                <div><div className="grid gap-3 sm:grid-cols-2"><input value={newAnn.telegram_button_label} onChange={event => setNewAnn(current => ({ ...current, telegram_button_label: event.target.value }))} placeholder="Button label" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" /><input value={newAnn.telegram_button_url} onChange={event => setNewAnn(current => ({ ...current, telegram_button_url: event.target.value }))} placeholder="Telegram Mini App link (optional)" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" /></div><p className="mt-1.5 text-[10px] text-sky-800/70 dark:text-sky-200/60">Leave the link blank to use the configured Main Mini App. Do not paste the ordinary Vercel website URL here.</p></div>
                 <div className="flex flex-wrap items-center gap-2"><input ref={annTelegramMediaInputRef} type="file" accept="image/*,video/mp4,video/webm" className="hidden" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; if (file.type.startsWith('video/') && file.size > 2.5 * 1024 * 1024) { onToast('Use a video smaller than 2.5 MB for reliable channel posting.', 'error'); event.currentTarget.value = ''; return; } setIsUploadingTelegramMedia(true); try { const url = await uploadFile(file); setNewAnn(current => ({ ...current, telegram_media_url: url, telegram_media_type: file.type.startsWith('video/') ? 'video' : 'image' })); } catch (error) { onToast('Could not prepare Telegram media.', 'error'); } finally { setIsUploadingTelegramMedia(false); event.currentTarget.value = ''; } }} /><button type="button" onClick={() => annTelegramMediaInputRef.current?.click()} disabled={isUploadingTelegramMedia} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs font-bold text-sky-950 disabled:opacity-60 dark:border-white/10 dark:bg-black dark:text-white"><UploadCloud className="h-4 w-4" />{isUploadingTelegramMedia ? 'Preparing media…' : newAnn.telegram_media_url ? 'Replace image/video' : 'Add image or video'}</button><span className="text-[10px] text-sky-800/70 dark:text-sky-200/60">Video limit: 2.5 MB</span>{newAnn.telegram_media_url && <button type="button" onClick={() => setNewAnn(current => ({ ...current, telegram_media_url: '' }))} className="text-[11px] font-bold text-red-600">Remove</button>}</div>
                 {newAnn.telegram_media_url && (newAnn.telegram_media_type === 'video' ? <video src={newAnn.telegram_media_url} controls className="h-32 w-full rounded-xl bg-black object-cover" /> : <img src={newAnn.telegram_media_url} alt="Telegram post preview" className="h-32 w-full rounded-xl object-cover" />)}
               </div>}
@@ -1426,7 +1427,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </label>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200 dark:border-white/10">
+            </div>
+            <div className="flex shrink-0 items-center justify-end gap-2 px-5 sm:px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-white/70 dark:bg-[#0a0a0c]/70">
               <button
                 onClick={() => setShowAnnModal(false)}
                 className="px-4 py-2.5 rounded-xl text-xs font-mono font-bold uppercase text-neutral-600 dark:text-neutral-400 hover:bg-black/5 dark:bg-white/5 cursor-pointer"

@@ -1,20 +1,26 @@
--- Shared comments, draft votes, and member-to-member messages.
--- This migration is additive and safe to run on the existing production schema.
+-- Shared comments, draft votes, messaging, renewal, and attendance.
+-- This is idempotent. It deliberately avoids DROP/CREATE policy cycles, which
+-- caused unnecessary AccessExclusive locks when it was applied on a live app.
+-- If Supabase reports a lock timeout or deadlock, wait for active API requests
+-- to finish and run the query again. IF NOT EXISTS makes a retry safe.
 
-ALTER TABLE announcements ADD COLUMN IF NOT EXISTS is_draft boolean NOT NULL DEFAULT false;
-ALTER TABLE members ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT false;
-ALTER TABLE members ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT false;
-ALTER TABLE members ADD COLUMN IF NOT EXISTS onboarding_completed boolean NOT NULL DEFAULT true;
-ALTER TABLE members ADD COLUMN IF NOT EXISTS gender text;
-ALTER TABLE members ADD COLUMN IF NOT EXISTS date_of_birth text;
-ALTER TABLE members ADD COLUMN IF NOT EXISTS phone_password text;
-ALTER TABLE members ADD COLUMN IF NOT EXISTS corporate_profile jsonb;
-ALTER TABLE members ADD COLUMN IF NOT EXISTS student_profile jsonb;
-ALTER TABLE members ADD COLUMN IF NOT EXISTS renewal_request jsonb;
-ALTER TABLE applications ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT false;
-ALTER TABLE applications ADD COLUMN IF NOT EXISTS phone_password text;
-ALTER TABLE applications ADD COLUMN IF NOT EXISTS corporate_profile jsonb;
-ALTER TABLE applications ADD COLUMN IF NOT EXISTS student_profile jsonb;
+ALTER TABLE announcements
+  ADD COLUMN IF NOT EXISTS is_draft boolean NOT NULL DEFAULT false;
+ALTER TABLE members
+  ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS must_change_password boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS onboarding_completed boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS gender text,
+  ADD COLUMN IF NOT EXISTS date_of_birth text,
+  ADD COLUMN IF NOT EXISTS phone_password text,
+  ADD COLUMN IF NOT EXISTS corporate_profile jsonb,
+  ADD COLUMN IF NOT EXISTS student_profile jsonb,
+  ADD COLUMN IF NOT EXISTS renewal_request jsonb;
+ALTER TABLE applications
+  ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS phone_password text,
+  ADD COLUMN IF NOT EXISTS corporate_profile jsonb,
+  ADD COLUMN IF NOT EXISTS student_profile jsonb;
 
 CREATE TABLE IF NOT EXISTS email_verifications (
   id text PRIMARY KEY,
@@ -100,14 +106,21 @@ ALTER TABLE research_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE email_verifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE member_attendance ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "open_announcement_comments" ON announcement_comments;
-CREATE POLICY "open_announcement_comments" ON announcement_comments FOR ALL USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "open_announcement_votes" ON announcement_votes;
-CREATE POLICY "open_announcement_votes" ON announcement_votes FOR ALL USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "open_member_messages" ON member_messages;
-CREATE POLICY "open_member_messages" ON member_messages FOR ALL USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "open_research_submissions" ON research_submissions;
-CREATE POLICY "open_research_submissions" ON research_submissions FOR ALL USING (true) WITH CHECK (true);
-DROP POLICY IF EXISTS "open_email_verifications" ON email_verifications;
-DROP POLICY IF EXISTS "open_member_attendance" ON member_attendance;
-CREATE POLICY "open_member_attendance" ON member_attendance FOR ALL USING (true) WITH CHECK (true);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'announcement_comments' AND policyname = 'open_announcement_comments') THEN
+    CREATE POLICY "open_announcement_comments" ON announcement_comments FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'announcement_votes' AND policyname = 'open_announcement_votes') THEN
+    CREATE POLICY "open_announcement_votes" ON announcement_votes FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'member_messages' AND policyname = 'open_member_messages') THEN
+    CREATE POLICY "open_member_messages" ON member_messages FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'research_submissions' AND policyname = 'open_research_submissions') THEN
+    CREATE POLICY "open_research_submissions" ON research_submissions FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'member_attendance' AND policyname = 'open_member_attendance') THEN
+    CREATE POLICY "open_member_attendance" ON member_attendance FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
