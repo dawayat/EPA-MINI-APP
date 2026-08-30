@@ -14,6 +14,8 @@ DROP TABLE IF EXISTS audit_logs CASCADE;
 DROP TABLE IF EXISTS election_candidates CASCADE;
 DROP TABLE IF EXISTS elections CASCADE;
 DROP TABLE IF EXISTS cpd_courses CASCADE;
+DROP TABLE IF EXISTS research_submissions CASCADE;
+DROP TABLE IF EXISTS email_verifications CASCADE;
 DROP TABLE IF EXISTS universities CASCADE;
 DROP TABLE IF EXISTS announcements CASCADE;
 DROP TABLE IF EXISTS applications CASCADE;
@@ -43,6 +45,9 @@ CREATE TABLE members (
   expires_at timestamptz,
   is_verified boolean DEFAULT false,
   license_number text,
+  email_verified boolean DEFAULT false,
+  must_change_password boolean DEFAULT false,
+  onboarding_completed boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 );
 
@@ -78,8 +83,20 @@ CREATE TABLE applications (
   qualifications jsonb,
   payment jsonb,
   submitted_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
+  updated_at timestamptz DEFAULT now(),
+  email_verified boolean DEFAULT false
 );
+
+CREATE TABLE email_verifications (
+  id text PRIMARY KEY,
+  email text NOT NULL,
+  code text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  verified_at timestamptz
+);
+
+CREATE INDEX email_verifications_lookup_idx ON email_verifications(email, created_at DESC);
 
 -- Announcements Table
 CREATE TABLE announcements (
@@ -101,6 +118,7 @@ CREATE TABLE announcement_comments (
   announcement_id text NOT NULL REFERENCES announcements(id) ON DELETE CASCADE,
   member_id text NOT NULL REFERENCES members(id) ON DELETE CASCADE,
   author_name text NOT NULL,
+  author_photo_url text,
   content text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -124,6 +142,26 @@ CREATE TABLE member_messages (
 
 CREATE INDEX member_messages_sender_idx ON member_messages(sender_id, created_at);
 CREATE INDEX member_messages_recipient_idx ON member_messages(recipient_id, created_at);
+
+CREATE TABLE research_submissions (
+  id text PRIMARY KEY,
+  member_id text NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+  author_name text NOT NULL,
+  author_membership_number text NOT NULL,
+  author_email text,
+  author_phone text,
+  title text NOT NULL,
+  abstract text NOT NULL,
+  keywords text[] DEFAULT '{}',
+  publication_type text NOT NULL DEFAULT 'Research Paper',
+  file_url text NOT NULL,
+  file_name text NOT NULL,
+  submitted_at timestamptz NOT NULL DEFAULT now(),
+  status text NOT NULL DEFAULT 'SUBMITTED',
+  review_notes text
+);
+
+CREATE INDEX research_submissions_status_idx ON research_submissions(status, submitted_at DESC);
 
 -- Universities Table
 CREATE TABLE universities (
@@ -190,10 +228,12 @@ CREATE TABLE audit_logs (
 -- Enable Row Level Security
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_verifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE announcement_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE announcement_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE member_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE research_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE universities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cpd_courses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE elections ENABLE ROW LEVEL SECURITY;
@@ -207,6 +247,7 @@ CREATE POLICY "open_announcements" ON announcements FOR ALL USING (true) WITH CH
 CREATE POLICY "open_announcement_comments" ON announcement_comments FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open_announcement_votes" ON announcement_votes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open_member_messages" ON member_messages FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "open_research_submissions" ON research_submissions FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open_universities" ON universities FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open_cpd_courses" ON cpd_courses FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "open_elections" ON elections FOR ALL USING (true) WITH CHECK (true);

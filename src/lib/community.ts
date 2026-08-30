@@ -1,6 +1,7 @@
 import {
   AnnouncementComment,
   AnnouncementVoteChoice,
+  AnnouncementVoteSummary,
   MemberMessage
 } from '../types';
 
@@ -43,6 +44,12 @@ export async function fetchAnnouncementVote(announcementId: string, memberId: st
     `/api/community?action=vote&announcementId=${encodeURIComponent(announcementId)}&memberId=${encodeURIComponent(memberId)}`
   );
   return vote?.choice ?? null;
+}
+
+export function fetchAnnouncementVoteSummary(announcementId: string) {
+  return request<AnnouncementVoteSummary>(
+    `/api/community?action=vote-summary&announcementId=${encodeURIComponent(announcementId)}`
+  );
 }
 
 export function postAnnouncementComment(announcementId: string, memberId: string, content: string) {

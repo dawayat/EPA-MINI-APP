@@ -12,7 +12,7 @@ interface RegistrationModalProps {
   lang: 'en' | 'am';
   initialTier?: MembershipTypeCode | null;
   universities?: University[];
-  onSubmitApplication: (app: Partial<Application>) => void;
+  onSubmitApplication: (app: Partial<Application>) => Promise<void> | void;
   onToast: (msg: string, type: 'success' | 'error') => void;
 }
 
@@ -141,6 +141,9 @@ export default function RegistrationModal({
   const [step, setStep] = useState(initialTier ? 1 : 0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [appNumber, setAppNumber] = useState('');
+  const [emailVerificationSent, setEmailVerificationSent] = useState(false);
+  const [emailVerificationCode, setEmailVerificationCode] = useState('');
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
 
   // Sync state when modal opens with a specific tier
   React.useEffect(() => {
@@ -148,6 +151,8 @@ export default function RegistrationModal({
       setTier(initialTier || null);
       setStep(initialTier ? 1 : 0);
       setIsSuccess(false);
+      setEmailVerificationSent(false);
+      setEmailVerificationCode('');
     }
   }, [isOpen, initialTier]);
 
@@ -191,21 +196,60 @@ export default function RegistrationModal({
     setStep(s => Math.max(0, s - 1));
   };
 
-  const handleSubmit = () => {
+  const requestEmailVerification = async () => {
+    if (!formData.email) {
+      onToast('Please enter a valid email address before submitting.', 'error');
+      return false;
+    }
+    setIsVerifyingEmail(true);
+    try {
+      const response = await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send-verification', email: formData.email, name: `${formData.first_name || ''} ${formData.father_name || ''}`.trim() }) });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Could not send the verification code.');
+      setEmailVerificationSent(true);
+      onToast('A six-digit verification code was sent to your email.', 'success');
+      return true;
+    } catch (error: any) {
+      onToast(error.message || 'Could not send the verification code.', 'error');
+      return false;
+    } finally {
+      setIsVerifyingEmail(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!emailVerificationSent) {
+      await requestEmailVerification();
+      return;
+    }
+    if (!emailVerificationCode.trim()) {
+      onToast('Enter the six-digit code sent to your email.', 'error');
+      return;
+    }
+    setIsVerifyingEmail(true);
+    try {
+      const verificationResponse = await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify-email', email: formData.email, verificationCode: emailVerificationCode.trim() }) });
+      const verification = await verificationResponse.json();
+      if (!verificationResponse.ok || !verification.success) throw new Error(verification.error || 'Email verification failed.');
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const generatedAppNum = `EPA-${new Date().getFullYear()}-${randomNum}`;
     
-    setAppNumber(generatedAppNum);
-    setIsSuccess(true);
-    
-    onSubmitApplication({
+    await onSubmitApplication({
       ...formData,
       membership_type: tier,
       application_number: generatedAppNum,
       id: `app-${Date.now()}`,
       status: 'SUBMITTED',
-      submitted_at: new Date().toISOString()
+      submitted_at: new Date().toISOString(),
+      email_verified: true
     });
+    setAppNumber(generatedAppNum);
+    setIsSuccess(true);
+    } catch (error: any) {
+      onToast(error.message || 'Could not verify your email. Please try again.', 'error');
+    } finally {
+      setIsVerifyingEmail(false);
+    }
   };
 
 
@@ -714,6 +758,13 @@ export default function RegistrationModal({
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+          {emailVerificationSent && step === maxFormSteps && (
+            <div className="mb-5 p-4 rounded-2xl bg-[#d4ff00]/10 border border-[#d4ff00]/30">
+              <div className="flex items-center gap-2 text-sm font-black text-gray-900 dark:text-white"><Check className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" /> Verify your email to submit</div>
+              <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-300">We sent a six-digit code to <b>{formData.email}</b>. It expires in 15 minutes.</p>
+              <div className="mt-3 flex gap-2"><input value={emailVerificationCode} onChange={event => setEmailVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="000000" className="flex-1 px-4 py-3 rounded-xl bg-white dark:bg-black border border-gray-200 dark:border-white/10 text-sm font-mono font-black tracking-[0.35em] text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00]" /><button onClick={requestEmailVerification} disabled={isVerifyingEmail} className="px-3 rounded-xl text-[10px] font-black uppercase text-green-700 dark:text-[#d4ff00] hover:bg-white/50 dark:hover:bg-white/5 disabled:opacity-50">Resend</button></div>
+            </div>
+          )}
           {/* Step 0: Tier Selection */}
           {step === 0 && renderTierSelection()}
           
@@ -765,9 +816,10 @@ export default function RegistrationModal({
           
           <button 
             onClick={step === 0 ? handleNext : (isLastStep ? handleSubmit : handleNext)}
+            disabled={isVerifyingEmail}
             className="px-8 py-3 rounded-xl font-black bg-green-700 text-white dark:bg-[#d4ff00] dark:text-black hover:opacity-90 transition-opacity flex items-center gap-2 ml-auto text-xs uppercase tracking-wider shadow-lg shadow-green-700/20 dark:shadow-[#d4ff00]/20 cursor-pointer"
           >
-            {step === 0 ? 'Continue' : isLastStep ? 'Submit Application' : 'Continue'}
+            {isVerifyingEmail ? 'Please wait…' : step === 0 ? 'Continue' : isLastStep ? (emailVerificationSent ? 'Verify & Submit' : 'Verify Email & Submit') : 'Continue'}
             {!(step > 0 && isLastStep) && <ChevronRight className="w-4 h-4" />}
           </button>
         </div>

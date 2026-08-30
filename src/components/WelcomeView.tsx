@@ -51,7 +51,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             {/* Top Pill */}
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/5 dark:bg-white/5 backdrop-blur-md border border-gray-200 dark:border-white/15 text-green-700 dark:text-[#d4ff00] text-xs font-mono font-bold uppercase tracking-widest mb-6">
               <span className="flex h-2 w-2 rounded-full bg-[#d4ff00] animate-pulse"></span>
-              <span>{lang === 'EN' ? 'OFFICIAL NATIONAL REGISTRY • EST. 1999' : 'ብሔራዊ የስነ-ልቦና ባለሙያዎች ማኅበር'}</span>
+              <span>{lang === 'EN' ? 'OFFICIAL NATIONAL REGISTRY • EST. 1992' : 'ብሔራዊ የስነ-ልቦና ባለሙያዎች ማኅበር'}</span>
             </div>
 
             {/* Main Headline */}

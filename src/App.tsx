@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { isSupabaseConfigured } from './lib/supabase';
 import { 
   fetchMembers, fetchApplications, fetchAnnouncements, 
-  fetchUniversities, fetchCPDCourses, fetchAuditLogs, fetchElectionCandidates,
-  submitApplication, updateApplicationStatus, publishAnnouncement, createMember, deleteMember, deleteAnnouncement
+  fetchUniversities, fetchCPDCourses, fetchAuditLogs, fetchElectionCandidates, fetchResearchSubmissions,
+  submitApplication, updateApplicationStatus, publishAnnouncement, createMember, deleteMember, deleteAnnouncement, submitResearchSubmission, updateResearchSubmission
 } from './lib/api';
 import { 
   Member, 
@@ -14,7 +14,8 @@ import {
   ElectionCandidate, 
   Election,
   AuditLog, 
-  MembershipTypeCode 
+  MembershipTypeCode,
+  ResearchSubmission
 } from './types';
 
 import { Navbar } from './components/Navbar';
@@ -71,6 +72,7 @@ export default function App() {
   const [cpdCourses, setCpdCourses] = useState<CPDCourse[]>([]);
   const [candidates, setCandidates] = useState<ElectionCandidate[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [researchSubmissions, setResearchSubmissions] = useState<ResearchSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load Data
@@ -81,10 +83,10 @@ export default function App() {
         if (isSupabaseConfigured) {
           const [
             fetchedMembers, fetchedApps, fetchedAnnouncements, 
-            fetchedUnivs, fetchedCPDs, fetchedLogs, fetchedCandidates
+            fetchedUnivs, fetchedCPDs, fetchedLogs, fetchedCandidates, fetchedResearchSubmissions
           ] = await Promise.all([
             fetchMembers(), fetchApplications(), fetchAnnouncements(),
-            fetchUniversities(), fetchCPDCourses(), fetchAuditLogs(), fetchElectionCandidates()
+            fetchUniversities(), fetchCPDCourses(), fetchAuditLogs(), fetchElectionCandidates(), fetchResearchSubmissions()
           ]);
           setMembers(fetchedMembers);
           setApplications(fetchedApps);
@@ -93,6 +95,7 @@ export default function App() {
           setCpdCourses(fetchedCPDs);
           setAuditLogs(fetchedLogs);
           setCandidates(fetchedCandidates);
+          setResearchSubmissions(fetchedResearchSubmissions);
 
           // Telegram Auto-Login
           const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
@@ -138,7 +141,7 @@ export default function App() {
   const handlePhoneLoginSuccess = (member: Member) => {
     setMembers(prev => {
       const exists = prev.find(m => m.id === member.id);
-      if (exists) return prev;
+      if (exists) return prev.map(existing => existing.id === member.id ? { ...existing, ...member } : existing);
       return [member, ...prev];
     });
     setActiveMemberId(member.id);
@@ -177,8 +180,17 @@ export default function App() {
     if (!result.success) {
       console.error('[App] Application submission failed:', result.error);
       showToast(`Submission error: ${result.error}`, 'error');
+      throw new Error(result.error || 'Application submission failed.');
     } else {
       showToast('Application submitted and saved successfully!', 'success');
+    }
+
+    if (fullApp.email) {
+      try {
+        await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'application-received', email: fullApp.email, name: `${fullApp.first_name} ${fullApp.father_name}`, applicationNumber: fullApp.application_number }) });
+      } catch (error) {
+        console.error('[email] application receipt could not be sent', error);
+      }
     }
 
     setApplications(prev => [fullApp, ...prev]);
@@ -218,7 +230,7 @@ export default function App() {
       city: app.city,
       membership_type: app.membership_type,
       status: 'ACTIVE',
-      specialty: app.student_profile?.field_of_study || app.qualifications?.[0]?.field || 'Clinical Psychology',
+      specialty: app.membership_type === 'STUDENT' ? undefined : (app.current_specialty || app.qualifications?.[0]?.field || 'Psychology'),
       workplace: app.student_profile?.university_name || 'Accredited Psychological Practice',
       bio: "Newly registered and accredited member of the Ethiopian Psychologists' Association.",
       cpd_points: 10,
@@ -228,7 +240,8 @@ export default function App() {
       license_number: app.membership_type === 'FULL' ? `EPA-LIC-CL-${Math.floor(1000 + Math.random() * 9000)}` : undefined,
       corporate_profile: app.corporate_profile,
       student_profile: app.student_profile,
-      phone_password: (app as any).phone_password
+      phone_password: (app as any).phone_password,
+      email_verified: Boolean(app.email_verified)
     };
 
     // ✅ ALWAYS update local state first — user gets access immediately regardless of DB
@@ -252,6 +265,9 @@ export default function App() {
       try {
         await createMember(newMember);
         await updateApplicationStatus(appId, 'APPROVED');
+        if (app.email) {
+          await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'application-status', email: app.email, name: `${app.first_name} ${app.father_name}`, applicationNumber: app.application_number, status: 'APPROVED' }) });
+        }
       } catch (err: any) {
         showToast(`Note: Member approved locally but DB save failed: ${err.message}`, 'error');
       }
@@ -260,6 +276,7 @@ export default function App() {
 
 
   const handleRejectApplication = async (appId: string, reason: string) => {
+    const app = applications.find(application => application.id === appId);
     if (isSupabaseConfigured) {
       await updateApplicationStatus(appId, 'REJECTED', reason);
     }
@@ -272,10 +289,32 @@ export default function App() {
       admin_username: 'superadmin_council',
       created_at: new Date().toISOString()
     }, ...prev]);
+    if (app?.email) {
+      try {
+        await fetch('/api/email', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'application-status', email: app.email, name: `${app.first_name} ${app.father_name}`, applicationNumber: app.application_number, status: 'REJECTED', note: reason })
+        });
+      } catch (error) {
+        console.error('[email] rejection update could not be sent', error);
+      }
+    }
   };
 
-  const handleRequestCorrection = (appId: string, notes: string) => {
+  const handleRequestCorrection = async (appId: string, notes: string) => {
+    const app = applications.find(application => application.id === appId);
+    if (isSupabaseConfigured) await updateApplicationStatus(appId, 'CORRECTION_REQUIRED', notes);
     setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'CORRECTION_REQUIRED', admin_notes: notes } : a));
+    if (app?.email) {
+      try {
+        await fetch('/api/email', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'application-status', email: app.email, name: `${app.first_name} ${app.father_name}`, applicationNumber: app.application_number, status: 'CORRECTION_REQUIRED', note: notes })
+        });
+      } catch (error) {
+        console.error('[email] correction update could not be sent', error);
+      }
+    }
     showToast('Sent revision request to applicant', 'info');
   };
 
@@ -316,6 +355,27 @@ export default function App() {
         showToast('DB Error: ' + err.message, 'error');
       }
     }
+  };
+
+  const handleResearchSubmission = async (submission: Partial<ResearchSubmission>) => {
+    const result = await submitResearchSubmission(submission);
+    if (!result.success) throw new Error(result.error || 'Research submission failed.');
+    const updated = await fetchResearchSubmissions();
+    setResearchSubmissions(updated);
+    setAuditLogs(prev => [{
+      id: `log-${Date.now()}`,
+      action: `Research submitted: ${submission.title || 'Untitled research'}`,
+      entity_type: 'ResearchSubmission',
+      entity_id: submission.member_id || '',
+      admin_username: 'member_portal',
+      created_at: new Date().toISOString()
+    }, ...prev]);
+  };
+
+  const handleResearchStatusChange = async (id: string, status: ResearchSubmission['status'], reviewNotes?: string) => {
+    const result = await updateResearchSubmission(id, status, reviewNotes);
+    if (!result.success) throw new Error(result.error || 'Could not update the research review.');
+    setResearchSubmissions(prev => prev.map(submission => submission.id === id ? { ...submission, status, review_notes: reviewNotes } : submission));
   };
 
   const handleVerifyPayment = (appId: string) => {
@@ -437,6 +497,7 @@ export default function App() {
               onOpenVoting={() => setCurrentTab('elections')}
               onOpenDirectory={() => setCurrentTab('directory')}
               onRegisterCPD={handleRegisterCPD}
+              onSubmitResearch={handleResearchSubmission}
               onToast={showToast}
             />
           ) : (
@@ -536,6 +597,7 @@ export default function App() {
             universities={universities}
             announcements={announcements}
             auditLogs={auditLogs}
+            researchSubmissions={researchSubmissions}
             onApproveApplication={handleApproveApplication}
             onRejectApplication={handleRejectApplication}
             onRequestCorrection={handleRequestCorrection}
@@ -544,6 +606,8 @@ export default function App() {
             onDeleteMember={handleDeleteMember}
             onDeleteAnnouncement={handleDeleteAnnouncement}
             onAddUniversity={handleAddUniversity}
+            onUpdateResearchSubmission={handleResearchStatusChange}
+            onMembersImported={async () => setMembers(await fetchMembers())}
             onToast={showToast}
           />
         )}

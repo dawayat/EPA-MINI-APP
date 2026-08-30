@@ -58,7 +58,7 @@ export const FullMemberPortal: React.FC<FullMemberPortalProps> = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded-full border border-blue-400/20">
-                {lang === 'EN' ? 'Licensed Clinical Member' : 'ፈቃድ ያለው አባል'}
+                {lang === 'EN' ? 'Licensed Full Member' : 'ፈቃድ ያለው አባል'}
               </span>
               {member.is_verified && (
                 <span className="text-[10px] font-mono font-bold uppercase text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full border border-green-400/20 flex items-center gap-1">
@@ -70,7 +70,7 @@ export const FullMemberPortal: React.FC<FullMemberPortalProps> = ({
               {member.first_name} {member.father_name}
             </h2>
             {member.amharic_full_name && <p className="text-blue-300/70 text-sm">{member.amharic_full_name}</p>}
-            <p className="text-neutral-400 text-xs mt-0.5">{(member.specialty && member.specialty !== 'undefined') ? member.specialty : (member.current_specialty || 'Clinical Psychology')} • {(member.workplace && member.workplace !== 'undefined') ? member.workplace : (member.current_workplace || member.city || 'EPA Member')}</p>
+            <p className="text-neutral-400 text-xs mt-0.5">{(member.specialty && member.specialty !== 'undefined') ? member.specialty : 'EPA Accredited Professional'} • {(member.workplace && member.workplace !== 'undefined') ? member.workplace : (member.current_workplace || member.city || 'EPA Member')}</p>
             {member.license_number && (
               <p className="text-[10px] font-mono text-neutral-500 mt-0.5">License: {member.license_number}</p>
             )}

@@ -17,6 +17,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
   isOpen, onClose, lang, announcements, onNavigateTab,
 }) => {
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
 
   if (!isOpen) return null;
 
@@ -96,13 +97,13 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
             announcements.map(ann => {
               const isUnread = !readIds.has(ann.id);
               return (
-                <div
+                <button
                   key={ann.id}
-                  onClick={() => markRead(ann.id)}
-                  className={`flex items-start gap-3 p-3.5 rounded-2xl transition-colors cursor-pointer border ${
+                  onClick={() => { markRead(ann.id); setSelectedAnnouncement(ann); }}
+                  className={`w-full text-left flex items-start gap-3 p-3.5 rounded-2xl transition-all cursor-pointer border ${
                     isUnread
-                      ? 'bg-[#d4ff00]/5 border-[#d4ff00]/30 dark:bg-[#d4ff00]/5'
-                      : 'bg-white dark:bg-[#0a0a0c] border-gray-100 dark:border-white/5 hover:border-gray-200 dark:hover:border-white/15'
+                      ? 'bg-[#d4ff00]/5 border-[#d4ff00]/30 dark:bg-[#d4ff00]/5 hover:-translate-y-0.5'
+                      : 'bg-white dark:bg-[#0a0a0c] border-gray-100 dark:border-white/5 hover:border-[#d4ff00]/30 hover:-translate-y-0.5'
                   }`}
                 >
                   <div className={`p-2 rounded-xl shrink-0 mt-0.5 border ${categoryColor(ann.category)}`}>
@@ -121,16 +122,10 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
                     )}
                     <div className="flex items-center gap-3 mt-2">
                       <span className="text-[10px] font-mono text-neutral-500 uppercase">{ann.category}</span>
-                      {(ann as any).file_attachment_url && (
-                        <a href={(ann as any).file_attachment_url} target="_blank" rel="noopener noreferrer"
-                          className="text-[10px] flex items-center gap-1 text-blue-500 hover:underline"
-                          onClick={e => e.stopPropagation()}>
-                          <FileText className="w-3 h-3" /> {lang === 'EN' ? 'Open file' : 'ፋይሉን ክፈት'}
-                        </a>
-                      )}
+                      {(ann as any).file_attachment_url && <span className="text-[10px] flex items-center gap-1 text-blue-500"><FileText className="w-3 h-3" /> {lang === 'EN' ? 'Attachment' : 'ፋይል'}</span>}
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })
           )}
@@ -148,6 +143,27 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
           </button>
         </div>
       </div>
+
+      {selectedAnnouncement && (
+        <div className="absolute inset-0 z-10 bg-gray-50 dark:bg-[#121214] flex flex-col animate-in slide-in-from-right duration-200">
+          <div className="p-5 border-b border-gray-200 dark:border-white/10 flex items-center justify-between bg-white dark:bg-[#0a0a0c]">
+            <button onClick={() => setSelectedAnnouncement(null)} className="text-[11px] font-black uppercase text-green-700 dark:text-[#d4ff00] hover:underline">← {lang === 'EN' ? 'All news' : 'ሁሉም ዜና'}</button>
+            <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><X className="w-5 h-5" /></button>
+          </div>
+          <div className="overflow-y-auto flex-1">
+            {(selectedAnnouncement.cover_image_url || selectedAnnouncement.cover_photo_url) && <img src={selectedAnnouncement.cover_image_url || selectedAnnouncement.cover_photo_url} alt="" className="w-full h-48 object-cover" />}
+            <div className="p-6">
+              <div className="flex items-center gap-2 mb-4"><span className={`px-2.5 py-1 rounded-full border text-[10px] font-mono font-bold uppercase ${categoryColor(selectedAnnouncement.category)}`}>{selectedAnnouncement.category}</span><span className="text-[10px] font-mono text-neutral-500">{new Date(selectedAnnouncement.published_at).toLocaleDateString()}</span></div>
+              <h3 className="text-xl font-black font-syne uppercase tracking-tight text-gray-900 dark:text-white leading-tight">{lang === 'EN' ? selectedAnnouncement.title : (selectedAnnouncement.amharic_title || selectedAnnouncement.title)}</h3>
+              <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-300 leading-relaxed whitespace-pre-wrap">{selectedAnnouncement.content}</p>
+              {(selectedAnnouncement as any).file_attachment_url && <a href={(selectedAnnouncement as any).file_attachment_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 mt-5 px-4 py-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-bold"><FileText className="w-4 h-4" />{lang === 'EN' ? 'Open attachment' : 'ፋይሉን ክፈት'}</a>}
+            </div>
+          </div>
+          <div className="p-4 border-t border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0c]">
+            <button onClick={() => { onNavigateTab('portal'); onClose(); }} className="w-full py-3 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase tracking-wider">{lang === 'EN' ? 'Open News & Discussion' : 'ዜና እና ውይይት ክፈት'}</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

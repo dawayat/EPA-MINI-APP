@@ -3,10 +3,10 @@ import {
   Users, Clock, CreditCard, CheckCircle2, XCircle, AlertTriangle,
   Search, FileText, Plus, Building, ShieldCheck, Send, Eye, Check,
   X, ExternalLink, History, GraduationCap, Vote, BookOpen, BarChart2,
-  Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud, Settings
+  Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud, Settings, Mail, Phone, ClipboardCheck
 } from 'lucide-react';
 import { uploadFile } from '../lib/api';
-import { Application, Member, University, Announcement, AuditLog, ApplicationStatus } from '../types';
+import { Application, Member, University, Announcement, AuditLog, ApplicationStatus, ResearchSubmission } from '../types';
 
 interface AdminPortalViewProps {
   lang: 'EN' | 'AM';
@@ -15,6 +15,7 @@ interface AdminPortalViewProps {
   universities: University[];
   announcements: Announcement[];
   auditLogs: AuditLog[];
+  researchSubmissions: ResearchSubmission[];
   onApproveApplication: (appId: string) => void;
   onRejectApplication: (appId: string, reason: string) => void;
   onRequestCorrection: (appId: string, notes: string) => void;
@@ -23,6 +24,8 @@ interface AdminPortalViewProps {
   onDeleteMember?: (memberId: string) => void;
   onDeleteAnnouncement?: (annId: string) => void;
   onAddUniversity: (uni: Partial<University>) => void;
+  onUpdateResearchSubmission: (id: string, status: ResearchSubmission['status'], reviewNotes?: string) => Promise<void>;
+  onMembersImported: () => Promise<void>;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
@@ -33,6 +36,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   universities,
   announcements,
   auditLogs,
+  researchSubmissions,
   onApproveApplication,
   onRejectApplication,
   onRequestCorrection,
@@ -41,9 +45,11 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   onDeleteMember,
   onDeleteAnnouncement,
   onAddUniversity,
+  onUpdateResearchSubmission,
+  onMembersImported,
   onToast,
 }) => {
-  const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'members' | 'cpd' | 'elections' | 'universities' | 'audit' | 'announcements'>('applications');
+  const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'members' | 'cpd' | 'elections' | 'universities' | 'audit' | 'announcements' | 'research'>('applications');
   const [selectedAppFilter, setSelectedAppFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -56,6 +62,12 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   const [adminNoteInput, setAdminNoteInput] = useState<string>('');
   const [rejectReasonInput, setRejectReasonInput] = useState<string>('');
   const [isRejecting, setIsRejecting] = useState<boolean>(false);
+  const [selectedResearch, setSelectedResearch] = useState<ResearchSubmission | null>(null);
+  const [researchNotes, setResearchNotes] = useState('');
+  const [isSavingResearch, setIsSavingResearch] = useState(false);
+  const csvImportRef = React.useRef<HTMLInputElement>(null);
+  const [isImportingMembers, setIsImportingMembers] = useState(false);
+  const [memberImportResult, setMemberImportResult] = useState<{ created: number; errors: string[] } | null>(null);
 
   // New Announcement Modal state
   const [showAnnModal, setShowAnnModal] = useState<boolean>(false);
@@ -116,6 +128,77 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     setReviewingApp(app);
     setAdminNoteInput(app.admin_notes || '');
     setIsRejecting(false);
+  };
+
+  const handleOpenResearch = (submission: ResearchSubmission) => {
+    setSelectedResearch(submission);
+    setResearchNotes(submission.review_notes || '');
+  };
+
+  const saveResearchReview = async (status: ResearchSubmission['status']) => {
+    if (!selectedResearch) return;
+    setIsSavingResearch(true);
+    try {
+      await onUpdateResearchSubmission(selectedResearch.id, status, researchNotes);
+      setSelectedResearch(current => current ? { ...current, status, review_notes: researchNotes } : null);
+      onToast(`Research marked ${status.replace('_', ' ').toLowerCase()}.`, 'success');
+    } catch (error: any) {
+      onToast(error.message || 'Could not save the research review.', 'error');
+    } finally {
+      setIsSavingResearch(false);
+    }
+  };
+
+  const parseCsv = (content: string) => {
+    const rows: string[][] = [];
+    let field = '';
+    let row: string[] = [];
+    let inQuotes = false;
+    for (let index = 0; index < content.length; index += 1) {
+      const char = content[index];
+      if (char === '"') {
+        if (inQuotes && content[index + 1] === '"') { field += '"'; index += 1; }
+        else inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) { row.push(field.trim()); field = ''; }
+      else if ((char === '\n' || char === '\r') && !inQuotes) {
+        if (char === '\r' && content[index + 1] === '\n') index += 1;
+        row.push(field.trim());
+        if (row.some(cell => cell)) rows.push(row);
+        row = []; field = '';
+      } else field += char;
+    }
+    row.push(field.trim());
+    if (row.some(cell => cell)) rows.push(row);
+    const [headers, ...values] = rows;
+    return values.map(value => Object.fromEntries(headers.map((header, index) => [header.trim().toLowerCase(), value[index]?.trim() || ''])));
+  };
+
+  const downloadMemberCsvSample = () => {
+    const sample = 'email,temporary_password,first_name,father_name,grandfather_name,phone,city,membership_type,membership_number,membership_start_date,membership_expiry_date,specialty,workplace,license_number,cpd_points\nmember@example.com,TempPass2026!,Alem,Tesfaye,Kebede,0911223344,Addis Ababa,FULL,EPA-1998-0042,2018-06-15,2027-06-14,Counseling Psychology,Addis Wellness Centre,EPA-LIC-0042,24\nstudent@example.com,TempPass2026!,Marta,Getachew,,0922334455,Hawassa,STUDENT,EPA-S-2024-0081,2024-09-01,2027-08-31,,, ,0';
+    const url = URL.createObjectURL(new Blob([sample], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'epa-member-import-sample.csv'; anchor.click(); URL.revokeObjectURL(url);
+  };
+
+  const importMemberCsv = async (file?: File) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.csv')) { onToast('Choose a CSV file.', 'error'); return; }
+    setIsImportingMembers(true); setMemberImportResult(null);
+    try {
+      const content = await file.text();
+      const rows = parseCsv(content);
+      const resultResponse = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'bulk-import', rows }) });
+      const result = await resultResponse.json();
+      if (!resultResponse.ok || !result.success) throw new Error(result.error || 'Member import failed.');
+      const errors = (result.errors || []).map((error: { row: number; error: string }) => `Row ${error.row}: ${error.error}`);
+      setMemberImportResult({ created: result.created?.length || 0, errors });
+      await onMembersImported();
+      onToast(`${result.created?.length || 0} member accounts imported.`, errors.length ? 'info' : 'success');
+    } catch (error: any) {
+      onToast(error.message || 'Member import failed.', 'error');
+    } finally {
+      setIsImportingMembers(false);
+      if (csvImportRef.current) csvImportRef.current.value = '';
+    }
   };
 
   const handlePublishAnnouncement = () => {
@@ -229,6 +312,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
           { id: 'applications', label: `${lang === 'EN' ? 'Applications' : 'ማመልከቻዎች'} (${applications.length})` },
           { id: 'members', label: lang === 'EN' ? 'Members' : 'አባላት' },
           { id: 'announcements', label: lang === 'EN' ? `Announcements (${announcements.length})` : 'ማስታወቂያዎች' },
+          { id: 'research', label: lang === 'EN' ? `Research Review (${researchSubmissions.filter(item => item.status === 'SUBMITTED' || item.status === 'UNDER_REVIEW').length})` : 'የምርምር ግምገማ' },
           { id: 'cpd', label: 'CPD Manager' },
           { id: 'elections', label: lang === 'EN' ? 'Elections' : 'ምርጫ' },
           { id: 'universities', label: lang === 'EN' ? 'Universities' : 'ዩኒቨርሲቲዎች' },
@@ -418,6 +502,11 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       {/* ════════ TAB: MEMBERS ════════ */}
       {activeAdminTab === 'members' && (
         <div className="space-y-4">
+          <div className="rounded-2xl p-5 bg-gradient-to-br from-[#d4ff00]/10 to-transparent dark:from-[#d4ff00]/[0.08] border border-[#d4ff00]/25 flex flex-col lg:flex-row lg:items-center gap-4">
+            <div className="flex-1"><div className="flex items-center gap-2"><UploadCloud className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" /><h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">Import existing members</h3></div><p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">Create active member accounts without payment or re-registration. The membership start date in the CSV becomes the ID issue date—not the upload date. Imported members receive a temporary password and must set a new password and profile photo at first sign-in.</p></div>
+            <div className="flex flex-wrap gap-2"><input ref={csvImportRef} type="file" accept=".csv,text/csv" className="hidden" onChange={event => importMemberCsv(event.target.files?.[0])} /><button onClick={downloadMemberCsvSample} className="px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/15 bg-white dark:bg-white/5 text-xs font-black uppercase text-gray-900 dark:text-white">Download CSV sample</button><button onClick={() => csvImportRef.current?.click()} disabled={isImportingMembers} className="px-3.5 py-2.5 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase disabled:opacity-50">{isImportingMembers ? 'Importing…' : 'Upload member CSV'}</button></div>
+          </div>
+          {memberImportResult && <div className={`p-4 rounded-2xl border text-xs ${memberImportResult.errors.length ? 'bg-amber-500/10 border-amber-500/25 text-amber-800 dark:text-amber-300' : 'bg-green-500/10 border-green-500/25 text-green-800 dark:text-green-300'}`}><b>{memberImportResult.created} account(s) created.</b>{memberImportResult.errors.length > 0 && <details className="mt-2"><summary className="cursor-pointer font-bold">{memberImportResult.errors.length} row issue(s) — review details</summary><ul className="mt-2 space-y-1 list-disc pl-5">{memberImportResult.errors.map(error => <li key={error}>{error}</li>)}</ul></details>}</div>}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <input type="checkbox" checked={selectedMembers.length === members.length && members.length > 0}
@@ -700,6 +789,30 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       )}
 
+      {/* ════════ TAB: RESEARCH REVIEW DESK ════════ */}
+      {activeAdminTab === 'research' && (
+        <div className="space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+            <div>
+              <h3 className="font-black text-base text-gray-900 dark:text-white font-syne uppercase flex items-center gap-2"><ClipboardCheck className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />Research Review Desk</h3>
+              <p className="mt-1 text-xs text-neutral-500">Review member uploads, reach the author directly, and keep a visible editorial decision trail.</p>
+            </div>
+            <span className="px-3 py-1.5 rounded-full bg-[#d4ff00]/10 border border-[#d4ff00]/30 text-[10px] font-mono font-black uppercase text-green-700 dark:text-[#d4ff00]">{researchSubmissions.length} total submissions</span>
+          </div>
+          {researchSubmissions.length === 0 ? <div className="p-12 rounded-3xl bg-gray-50 dark:bg-[#121214] border border-dashed border-gray-200 dark:border-white/10 text-center"><FileText className="w-9 h-9 mx-auto text-neutral-400 mb-3" /><p className="font-bold text-sm text-neutral-500">No research submissions yet.</p><p className="text-xs text-neutral-400 mt-1">Member uploads will appear here for council review.</p></div> :
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {researchSubmissions.map(submission => (
+                <button key={submission.id} onClick={() => handleOpenResearch(submission)} className="text-left rounded-2xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 p-5 hover:border-[#d4ff00]/45 hover:-translate-y-0.5 transition-all">
+                  <div className="flex items-start justify-between gap-3"><span className="px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/5 text-[10px] font-mono font-black uppercase text-neutral-600 dark:text-neutral-300">{submission.publication_type}</span><span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-black uppercase border ${submission.status === 'ACCEPTED' ? 'bg-green-500/10 text-green-700 dark:text-[#d4ff00] border-green-500/20' : submission.status === 'DECLINED' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'}`}>{submission.status.replace('_', ' ')}</span></div>
+                  <h4 className="mt-3 font-black text-sm text-gray-900 dark:text-white leading-snug">{submission.title}</h4>
+                  <p className="mt-2 text-xs text-neutral-500 line-clamp-2 leading-relaxed">{submission.abstract}</p>
+                  <div className="mt-4 pt-3 border-t border-gray-200 dark:border-white/10 flex items-center justify-between text-[10px] font-mono text-neutral-500"><span>{submission.author_name} · {submission.author_membership_number}</span><span>{new Date(submission.submitted_at).toLocaleDateString()}</span></div>
+                </button>
+              ))}
+            </div>}
+        </div>
+      )}
+
       {/* ════════ TAB: AUDIT LOGS ════════ */}
       {activeAdminTab === 'audit' && (
         <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl border border-gray-200 dark:border-white/10 shadow-md p-6 space-y-4">
@@ -785,6 +898,15 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: 'Application', value: reviewingApp.application_number },
+                  { label: 'Submitted', value: new Date(reviewingApp.submitted_at).toLocaleDateString() },
+                  { label: 'Email', value: reviewingApp.email || 'Not provided' },
+                  { label: 'Phone', value: reviewingApp.phone || 'Not provided' },
+                ].map(item => <div key={item.label} className="min-w-0 p-3 rounded-xl bg-gray-50 dark:bg-black/60 border border-gray-200 dark:border-white/10"><div className="text-[9px] font-mono font-bold uppercase text-neutral-500">{item.label}</div><div title={item.value} className="mt-1 text-[11px] font-mono font-bold text-gray-900 dark:text-white truncate">{item.value}</div></div>)}
+              </div>
+
               {/* Detailed Personal & Professional Info */}
               {reviewingApp.membership_type !== 'CORPORATE' && (
                 <div>
@@ -841,6 +963,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.corporate_profile.organization_name || 'N/A'}</div>
                       <div className="text-neutral-700 dark:text-neutral-300 mt-0.5">Type: {reviewingApp.corporate_profile.org_type || 'N/A'}</div>
                       <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px] mt-1">TIN: {reviewingApp.corporate_profile.tin_number || 'N/A'} | HQ: {reviewingApp.corporate_profile.headquarters_city || 'N/A'}</div>
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-neutral-600 dark:text-neutral-300"><span><b>Contact:</b> {reviewingApp.corporate_profile.contact_person || 'N/A'} · {reviewingApp.corporate_profile.contact_title || 'N/A'}</span><span><b>Direct:</b> {reviewingApp.corporate_profile.contact_phone || 'N/A'} · {reviewingApp.corporate_profile.contact_email || 'N/A'}</span><span><b>Staff:</b> {reviewingApp.corporate_profile.staff_count ?? 'N/A'}</span>{reviewingApp.corporate_profile.services_description && <span className="sm:col-span-2"><b>Services:</b> {reviewingApp.corporate_profile.services_description}</span>}</div>
                       {reviewingApp.corporate_profile.website && (
                         <div className="text-blue-500 text-[10px] mt-1 break-all">{reviewingApp.corporate_profile.website}</div>
                       )}
@@ -1038,6 +1161,28 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════ RESEARCH REVIEW MODAL ════════ */}
+      {selectedResearch && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
+          <div className="w-full max-w-3xl rounded-3xl bg-gray-50 dark:bg-[#121214] border border-white/20 shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 flex items-start justify-between border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0c]">
+              <div><span className="text-[10px] font-mono font-black uppercase text-green-700 dark:text-[#d4ff00]">{selectedResearch.publication_type} · {selectedResearch.status.replace('_', ' ')}</span><h3 className="mt-1 text-lg font-black font-syne uppercase tracking-tight text-gray-900 dark:text-white">Research dossier</h3></div>
+              <button onClick={() => setSelectedResearch(null)} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
+              <div className="rounded-2xl p-4 bg-[#d4ff00]/5 border border-[#d4ff00]/20"><h4 className="font-black text-base text-gray-900 dark:text-white">{selectedResearch.title}</h4><p className="mt-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">{selectedResearch.abstract}</p>{selectedResearch.keywords.length > 0 && <div className="mt-4 flex flex-wrap gap-1.5">{selectedResearch.keywords.map(keyword => <span key={keyword} className="px-2 py-1 rounded-full bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-[10px] font-mono text-neutral-600 dark:text-neutral-300">{keyword}</span>)}</div>}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="rounded-2xl p-4 bg-white dark:bg-black/20 border border-gray-200 dark:border-white/10"><p className="text-[10px] font-mono uppercase text-neutral-500">Submitting member</p><p className="mt-1 font-black text-sm text-gray-900 dark:text-white">{selectedResearch.author_name}</p><p className="mt-1 text-[11px] font-mono text-neutral-500">{selectedResearch.author_membership_number}</p></div>
+                <div className="rounded-2xl p-4 bg-white dark:bg-black/20 border border-gray-200 dark:border-white/10"><p className="text-[10px] font-mono uppercase text-neutral-500">Contact author</p><div className="mt-2 space-y-1.5 text-xs">{selectedResearch.author_email && <a href={`mailto:${selectedResearch.author_email}?subject=${encodeURIComponent(`EPA Research Review: ${selectedResearch.title}`)}`} className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"><Mail className="w-3.5 h-3.5" />{selectedResearch.author_email}</a>}{selectedResearch.author_phone && <a href={`tel:${selectedResearch.author_phone}`} className="flex items-center gap-2 text-neutral-600 dark:text-neutral-300 hover:underline"><Phone className="w-3.5 h-3.5" />{selectedResearch.author_phone}</a>}</div></div>
+              </div>
+              <a href={selectedResearch.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/20 text-blue-700 dark:text-blue-300"><span className="flex min-w-0 items-center gap-3"><FileText className="w-5 h-5 shrink-0" /><span className="min-w-0"><span className="block text-xs font-black truncate">{selectedResearch.file_name}</span><span className="block mt-0.5 text-[10px] opacity-70">Open submitted publication</span></span></span><ExternalLink className="w-4 h-4 shrink-0" /></a>
+              <div><label className="block text-[10px] font-mono font-black uppercase text-neutral-500 mb-2">Editorial note visible in the review record</label><textarea rows={4} value={researchNotes} onChange={event => setResearchNotes(event.target.value)} placeholder="Add review feedback or revision instructions…" className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00] resize-none" /></div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0c] flex flex-wrap justify-end gap-2"><button disabled={isSavingResearch} onClick={() => saveResearchReview('REVISION_REQUESTED')} className="px-3.5 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase disabled:opacity-50">Request revision</button><button disabled={isSavingResearch} onClick={() => saveResearchReview('DECLINED')} className="px-3.5 py-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-black uppercase disabled:opacity-50">Decline</button><button disabled={isSavingResearch} onClick={() => saveResearchReview('ACCEPTED')} className="px-4 py-2 rounded-xl bg-[#d4ff00] text-black text-[10px] font-black uppercase disabled:opacity-50">{isSavingResearch ? 'Saving…' : 'Accept submission'}</button></div>
           </div>
         </div>
       )}

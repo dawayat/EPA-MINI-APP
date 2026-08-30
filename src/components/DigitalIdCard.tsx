@@ -143,7 +143,7 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
                     የኢትዮጵያ ሳይኮሎጂ ባለሙያዎች ማኅበር
                   </div>
                   <div className="text-[8px] tracking-widest text-neutral-400 font-mono mt-0.5 uppercase">
-                    FDRE REG. NO. 0492 • EST. 1999
+                    FDRE REG. NO. 0492 • EST. 1992
                   </div>
                 </div>
               </div>
@@ -184,21 +184,19 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
                 )}
                 
                 <div className="inline-block mt-1 px-2.5 py-0.5 rounded bg-white/10 text-[10px] font-mono font-bold tracking-wide uppercase text-white border border-white/15">
-                  {isFullMember ? `Licensed ${member.specialty || 'Professional'} Member` : isStudent ? 'Student Member' : 'Corporate Member'}
+                  {isFullMember ? `Licensed ${(member.specialty && member.specialty !== 'undefined' ? member.specialty : 'Full')} Member` : isStudent ? 'Student Member' : 'Corporate Member'}
                 </div>
 
-                <div className="text-[10px] text-neutral-300 truncate mt-1">
-                  {member.specialty}
-                </div>
+                {!isStudent && <div className="text-[10px] text-neutral-300 truncate mt-1">{member.specialty && member.specialty !== 'undefined' ? member.specialty : 'EPA Accredited Member'}</div>}
               </div>
             </div>
 
             {/* Bottom Row: License Info, Expiry & Micro Security Chip */}
             <div className="relative z-10 flex items-end justify-between pt-2 border-t border-white/10 text-[9px]">
               <div>
-                <div className="text-neutral-400 uppercase text-[8px] font-mono font-bold">License / Spec</div>
+                <div className="text-neutral-400 uppercase text-[8px] font-mono font-bold">{isStudent ? 'Member class' : 'License / Spec'}</div>
                 <div className="font-mono font-bold text-white tracking-wide">
-                  {member.license_number || 'STU-ACCREDITED'}
+                  {isStudent ? 'STUDENT MEMBER' : (member.license_number || 'EPA FULL MEMBER')}
                 </div>
               </div>
 

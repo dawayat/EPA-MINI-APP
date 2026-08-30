@@ -5,7 +5,7 @@
 
 import {
   Member, Application, Announcement, University, CPDCourse,
-  ElectionCandidate, AuditLog, Election
+  ElectionCandidate, AuditLog, Election, ResearchSubmission
 } from '../types';
 
 // Base URL for API calls - works in both local dev and production
@@ -118,6 +118,10 @@ export async function fetchAuditLogs(): Promise<AuditLog[]> {
   return apiGet<AuditLog>('/api/audit-logs');
 }
 
+export async function fetchResearchSubmissions(): Promise<ResearchSubmission[]> {
+  return apiGet<ResearchSubmission>('/api/research');
+}
+
 // ─── MUTATIONS ──────────────────────────────────────────────────────────────
 
 export async function submitApplication(appData: Partial<Application>): Promise<{ success: boolean; error?: string }> {
@@ -178,6 +182,14 @@ export async function deleteMember(id: string) {
 
 export async function deleteAnnouncement(id: string) {
   return apiDelete('/api/announcements', { id });
+}
+
+export async function submitResearchSubmission(submission: Partial<ResearchSubmission>) {
+  return apiPost('/api/research', submission);
+}
+
+export async function updateResearchSubmission(id: string, status: ResearchSubmission['status'], review_notes?: string) {
+  return apiPatch('/api/research', { id, status, review_notes });
 }
 
 export async function createCPDCourse(courseData: Partial<CPDCourse>) {

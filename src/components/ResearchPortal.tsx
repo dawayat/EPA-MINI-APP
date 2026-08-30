@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import {
   BookOpen, MessageCircle, ThumbsUp, Plus, Send, X,
-  ChevronDown, ChevronUp, Tag, Calendar, User
+  ChevronDown, ChevronUp, Tag, Calendar, User, UploadCloud, FileText, CheckCircle2
 } from 'lucide-react';
-import { ResearchArticle, Member, ArticleComment } from '../types';
+import { ResearchArticle, Member, ResearchSubmission } from '../types';
+import { uploadFile } from '../lib/api';
 
 interface ResearchPortalProps {
   member: Member;
   articles: ResearchArticle[];
   lang: 'EN' | 'AM';
-  onPublishArticle: (article: Partial<ResearchArticle>) => void;
+  onSubmitResearch: (submission: Partial<ResearchSubmission>) => Promise<void>;
   onAddComment: (articleId: string, comment: string) => void;
   onLikeArticle: (articleId: string) => void;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
@@ -19,7 +20,7 @@ export const ResearchPortal: React.FC<ResearchPortalProps> = ({
   member,
   articles,
   lang,
-  onPublishArticle,
+  onSubmitResearch,
   onAddComment,
   onLikeArticle,
   onToast,
@@ -30,30 +31,60 @@ export const ResearchPortal: React.FC<ResearchPortalProps> = ({
   const [newArticle, setNewArticle] = useState({
     title: '',
     abstract: '',
-    content: '',
-    keywords: ''
+    keywords: '',
+    publicationType: 'Research Paper' as ResearchSubmission['publication_type'],
+    fileUrl: '',
+    fileName: ''
   });
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handlePublish = () => {
-    if (!newArticle.title || !newArticle.abstract) {
-      onToast('Title and abstract are required', 'error');
+  const handlePublish = async () => {
+    if (!newArticle.title.trim() || !newArticle.abstract.trim() || !newArticle.fileUrl) {
+      onToast('Title, abstract, and the publication file are required', 'error');
       return;
     }
-    onPublishArticle({
-      member_id: member.id,
-      author_name: `${member.first_name} ${member.father_name}`,
-      author_membership_number: member.membership_number,
-      title: newArticle.title,
-      abstract: newArticle.abstract,
-      content: newArticle.content,
-      keywords: newArticle.keywords.split(',').map(k => k.trim()).filter(Boolean),
-      published_at: new Date().toISOString(),
-      comments: [],
-      likes_count: 0,
-    });
-    setShowPublishForm(false);
-    setNewArticle({ title: '', abstract: '', content: '', keywords: '' });
-    onToast(lang === 'EN' ? 'Article published to the research portal!' : 'ጽሑፍዎ ቀርቧል!', 'success');
+    setIsSubmitting(true);
+    try {
+      await onSubmitResearch({
+        member_id: member.id,
+        title: newArticle.title,
+        abstract: newArticle.abstract,
+        keywords: newArticle.keywords.split(',').map(k => k.trim()).filter(Boolean),
+        publication_type: newArticle.publicationType,
+        file_url: newArticle.fileUrl,
+        file_name: newArticle.fileName
+      });
+      setShowPublishForm(false);
+      setNewArticle({ title: '', abstract: '', keywords: '', publicationType: 'Research Paper', fileUrl: '', fileName: '' });
+      onToast(lang === 'EN' ? 'Research submitted to the EPA review desk.' : 'ምርምርዎ ለEPA ግምገማ ቀርቧል።', 'success');
+    } catch (error: any) {
+      onToast(error.message || 'Could not submit your research.', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFileChange = async (file?: File) => {
+    if (!file) return;
+    const allowed = /\.(pdf|doc|docx)$/i.test(file.name);
+    if (!allowed) {
+      onToast('Upload a PDF, DOC, or DOCX file.', 'error');
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      onToast('Research files must be 3 MB or smaller.', 'error');
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const fileUrl = await uploadFile(file);
+      setNewArticle(current => ({ ...current, fileUrl, fileName: file.name }));
+    } catch {
+      onToast('The research file could not be prepared.', 'error');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleComment = (articleId: string) => {
@@ -84,7 +115,7 @@ export const ResearchPortal: React.FC<ResearchPortalProps> = ({
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider transition-all cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
-          {lang === 'EN' ? 'Publish Research' : 'ምርምር ያቅርቡ'}
+          {lang === 'EN' ? 'Submit Research' : 'ምርምር ያቅርቡ'}
         </button>
       </div>
 
@@ -93,7 +124,7 @@ export const ResearchPortal: React.FC<ResearchPortalProps> = ({
         <div className="bg-gray-50 dark:bg-[#121214] border border-[#d4ff00]/40 rounded-2xl p-6 animate-in slide-in-from-top-4">
           <div className="flex items-center justify-between mb-5">
             <h3 className="font-black text-gray-900 dark:text-white uppercase tracking-tight">
-              {lang === 'EN' ? 'New Research Article' : 'አዲስ ጽሑፍ'}
+              {lang === 'EN' ? 'Submit Research for Review' : 'ለግምገማ ምርምር ያቅርቡ'}
             </h3>
             <button onClick={() => setShowPublishForm(false)} className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 cursor-pointer">
               <X className="w-4 h-4" />
@@ -119,15 +150,21 @@ export const ResearchPortal: React.FC<ResearchPortalProps> = ({
                 className="w-full bg-white dark:bg-[#0a0a0c] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] resize-none"
               />
             </div>
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">Full Content</label>
-              <textarea
-                value={newArticle.content}
-                onChange={e => setNewArticle(p => ({ ...p, content: e.target.value }))}
-                rows={6}
-                placeholder="Paste or type your full research/article content here..."
-                className="w-full bg-white dark:bg-[#0a0a0c] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] resize-none"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">Publication type</label>
+                <select value={newArticle.publicationType} onChange={e => setNewArticle(p => ({ ...p, publicationType: e.target.value as ResearchSubmission['publication_type'] }))} className="w-full bg-white dark:bg-[#0a0a0c] border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00]">
+                  {['Research Paper', 'Journal Article', 'Case Study', 'Conference Paper', 'Other'].map(type => <option key={type}>{type}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">Publication file *</label>
+                <label className={`h-[46px] flex items-center gap-2 px-3 rounded-xl border cursor-pointer transition-colors ${newArticle.fileUrl ? 'border-[#d4ff00]/50 bg-[#d4ff00]/5 text-green-700 dark:text-[#d4ff00]' : 'border-dashed border-gray-300 dark:border-white/20 hover:border-[#d4ff00]/50 text-neutral-500'}`}>
+                  {newArticle.fileUrl ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <UploadCloud className={`w-4 h-4 shrink-0 ${isUploading ? 'animate-bounce' : ''}`} />}
+                  <span className="text-xs font-bold truncate">{isUploading ? 'Preparing file…' : newArticle.fileName || 'PDF, DOC, or DOCX (max 3 MB)'}</span>
+                  <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" disabled={isUploading} onChange={e => handleFileChange(e.target.files?.[0])} />
+                </label>
+              </div>
             </div>
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">Keywords (comma-separated)</label>
@@ -140,8 +177,8 @@ export const ResearchPortal: React.FC<ResearchPortalProps> = ({
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => setShowPublishForm(false)} className="px-5 py-2.5 text-xs font-bold text-neutral-500 hover:text-gray-900 dark:hover:text-white cursor-pointer">Cancel</button>
-              <button onClick={handlePublish} className="px-6 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider cursor-pointer shadow-lg">
-                Publish Article
+              <button onClick={handlePublish} disabled={isSubmitting || isUploading} className="px-6 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider cursor-pointer shadow-lg disabled:opacity-50">
+                {isSubmitting ? 'Submitting…' : 'Submit for Review'}
               </button>
             </div>
           </div>

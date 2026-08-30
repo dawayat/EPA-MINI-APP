@@ -10,16 +10,19 @@ import {
   Announcement,
   AnnouncementComment,
   AnnouncementVoteChoice,
+  AnnouncementVoteSummary,
   CPDCourse,
   Member,
   MemberMessage,
-  ResearchArticle
+  ResearchArticle,
+  ResearchSubmission
 } from '../types';
 import { ResearchPortal } from './ResearchPortal';
 import {
   castAnnouncementVote,
   fetchAnnouncementComments,
   fetchAnnouncementVote,
+  fetchAnnouncementVoteSummary,
   fetchMemberMessages,
   notifyCommunityUpdate,
   onCommunityUpdate,
@@ -38,6 +41,7 @@ interface MemberPortalViewProps {
   onOpenVoting: () => void;
   onOpenDirectory: () => void;
   onRegisterCPD: (courseId: string) => void;
+  onSubmitResearch: (submission: Partial<ResearchSubmission>) => Promise<void>;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
@@ -55,19 +59,22 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState<AnnouncementComment[]>([]);
   const [myVote, setMyVote] = useState<AnnouncementVoteChoice | null>(null);
+  const [voteSummary, setVoteSummary] = useState<AnnouncementVoteSummary>({ total: 0, approve: 0, adjust: 0, voters: [] });
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
     const refresh = async () => {
       try {
-        const [nextComments, nextVote] = await Promise.all([
+        const [nextComments, nextVote, nextVoteSummary] = await Promise.all([
           fetchAnnouncementComments(ann.id),
-          fetchAnnouncementVote(ann.id, member.id)
+          fetchAnnouncementVote(ann.id, member.id),
+          fetchAnnouncementVoteSummary(ann.id)
         ]);
         if (active) {
           setComments(nextComments);
           setMyVote(nextVote);
+          setVoteSummary(nextVoteSummary);
         }
       } catch (error) {
         console.error('[community] Unable to refresh announcement interactions:', error);
@@ -92,6 +99,14 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
     try {
       const { vote } = await castAnnouncementVote(ann.id, member.id, choice);
       setMyVote(vote.choice);
+      setVoteSummary(current => {
+        const existing = current.voters.find(voter => voter.member_id === member.id);
+        const voters = existing
+          ? current.voters.map(voter => voter.member_id === member.id ? { ...voter, choice: vote.choice } : voter)
+          : [{ member_id: member.id, choice: vote.choice, name: `${member.first_name} ${member.father_name}`, photo_url: member.photo_url }, ...current.voters];
+        const approve = voters.filter(voter => voter.choice === 'approve').length;
+        return { total: voters.length, approve, adjust: voters.length - approve, voters };
+      });
       notifyCommunityUpdate();
       onToast(lang === 'EN' ? `Vote saved: ${choice}` : `ድምጽ ተቀምጧል: ${choice}`, 'success');
     } catch (error: any) {
@@ -119,21 +134,21 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
   };
 
   return (
-    <div className="rounded-2xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 overflow-hidden hover:border-[#d4ff00]/40 transition-colors">
-      {coverImg && <img src={coverImg} alt={ann.title} className="w-full h-40 object-cover" />}
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/20 uppercase">{ann.category}</span>
-          <span className="text-[10px] text-neutral-500">{new Date(ann.published_at).toLocaleDateString()}</span>
+    <article className="group rounded-2xl bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10 overflow-hidden shadow-sm hover:border-[#d4ff00]/40 hover:shadow-[0_12px_34px_rgba(0,0,0,0.08)] transition-all">
+      {coverImg && <div className="relative"><img src={coverImg} alt={ann.title} className="w-full h-44 object-cover" /><div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 to-transparent" /></div>}
+      <div className="p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3 mb-2.5">
+          <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/20 uppercase">{ann.category}</span>
+          <span className="text-[10px] text-neutral-500 font-mono shrink-0">{new Date(ann.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
         </div>
-        <h4 className="font-black text-sm text-gray-900 dark:text-white leading-snug">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</h4>
-        <p className="text-[12px] text-gray-600 dark:text-gray-400 mt-2 leading-relaxed">{ann.content}</p>
+        <h4 className="font-black text-[15px] text-gray-900 dark:text-white leading-snug group-hover:text-green-800 dark:group-hover:text-[#d4ff00] transition-colors">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</h4>
+        <p className="text-[12px] text-gray-600 dark:text-gray-400 mt-2.5 leading-relaxed line-clamp-4">{ann.content}</p>
         {ann.file_attachment_url && (
           <a href={ann.file_attachment_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-3 text-[11px] text-blue-500 hover:underline font-bold">
             <FileText className="w-3.5 h-3.5" /> {lang === 'EN' ? 'Open Attachment' : 'ፋይል ክፈት'}
           </a>
         )}
-        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-100 dark:border-white/5">
+        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-gray-200/80 dark:border-white/5">
           {isVoting ? (
             <div className="flex gap-2 flex-wrap">
               <button onClick={() => handleVote('approve')} disabled={isSaving} className={`px-3 py-1.5 rounded-lg text-[11px] font-black uppercase cursor-pointer flex items-center gap-1 transition-colors disabled:opacity-50 ${myVote === 'approve' ? 'bg-green-600 text-white' : 'bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400'}`}>
@@ -158,13 +173,26 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
             </div>
           )}
         </div>
+        {isVoting && (
+          <div className="mt-3.5 rounded-xl bg-black/[0.025] dark:bg-white/[0.035] border border-gray-200/80 dark:border-white/10 px-3 py-2.5 flex flex-wrap items-center gap-3">
+            <div className="flex -space-x-2">
+              {voteSummary.voters.slice(0, 4).map(voter => (
+                voter.photo_url ? <img key={voter.member_id} src={voter.photo_url} title={voter.name} alt={voter.name} className="w-6 h-6 rounded-full object-cover border-2 border-white dark:border-[#121214]" /> :
+                <span key={voter.member_id} title={voter.name} className="w-6 h-6 rounded-full bg-[#d4ff00]/25 border-2 border-white dark:border-[#121214] flex items-center justify-center text-[8px] font-black text-gray-900 dark:text-[#d4ff00]">{voter.name.charAt(0)}</span>
+              ))}
+              {voteSummary.total > 4 && <span className="w-6 h-6 rounded-full bg-gray-200 dark:bg-white/15 border-2 border-white dark:border-[#121214] flex items-center justify-center text-[8px] font-black text-gray-700 dark:text-white">+{voteSummary.total - 4}</span>}
+            </div>
+            <span className="text-[10px] font-bold text-gray-700 dark:text-neutral-300">{voteSummary.total ? `${voteSummary.total} ${voteSummary.total === 1 ? 'member has' : 'members have'} voted` : 'Be the first to vote'}</span>
+            {voteSummary.total > 0 && <span className="ml-auto text-[10px] font-mono text-neutral-500"><b className="text-green-700 dark:text-[#d4ff00]">{voteSummary.approve}</b> approve · <b className="text-amber-600 dark:text-amber-400">{voteSummary.adjust}</b> adjust</span>}
+          </div>
+        )}
         {showComment && (
-          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-white/5 space-y-4">
+          <div className="mt-4 pt-4 border-t border-gray-200/80 dark:border-white/5 space-y-4">
             {comments.length ? (
               <div className="space-y-3">
                 {comments.map(comment => (
                   <div key={comment.id} className="flex items-start gap-2.5">
-                    <div className="w-6 h-6 rounded-full bg-[#d4ff00]/20 flex items-center justify-center text-[9px] font-black text-gray-900 dark:text-[#d4ff00] shrink-0">{comment.author_name.charAt(0)}</div>
+                    {comment.author_photo_url ? <img src={comment.author_photo_url} alt={comment.author_name} className="w-7 h-7 rounded-full object-cover border border-[#d4ff00]/40 shrink-0" /> : <div className="w-7 h-7 rounded-full bg-[#d4ff00]/20 flex items-center justify-center text-[9px] font-black text-gray-900 dark:text-[#d4ff00] shrink-0">{comment.author_name.charAt(0)}</div>}
                     <div className="flex-1 bg-white dark:bg-white/5 rounded-xl rounded-tl-sm p-2.5 border border-gray-100 dark:border-white/10">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[10px] font-bold text-gray-900 dark:text-white">{comment.author_name}</span>
@@ -177,7 +205,7 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
               </div>
             ) : <p className="text-[11px] text-neutral-500">{lang === 'EN' ? 'No comments yet. Start the discussion.' : 'ገና አስተያየት የለም።'}</p>}
             <div className="flex gap-2 items-start mt-2">
-              <div className="w-6 h-6 rounded-full bg-[#d4ff00] flex items-center justify-center text-[9px] font-black text-black shrink-0">{member.first_name.charAt(0)}</div>
+              {member.photo_url ? <img src={member.photo_url} alt={member.first_name} className="w-7 h-7 rounded-full object-cover border border-[#d4ff00] shrink-0" /> : <div className="w-7 h-7 rounded-full bg-[#d4ff00] flex items-center justify-center text-[9px] font-black text-black shrink-0">{member.first_name.charAt(0)}</div>}
               <div className="flex-1">
                 <textarea rows={2} value={commentText} onChange={e => setCommentText(e.target.value)} placeholder={lang === 'EN' ? 'Add a comment...' : 'አስተያየትዎን ይጻፉ...'} className="w-full p-2.5 rounded-xl text-xs border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00] resize-none" />
                 <button onClick={handleComment} disabled={!commentText.trim() || isSaving} className="mt-2 px-4 py-1.5 rounded-lg bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-[10px] font-black uppercase cursor-pointer active:scale-95 disabled:opacity-50">
@@ -188,7 +216,7 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
           </div>
         )}
       </div>
-    </div>
+    </article>
   );
 };
 // ── CONNECT & CHAT SECTION (students connect with full members & peers) ────────
@@ -418,12 +446,12 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
   return (
     <div className="w-full max-w-4xl mx-auto px-4 py-6">
       {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-3xl mb-6 p-6"
-        style={{ background: 'linear-gradient(135deg, #0f2a0f 0%, #0a1a0a 60%, #050d05 100%)', border: '1px solid rgba(212,255,0,0.18)' }}>
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 80% 10%, #d4ff00 0%, transparent 55%)' }} />
+      <div className="relative overflow-hidden rounded-3xl mb-6 p-5 sm:p-6 shadow-[0_18px_45px_rgba(5,25,8,0.22)]"
+        style={{ background: 'linear-gradient(135deg, #153a1a 0%, #0b1c0e 52%, #071109 100%)', border: '1px solid rgba(212,255,0,0.24)' }}>
+        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 82% 12%, #d4ff00 0%, transparent 30%), radial-gradient(circle at 5% 105%, #49a85a 0%, transparent 35%)' }} />
+        <div className="absolute right-[-32px] top-[-32px] w-40 h-40 rounded-full border-[18px] border-[#d4ff00]/[0.07]" />
         <div className="relative z-10 flex items-start gap-4">
-          <img src={member.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
-            alt={member.first_name} className="w-16 h-16 rounded-2xl object-cover border-2 border-[#d4ff00]/40 shrink-0" />
+          <div className="relative shrink-0"><img src={member.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'} alt={member.first_name} className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl object-cover border-2 border-[#d4ff00]/70 shadow-lg" /><span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#d4ff00] border-2 border-[#0b1c0e] flex items-center justify-center"><Check className="w-3 h-3 text-black" /></span></div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#d4ff00] bg-[#d4ff00]/10 px-2 py-0.5 rounded-full border border-[#d4ff00]/20">
@@ -437,17 +465,17 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
             </div>
             <h2 className="text-xl font-black text-white mt-1 uppercase">{member.first_name} {member.father_name}</h2>
             {member.amharic_full_name && <p className="text-[#d4ff00]/70 text-sm">{member.amharic_full_name}</p>}
-            <p className="text-neutral-400 text-xs mt-0.5">{member.student_profile?.field_of_study || 'Psychology Student'} {member.student_profile?.academic_year ? `— Year ${member.student_profile.academic_year}` : ''}</p>
-            <p className="text-neutral-500 text-[10px] font-mono mt-0.5">{member.student_profile?.university_name || member.city} • {member.membership_number}</p>
+            <p className="text-neutral-300 text-xs mt-1">{member.student_profile?.university_name || member.city || 'EPA Student Network'}{member.student_profile?.academic_year ? ` · Year ${member.student_profile.academic_year}` : ''}</p>
+            <p className="text-neutral-500 text-[10px] font-mono mt-1">MEMBER ID · {member.membership_number}</p>
           </div>
         </div>
-        <div className="relative z-10 grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-white/10">
+        <div className="relative z-10 grid grid-cols-3 gap-2 sm:gap-3 mt-5 pt-4 border-t border-white/10">
           {[
             { label: lang === 'EN' ? 'CPD Points' : 'CPD ነጥቦች', value: member.cpd_points, color: 'text-[#d4ff00]' },
             { label: lang === 'EN' ? 'Courses' : 'ኮርሶች', value: registeredCourses.length, color: 'text-white' },
             { label: lang === 'EN' ? 'Days Left' : 'ቀናት', value: `${daysLeft}d`, color: daysLeft < 60 ? 'text-amber-400' : 'text-white' },
           ].map((s, i) => (
-            <div key={i} className="text-center">
+            <div key={i} className="text-center rounded-xl bg-white/[0.045] border border-white/[0.07] py-2.5">
               <div className={`text-2xl font-black ${s.color}`}>{s.value}</div>
               <div className="text-[9px] font-mono text-neutral-500 uppercase mt-0.5">{s.label}</div>
             </div>
@@ -636,7 +664,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
 
 // ── FULL MEMBER PORTAL ─────────────────────────────────────────────────────────
 const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
-  member, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenVoting, onOpenDirectory, onRegisterCPD, onToast
+  member, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenVoting, onOpenDirectory, onRegisterCPD, onSubmitResearch, onToast
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'cpd' | 'announcements' | 'license' | 'research' | 'connect'>('overview');
   const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
@@ -811,9 +839,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
           member={member}
           articles={researchArticles}
           lang={lang}
-          onPublishArticle={(article) => {
-            setResearchArticles(prev => [{ ...article, id: `art-${Date.now()}` } as ResearchArticle, ...prev]);
-          }}
+          onSubmitResearch={onSubmitResearch}
           onAddComment={(articleId, comment) => {
             setResearchArticles(prev => prev.map(a => a.id === articleId ? {
               ...a,

@@ -95,6 +95,7 @@ export interface Application {
   rejection_reason?: string;
   telegram_id?: number | string;
   phone_password?: string;
+  email_verified?: boolean;
   // Full member specific
   current_workplace?: string;
   current_specialty?: string;
@@ -113,6 +114,9 @@ export interface Member {
   telegram_username?: string;
   email?: string;
   phone_password?: string; // Simple password for phone-based login fallback
+  email_verified?: boolean;
+  must_change_password?: boolean;
+  onboarding_completed?: boolean;
   
   // Personal
   first_name: string;
@@ -184,8 +188,23 @@ export interface AnnouncementComment {
   announcement_id: string;
   member_id: string;
   author_name: string;
+  author_photo_url?: string;
   content: string;
   created_at: string;
+}
+
+export interface AnnouncementVoter {
+  member_id: string;
+  choice: AnnouncementVoteChoice;
+  name: string;
+  photo_url?: string;
+}
+
+export interface AnnouncementVoteSummary {
+  total: number;
+  approve: number;
+  adjust: number;
+  voters: AnnouncementVoter[];
 }
 
 export interface MemberMessage {
@@ -283,6 +302,24 @@ export interface ResearchArticle {
   published_at: string;
   comments: ArticleComment[];
   likes_count: number;
+}
+
+export interface ResearchSubmission {
+  id: string;
+  member_id: string;
+  author_name: string;
+  author_membership_number: string;
+  author_email?: string;
+  author_phone?: string;
+  title: string;
+  abstract: string;
+  keywords: string[];
+  publication_type: 'Research Paper' | 'Journal Article' | 'Case Study' | 'Conference Paper' | 'Other';
+  file_url: string;
+  file_name: string;
+  submitted_at: string;
+  status: 'SUBMITTED' | 'UNDER_REVIEW' | 'ACCEPTED' | 'REVISION_REQUESTED' | 'DECLINED';
+  review_notes?: string;
 }
 
 export type DraftVoteChoice = 'APPROVE' | 'NEEDS_ADJUSTMENT';

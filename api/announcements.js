@@ -1,4 +1,5 @@
 import { dbSelect, dbInsert, dbUpdate, cors } from './_db.js';
+import { announcementEmail, isEmailConfigured, sendEmail } from './_email.js';
 
 export default async function handler(req, res) {
   cors(res);
@@ -21,7 +22,22 @@ export default async function handler(req, res) {
         if (a[f] !== undefined && a[f] !== null) row[f] = a[f];
       }
       await dbInsert('announcements', row);
-      return res.status(201).json({ success: true });
+      let emailed = 0;
+      let emailError = null;
+      if (isEmailConfigured()) {
+        try {
+          const members = await dbSelect('members', 'status=eq.ACTIVE&email=not.is.null&select=first_name,father_name,email');
+          const results = await Promise.allSettled(members.map(member => {
+            const message = announcementEmail(`${member.first_name} ${member.father_name}`, { title: row.title, content: row.content, category: row.type });
+            return sendEmail({ to: member.email, ...message });
+          }));
+          emailed = results.filter(result => result.status === 'fulfilled').length;
+        } catch (error) {
+          emailError = error.message;
+          console.error('[announcements] email broadcast failed:', error.message);
+        }
+      }
+      return res.status(201).json({ success: true, emailed, emailError });
     }
 
     if (req.method === 'DELETE') {

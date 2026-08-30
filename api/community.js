@@ -54,6 +54,34 @@ export default async function handler(req, res) {
         return res.status(200).json(votes[0] || null);
       }
 
+      if (action === 'vote-summary') {
+        const announcementId = requireId(req.query.announcementId, 'Announcement id');
+        const votes = await dbSelect(
+          'announcement_votes',
+          `announcement_id=eq.${announcementId}&order=updated_at.desc`
+        );
+        const voterIds = [...new Set(votes.map(vote => vote.member_id))];
+        const members = voterIds.length
+          ? await dbSelect('members', `id=in.(${voterIds.join(',')})&select=id,first_name,father_name,photo_url`)
+          : [];
+        const memberById = new Map(members.map(member => [member.id, member]));
+        const voters = votes.map(vote => {
+          const member = memberById.get(vote.member_id);
+          return {
+            member_id: vote.member_id,
+            choice: vote.choice,
+            name: member ? `${member.first_name} ${member.father_name}`.trim() : 'EPA Member',
+            photo_url: member?.photo_url || null
+          };
+        });
+        return res.status(200).json({
+          total: votes.length,
+          approve: votes.filter(vote => vote.choice === 'approve').length,
+          adjust: votes.filter(vote => vote.choice === 'adjust').length,
+          voters
+        });
+      }
+
       if (action === 'messages') {
         const memberId = requireId(req.query.memberId, 'Member id');
         const messages = await dbSelect(
@@ -73,7 +101,7 @@ export default async function handler(req, res) {
         const announcementId = requireId(req.body.announcementId, 'Announcement id');
         const memberId = requireId(req.body.memberId, 'Member id');
         const content = requireContent(req.body.content);
-        const members = await dbSelect('members', `id=eq.${memberId}&select=first_name,father_name&limit=1`);
+        const members = await dbSelect('members', `id=eq.${memberId}&select=first_name,father_name,photo_url&limit=1`);
         if (!members[0]) return res.status(404).json({ error: 'Member not found' });
 
         const comment = {
@@ -81,6 +109,7 @@ export default async function handler(req, res) {
           announcement_id: announcementId,
           member_id: memberId,
           author_name: `${members[0].first_name} ${members[0].father_name}`.trim(),
+          author_photo_url: members[0].photo_url || null,
           content,
           created_at: new Date().toISOString()
         };
