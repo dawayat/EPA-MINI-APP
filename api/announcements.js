@@ -1,4 +1,4 @@
-import { dbSelect, dbInsert, dbUpdate, cors } from './_db.js';
+import { dbSelect, dbInsert, dbUpdate, cachePublic, cors } from './_db.js';
 import { announcementEmail, isEmailConfigured, sendEmail } from './_email.js';
 
 const escapeHtml = (value = '') => String(value).replace(/[&<>]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[char]));
@@ -56,8 +56,23 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const rows = await dbSelect('announcements', 'order=published_at.desc');
-      return res.status(200).json(rows);
+      const announcementId = String(req.query.id || '').trim();
+      const rows = await dbSelect(
+        'announcements',
+        announcementId
+          ? `id=eq.${encodeURIComponent(announcementId)}&limit=1`
+          : 'order=published_at.desc'
+      );
+      // Older rows can contain Telegram media data URLs. They are not used by
+      // the portal, so never send them on an announcement response.
+      const response = rows.map(({ attachments, ...announcement }) => ({
+        ...announcement,
+        attachments: Array.isArray(attachments)
+          ? attachments.filter(attachment => attachment?.type !== 'telegram_media')
+          : attachments
+      }));
+      cachePublic(res, announcementId ? 300 : 600);
+      return res.status(200).json(announcementId ? (response[0] || null) : response);
     }
 
     if (req.method === 'POST') {
@@ -70,12 +85,9 @@ export default async function handler(req, res) {
       for (const f of fields) {
         if (a[f] !== undefined && a[f] !== null) row[f] = a[f];
       }
-      if (a.telegram_media_url) {
-        row.attachments = [
-          ...(Array.isArray(row.attachments) ? row.attachments : []),
-          { type: 'telegram_media', url: a.telegram_media_url, media_type: a.telegram_media_type || 'image' }
-        ];
-      }
+      // Telegram media is sent directly to Telegram below. Keeping the original
+      // base64 video/photo in the announcement row serves no portal feature and
+      // makes every future announcement query unnecessarily large.
       await dbInsert('announcements', row);
       let telegram = { attempted: false, posted: false };
       try {

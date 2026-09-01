@@ -25,6 +25,20 @@ async function apiGet<T>(path: string): Promise<T[]> {
   }
 }
 
+async function apiGetOne<T>(path: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`);
+    if (!res.ok) {
+      console.error(`[API] GET ${path} failed:`, res.status, await res.text());
+      return null;
+    }
+    return await res.json();
+  } catch (err) {
+    console.error(`[API] GET ${path} error:`, err);
+    return null;
+  }
+}
+
 type TelegramPublishStatus = { attempted: boolean; posted: boolean; error?: string; message_id?: number };
 async function apiPost(path: string, body: any): Promise<{ success: boolean; error?: string; telegram?: TelegramPublishStatus }> {
   try {
@@ -81,8 +95,23 @@ export async function fetchMembers(): Promise<Member[]> {
   return apiGet<Member>('/api/members');
 }
 
+/** Public directory projection; excludes member contact and account data. */
+export async function fetchDirectoryMembers(): Promise<Member[]> {
+  return apiGet<Member>('/api/members?view=directory');
+}
+
+/** Fetch one public membership record instead of downloading the whole registry. */
+export async function verifyMembership(reference: string): Promise<Member | null> {
+  return apiGetOne<Member>(`/api/members?view=verify&query=${encodeURIComponent(reference.trim())}`);
+}
+
 export async function fetchApplications(): Promise<Application[]> {
   return apiGet<Application>('/api/applications');
+}
+
+/** Document-bearing application fields are loaded only when the dossier is opened. */
+export async function fetchApplicationDetail(id: string): Promise<Application | null> {
+  return apiGetOne<Application>(`/api/applications?id=${encodeURIComponent(id)}`);
 }
 
 export async function fetchAnnouncements(): Promise<Announcement[]> {
@@ -162,8 +191,8 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
   if ((announcementData as any).file_attachment_url) {
     attachments.push({ type: 'file', url: (announcementData as any).file_attachment_url });
   }
-  // Telegram media is added to the stored attachments by the server. Keeping the
-  // base64 payload out of this array prevents it being sent twice to Vercel.
+  // Telegram media is sent separately in the POST body and deliberately is
+  // not persisted in attachments, so it cannot inflate future list responses.
   if (attachments.length > 0) dbRow.attachments = attachments;
   if (announcementData.target_audience) dbRow.target_audience = announcementData.target_audience;
 

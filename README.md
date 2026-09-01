@@ -19,6 +19,8 @@ Ethiopian Psychologists Association membership portal and verification app.
 
 Before deploying this version, apply [the community-interactions migration](supabase/migrations/20260830_member_community.sql) in the Supabase SQL Editor. It adds the shared comments, member draft votes, messages, and announcement draft flag used by the portal.
 
+Also apply [the media cleanup migration](supabase/migrations/20260901_remove_telegram_media_payloads.sql). It removes only redundant Telegram media copies and duplicate comment avatars, reducing PostgREST egress without removing announcement covers or attached files.
+
 If the editor reports a database deadlock, wait until active API requests finish and run the same migration again. The migration is idempotent, so already-created columns and tables are skipped safely.
 
 ## Telegram Mini App channel posts

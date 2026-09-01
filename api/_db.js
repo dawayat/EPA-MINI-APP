@@ -93,3 +93,20 @@ export function cors(res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
+
+/**
+ * Cache data which is intentionally public at Vercel's edge. This prevents a
+ * cache revalidation from invoking the function and, more importantly, from
+ * issuing another full PostgREST query to Supabase.
+ */
+export function cachePublic(res, seconds, staleSeconds = 86_400) {
+  const value = `public, max-age=60, s-maxage=${seconds}, stale-while-revalidate=${staleSeconds}`;
+  res.setHeader('Cache-Control', value);
+  // Vercel consumes this header at its CDN and does not pass it to browsers.
+  res.setHeader('Vercel-CDN-Cache-Control', value);
+}
+
+/** Keep private/admin responses out of shared CDN and browser caches. */
+export function noStore(res) {
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+}

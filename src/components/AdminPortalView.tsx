@@ -6,6 +6,7 @@ import {
   Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud, Settings, Mail, Phone, ClipboardCheck, ScanLine, RefreshCw
 } from 'lucide-react';
 import { uploadFile } from '../lib/api';
+import { memberPhotoUrl, useFallbackMemberPhoto } from '../lib/media';
 import { Application, Member, University, Announcement, AuditLog, ApplicationStatus, ResearchSubmission } from '../types';
 
 interface AdminPortalViewProps {
@@ -26,6 +27,7 @@ interface AdminPortalViewProps {
   onDeleteAnnouncement?: (annId: string) => void;
   onAddUniversity: (uni: Partial<University>) => void;
   onUpdateResearchSubmission: (id: string, status: ResearchSubmission['status'], reviewNotes?: string) => Promise<void>;
+  onOpenApplication: (applicationId: string) => Promise<Application>;
   onMembersImported: () => Promise<void>;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -48,6 +50,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   onDeleteAnnouncement,
   onAddUniversity,
   onUpdateResearchSubmission,
+  onOpenApplication,
   onMembersImported,
   onToast,
 }) => {
@@ -149,6 +152,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     setReviewingApp(app);
     setAdminNoteInput(app.admin_notes || '');
     setIsRejecting(false);
+    // The list deliberately excludes binary documents. Hydrate just the one
+    // dossier an admin asked to inspect, rather than downloading every file.
+    void onOpenApplication(app.id)
+      .then(fullApplication => {
+        setReviewingApp(fullApplication);
+        setAdminNoteInput(fullApplication.admin_notes || '');
+      })
+      .catch((error: any) => onToast(error.message || 'Could not load this application dossier.', 'error'));
   };
 
   const handleOpenResearch = (submission: ResearchSubmission) => {
@@ -637,8 +648,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <img src={m.photo_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=100'}
-                          alt="" className="w-8 h-8 rounded-xl object-cover border border-gray-200 dark:border-white/10" />
+                        <img src={memberPhotoUrl(m.id)} alt="" loading="lazy" onError={useFallbackMemberPhoto}
+                          className="w-8 h-8 rounded-xl object-cover border border-gray-200 dark:border-white/10" />
                         <div>
                           <div className="font-black text-gray-900 dark:text-white">{m.first_name} {m.father_name}</div>
                           <div className="text-[10px] text-neutral-500 font-mono">{m.email}</div>

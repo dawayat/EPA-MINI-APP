@@ -30,6 +30,7 @@ import {
   postAnnouncementComment,
   sendMemberMessage
 } from '../lib/community';
+import { memberPhotoUrl, useFallbackMemberPhoto } from '../lib/media';
 
 
 interface MemberPortalViewProps {
@@ -62,20 +63,28 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
   const [myVote, setMyVote] = useState<AnnouncementVoteChoice | null>(null);
   const [voteSummary, setVoteSummary] = useState<AnnouncementVoteSummary>({ total: 0, approve: 0, adjust: 0, voters: [] });
   const [isSaving, setIsSaving] = useState(false);
+  const isVoting = Boolean(ann.is_draft) || ['election', 'vote', 'voting', 'draft'].includes(String(ann.category).toLowerCase());
 
   useEffect(() => {
+    // Do not fetch comments and votes for every card in the background. Those
+    // requests used to run once per card every five seconds, even when neither
+    // the comments nor voting UI was visible.
+    if (!showComment && !isVoting) return;
     let active = true;
     const refresh = async () => {
       try {
-        const [nextComments, nextVote, nextVoteSummary] = await Promise.all([
-          fetchAnnouncementComments(ann.id),
-          fetchAnnouncementVote(ann.id, member.id),
-          fetchAnnouncementVoteSummary(ann.id)
-        ]);
+        const nextComments = await fetchAnnouncementComments(ann.id);
         if (active) {
           setComments(nextComments);
-          setMyVote(nextVote);
-          setVoteSummary(nextVoteSummary);
+          if (isVoting) {
+            const [nextVote, nextVoteSummary] = await Promise.all([
+              fetchAnnouncementVote(ann.id, member.id),
+              fetchAnnouncementVoteSummary(ann.id)
+            ]);
+            if (!active) return;
+            setMyVote(nextVote);
+            setVoteSummary(nextVoteSummary);
+          }
         }
       } catch (error) {
         console.error('[community] Unable to refresh announcement interactions:', error);
@@ -83,15 +92,11 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
     };
     refresh();
     const removeListener = onCommunityUpdate(refresh);
-    const interval = window.setInterval(refresh, 5_000);
     return () => {
       active = false;
       removeListener();
-      clearInterval(interval);
     };
-  }, [ann.id, member.id]);
-
-  const isVoting = Boolean(ann.is_draft) || ['election', 'vote', 'voting', 'draft'].includes(String(ann.category).toLowerCase());
+  }, [ann.id, member.id, showComment, isVoting]);
   const coverImg = ann.cover_image_url || ann.cover_photo_url;
 
   const handleVote = async (choice: AnnouncementVoteChoice) => {
@@ -178,8 +183,7 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
           <div className="mt-3.5 rounded-xl bg-black/[0.025] dark:bg-white/[0.035] border border-gray-200/80 dark:border-white/10 px-3 py-2.5 flex flex-wrap items-center gap-3">
             <div className="flex -space-x-2">
               {voteSummary.voters.slice(0, 4).map(voter => (
-                voter.photo_url ? <img key={voter.member_id} src={voter.photo_url} title={voter.name} alt={voter.name} className="w-6 h-6 rounded-full object-cover border-2 border-white dark:border-[#121214]" /> :
-                <span key={voter.member_id} title={voter.name} className="w-6 h-6 rounded-full bg-[#d4ff00]/25 border-2 border-white dark:border-[#121214] flex items-center justify-center text-[8px] font-black text-gray-900 dark:text-[#d4ff00]">{voter.name.charAt(0)}</span>
+                <img key={voter.member_id} src={memberPhotoUrl(voter.member_id)} title={voter.name} alt={voter.name} loading="lazy" onError={useFallbackMemberPhoto} className="w-6 h-6 rounded-full object-cover border-2 border-white dark:border-[#121214]" />
               ))}
               {voteSummary.total > 4 && <span className="w-6 h-6 rounded-full bg-gray-200 dark:bg-white/15 border-2 border-white dark:border-[#121214] flex items-center justify-center text-[8px] font-black text-gray-700 dark:text-white">+{voteSummary.total - 4}</span>}
             </div>
@@ -193,7 +197,7 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
               <div className="space-y-3">
                 {comments.map(comment => (
                   <div key={comment.id} className="flex items-start gap-2.5">
-                    {comment.author_photo_url ? <img src={comment.author_photo_url} alt={comment.author_name} className="w-7 h-7 rounded-full object-cover border border-[#d4ff00]/40 shrink-0" /> : <div className="w-7 h-7 rounded-full bg-[#d4ff00]/20 flex items-center justify-center text-[9px] font-black text-gray-900 dark:text-[#d4ff00] shrink-0">{comment.author_name.charAt(0)}</div>}
+                    <img src={memberPhotoUrl(comment.member_id)} alt={comment.author_name} loading="lazy" onError={useFallbackMemberPhoto} className="w-7 h-7 rounded-full object-cover border border-[#d4ff00]/40 shrink-0" />
                     <div className="flex-1 bg-white dark:bg-white/5 rounded-xl rounded-tl-sm p-2.5 border border-gray-100 dark:border-white/10">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[10px] font-bold text-gray-900 dark:text-white">{comment.author_name}</span>
@@ -235,6 +239,9 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
   const [activeTab, setActiveTab] = useState<'mentors' | 'peers' | 'chat'>('mentors');
 
   useEffect(() => {
+    // Messages are only needed in the chat tab. A visible-tab refresh keeps
+    // conversations reasonably current without the previous 3-second polling.
+    if (activeTab !== 'chat') return;
     let active = true;
     const refresh = async () => {
       try {
@@ -246,13 +253,20 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
     };
     refresh();
     const removeListener = onCommunityUpdate(refresh);
-    const interval = window.setInterval(refresh, 3_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void refresh();
+    }, 30_000);
     return () => {
       active = false;
       removeListener();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       clearInterval(interval);
     };
-  }, [member.id]);
+  }, [member.id, activeTab]);
 
   const mentors = (allMembers || []).filter(m => m.membership_type === 'FULL' && m.id !== member.id).map(m => ({
     id: m.id,
@@ -260,7 +274,7 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
     specialty: m.specialty || 'General Psychology',
     workplace: m.workplace || m.city || 'Private Practice',
     available: m.is_available_for_consultation ?? true,
-    photo: m.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'
+    photo: memberPhotoUrl(m.id)
   }));
 
   const peers = (allMembers || []).filter(m => m.membership_type === 'STUDENT' && m.id !== member.id).map(m => ({
@@ -268,7 +282,7 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
     name: m.first_name + ' ' + m.father_name,
     year: m.student_profile?.academic_year ? `Year ${m.student_profile.academic_year}` : 'Student',
     university: m.student_profile?.university_name || 'Psychology Student',
-    photo: m.photo_url || 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=200'
+    photo: memberPhotoUrl(m.id)
   }));
 
   const openChat = (id: string, name: string, role: string) => {
@@ -323,7 +337,7 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
           {mentors.map((m, i) => (
             <div key={i} className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-4 flex items-center gap-4">
               <div className="relative shrink-0">
-                <img src={m.photo} alt={m.name} className="w-14 h-14 rounded-2xl object-cover border border-gray-200 dark:border-white/10" />
+                <img src={m.photo} alt={m.name} loading="lazy" onError={useFallbackMemberPhoto} className="w-14 h-14 rounded-2xl object-cover border border-gray-200 dark:border-white/10" />
                 <span className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-[#121214] ${m.available ? 'bg-green-400' : 'bg-gray-400'}`} />
               </div>
               <div className="flex-1 min-w-0">
@@ -345,7 +359,7 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
           <p className="text-xs text-neutral-500">{lang === 'EN' ? 'Connect and collaborate with fellow psychology students across Ethiopia.' : 'ከሌሎች ተማሪዎች ጋር ይተባበሩ።'}</p>
           {peers.map((p, i) => (
             <div key={i} className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-4 flex items-center gap-4">
-              <img src={p.photo} alt={p.name} className="w-12 h-12 rounded-2xl object-cover shrink-0" />
+              <img src={p.photo} alt={p.name} loading="lazy" onError={useFallbackMemberPhoto} className="w-12 h-12 rounded-2xl object-cover shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="font-black text-sm text-gray-900 dark:text-white">{p.name}</p>
                 <p className="text-xs text-neutral-500">{p.year} • {p.university}</p>

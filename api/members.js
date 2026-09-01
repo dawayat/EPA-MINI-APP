@@ -1,4 +1,4 @@
-import { dbSelect, dbInsert, dbUpdate, cors } from './_db.js';
+import { cachePublic, dbSelect, dbInsert, dbUpdate, noStore, cors } from './_db.js';
 import { isEmailConfigured, memberInviteEmail, sendEmail } from './_email.js';
 
 const importId = () => `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -11,14 +11,108 @@ const dateValue = (value) => {
 const safeMember = (member) => member ? { ...member, phone_password: undefined } : member;
 const isCurrentlyActive = (member) => member?.status === 'ACTIVE' && (!member.expires_at || new Date(member.expires_at).getTime() >= Date.now());
 
+const directorySelect = [
+  'id', 'membership_number', 'verification_token',
+  'first_name', 'father_name', 'grandfather_name', 'amharic_full_name',
+  'city', 'membership_type', 'status', 'specialty', 'workplace', 'bio', 'cpd_points',
+  'issued_at', 'expires_at', 'is_verified', 'license_number',
+  'student_university:student_profile->>university_name',
+  'student_field:student_profile->>field_of_study',
+  'student_year:student_profile->>academic_year',
+  'corporate_name:corporate_profile->>organization_name',
+  'corporate_type:corporate_profile->>org_type',
+  'corporate_city:corporate_profile->>headquarters_city'
+].join(',');
+
+const publicMemberSelect = [
+  'id', 'membership_number', 'first_name', 'father_name', 'grandfather_name',
+  'amharic_full_name', 'membership_type', 'specialty', 'workplace',
+  'status', 'issued_at', 'expires_at', 'is_verified'
+].join(',');
+
+function directoryMember(row) {
+  const {
+    student_university, student_field, student_year,
+    corporate_name, corporate_type, corporate_city,
+    ...member
+  } = row;
+  if (student_university || student_field || student_year) {
+    member.student_profile = {
+      university_name: student_university || '',
+      field_of_study: student_field || '',
+      academic_year: Number(student_year) || 0
+    };
+  }
+  if (corporate_name || corporate_type || corporate_city) {
+    member.corporate_profile = {
+      organization_name: corporate_name || '',
+      org_type: corporate_type || '',
+      headquarters_city: corporate_city || ''
+    };
+  }
+  return member;
+}
+
+const adminMemberSelect = [
+  'id', 'membership_number', 'verification_token', 'telegram_id',
+  'first_name', 'father_name', 'grandfather_name', 'amharic_full_name',
+  'email', 'city', 'membership_type', 'status', 'specialty', 'workplace',
+  'cpd_points', 'issued_at', 'expires_at', 'is_verified', 'license_number',
+  'email_verified', 'must_change_password', 'onboarding_completed',
+  'renewal_status:renewal_request->>status',
+  'renewal_transaction:renewal_request->payment->>transaction_number'
+].join(',');
+
+function adminMemberSummary(row) {
+  const { renewal_status, renewal_transaction, ...member } = row;
+  if (renewal_status || renewal_transaction) {
+    member.renewal_request = {
+      status: renewal_status || 'PENDING',
+      payment: { transaction_number: renewal_transaction || '' }
+    };
+  }
+  return member;
+}
+
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
     if (req.method === 'GET') {
-      const rows = await dbSelect('members', 'order=created_at.desc');
-      return res.status(200).json(rows.map(safeMember));
+      const view = String(req.query.view || '').trim();
+      if (view === 'directory') {
+        const rows = await dbSelect(
+          'members',
+          `status=eq.ACTIVE&select=${directorySelect}&order=created_at.desc`
+        );
+        // Directory data contains no contact details, credentials, payments, or
+        // documents. Edge caching prevents repeated directory reads for visitors.
+        cachePublic(res, 600);
+        return res.status(200).json(rows.map(directoryMember));
+      }
+
+      if (view === 'verify') {
+        const query = String(req.query.query || '').trim();
+        if (!/^[A-Za-z0-9_-]{2,100}$/.test(query)) {
+          return res.status(400).json({ success: false, error: 'Enter a valid membership reference.' });
+        }
+        const value = encodeURIComponent(query);
+        const rows = await dbSelect(
+          'members',
+          `status=eq.ACTIVE&or=(verification_token.ilike.${value},membership_number.ilike.${value},id.ilike.${value})&select=${publicMemberSelect}&limit=1`
+        );
+        cachePublic(res, 300);
+        return res.status(200).json(rows[0] || null);
+      }
+
+      // The member table can contain base64 profile photos and renewal
+      // receipts. The admin list only needs a compact summary; sensitive
+      // details are fetched by the action that needs them (for example,
+      // approve-renewal fetches its one record above).
+      const rows = await dbSelect('members', `select=${adminMemberSelect}&order=created_at.desc`);
+      noStore(res);
+      return res.status(200).json(rows.map(adminMemberSummary).map(safeMember));
     }
 
     if (req.method === 'POST') {

@@ -13,6 +13,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { Member } from '../types';
+import { memberPhotoUrl, useFallbackMemberPhoto } from '../lib/media';
 
 interface PsychologistDirectoryProps {
   members: Member[];
@@ -132,8 +133,10 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
               <div className="flex items-start gap-4 mb-4">
                 <div className="relative">
                   <img
-                    src={member.photo_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200'}
+                    src={memberPhotoUrl(member.id)}
                     alt=""
+                    loading="lazy"
+                    onError={useFallbackMemberPhoto}
                     className="w-16 h-16 rounded-2xl object-cover border border-gray-200 dark:border-white/15 shadow-md bg-stone-100 dark:bg-stone-900"
                   />
                   <div className="absolute -bottom-1 -right-1 bg-[#d4ff00] text-black p-0.5 rounded-full shadow-xs">
@@ -203,8 +206,9 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
           <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl border border-gray-200 dark:border-white/10">
             <div className="flex items-start gap-4">
               <img
-                src={selectedMemberModal.photo_url}
+                src={memberPhotoUrl(selectedMemberModal.id)}
                 alt=""
+                onError={useFallbackMemberPhoto}
                 className="w-18 h-18 rounded-2xl object-cover border-2 border-[#d4ff00] shadow-md bg-stone-100 dark:bg-stone-900"
               />
               <div className="flex-1">

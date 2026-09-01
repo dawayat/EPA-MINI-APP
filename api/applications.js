@@ -1,4 +1,4 @@
-import { dbSelect, dbInsert, dbUpdate, cors } from './_db.js';
+import { dbSelect, dbInsert, dbUpdate, noStore, cors } from './_db.js';
 import { applicationReceivedEmail, applicationStatusEmail, isEmailConfigured, sendEmail } from './_email.js';
 
 async function deliverEmail(address, message) {
@@ -13,14 +13,46 @@ async function deliverEmail(address, message) {
   }
 }
 
+const applicationListSelect = [
+  'id', 'application_number', 'telegram_id', 'membership_type', 'status',
+  'first_name', 'father_name', 'city', 'email', 'submitted_at', 'updated_at',
+  'admin_notes', 'rejection_reason',
+  'payment_provider:payment->>provider',
+  'payment_amount:payment->>amount',
+  'payment_status:payment->>status'
+].join(',');
+
+function applicationSummary(row) {
+  const { payment_provider, payment_amount, payment_status, ...application } = row;
+  if (payment_provider || payment_amount || payment_status) {
+    application.payment = {
+      provider: payment_provider,
+      amount: Number(payment_amount) || 0,
+      status: payment_status || 'PENDING'
+    };
+  }
+  return application;
+}
+
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
     if (req.method === 'GET') {
-      const rows = await dbSelect('applications', 'order=submitted_at.desc');
-      return res.status(200).json(rows);
+      const applicationId = String(req.query.id || '').trim();
+      if (applicationId) {
+        const rows = await dbSelect('applications', `id=eq.${encodeURIComponent(applicationId)}&limit=1`);
+        noStore(res);
+        return res.status(200).json(rows[0] || null);
+      }
+
+      // Never pull identity documents, certificates, receipts, or profile images
+      // into an application list. Those base64 fields are fetched only when an
+      // administrator explicitly opens one application's dossier.
+      const rows = await dbSelect('applications', `select=${applicationListSelect}&order=submitted_at.desc`);
+      noStore(res);
+      return res.status(200).json(rows.map(applicationSummary));
     }
 
     if (req.method === 'POST') {

@@ -13,17 +13,17 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Member } from '../types';
+import { verifyMembership } from '../lib/api';
+import { memberPhotoUrl, useFallbackMemberPhoto } from '../lib/media';
 
 interface PublicVerifyViewProps {
   lang: 'EN' | 'AM';
-  members: Member[];
   initialToken?: string;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
 export const PublicVerifyView: React.FC<PublicVerifyViewProps> = ({
   lang,
-  members,
   initialToken = '',
   onToast,
 }) => {
@@ -32,35 +32,38 @@ export const PublicVerifyView: React.FC<PublicVerifyViewProps> = ({
   const [hasSearched, setHasSearched] = useState<boolean>(false);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
 
-  const performVerification = (tokenToVerify: string) => {
+  const performVerification = async (tokenToVerify: string) => {
+    const clean = tokenToVerify.trim();
+    if (!clean) {
+      setHasSearched(true);
+      setVerifiedMember(null);
+      onToast(lang === 'EN' ? 'Enter a membership reference to verify.' : 'የአባልነት መለያ ያስገቡ።', 'error');
+      return;
+    }
     setIsVerifying(true);
     setHasSearched(true);
 
-    setTimeout(() => {
-      const clean = tokenToVerify.trim().toLowerCase();
-      const match = members.find(
-        m => m.verification_token.toLowerCase() === clean || 
-             m.membership_number.toLowerCase() === clean ||
-             m.id.toLowerCase() === clean
-      );
+    try {
+      // Query exactly one public record. The previous implementation downloaded
+      // every member (and often every embedded photo) for each verification.
+      const match = await verifyMembership(clean);
 
       setVerifiedMember(match || null);
-      setIsVerifying(false);
 
       if (match) {
         onToast(lang === 'EN' ? 'EPA membership record found.' : 'የEPA አባልነት መረጃ ተገኝቷል!', 'success');
       } else {
         onToast(lang === 'EN' ? 'No active EPA membership record was found for this query.' : 'ምንም መረጃ አልተገኘም::', 'error');
       }
-    }, 600);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   useEffect(() => {
     if (initialToken) {
       setTokenInput(initialToken);
-      performVerification(initialToken);
-    } else {
-      performVerification('epa_tok_9942a17b');
+      void performVerification(initialToken);
     }
   }, [initialToken]);
 
@@ -92,12 +95,12 @@ export const PublicVerifyView: React.FC<PublicVerifyViewProps> = ({
             placeholder={lang === 'EN' ? 'Enter Token or Membership ID (e.g. EPA-2026-8849)...' : 'የማረጋገጫ ኮድ ወይም መለያ ቁጥር ያስገቡ...'}
             value={tokenInput}
             onChange={(e) => setTokenInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && performVerification(tokenInput)}
+            onKeyDown={(e) => e.key === 'Enter' && void performVerification(tokenInput)}
             className="w-full px-3 py-4 text-xs sm:text-sm text-gray-900 dark:text-white focus:outline-none bg-transparent font-mono"
           />
           <button
             id="btn-perform-verify"
-            onClick={() => performVerification(tokenInput)}
+            onClick={() => void performVerification(tokenInput)}
             className="px-6 py-4 bg-[#d4ff00] hover:bg-[#c2eb00] text-black text-xs sm:text-sm font-black uppercase tracking-wider transition-colors shrink-0 cursor-pointer"
           >
             {isVerifying ? (lang === 'EN' ? 'Verifying...' : 'በማረጋገጥ ላይ...') : (lang === 'EN' ? 'Verify' : 'አረጋግጥ')}
@@ -108,19 +111,19 @@ export const PublicVerifyView: React.FC<PublicVerifyViewProps> = ({
         <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-[11px] text-stone-600 dark:text-stone-400">
           <span className="font-mono uppercase">{lang === 'EN' ? 'Try Sample IDs:' : 'ናሙና ይሞክሩ፡'}</span>
           <button
-            onClick={() => { setTokenInput('EPA-2026-8849'); performVerification('EPA-2026-8849'); }}
+            onClick={() => { setTokenInput('EPA-2026-8849'); void performVerification('EPA-2026-8849'); }}
             className="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 text-green-700 dark:text-[#d4ff00] font-mono font-semibold cursor-pointer border border-gray-200 dark:border-white/10"
           >
             EPA-2026-8849
           </button>
           <button
-            onClick={() => { setTokenInput('EPA-2026-4412'); performVerification('EPA-2026-4412'); }}
+            onClick={() => { setTokenInput('EPA-2026-4412'); void performVerification('EPA-2026-4412'); }}
             className="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 text-green-700 dark:text-[#d4ff00] font-mono font-semibold cursor-pointer border border-gray-200 dark:border-white/10"
           >
             EPA-2026-4412
           </button>
           <button
-            onClick={() => { setTokenInput('EPA-2026-7201'); performVerification('EPA-2026-7201'); }}
+            onClick={() => { setTokenInput('EPA-2026-7201'); void performVerification('EPA-2026-7201'); }}
             className="px-2 py-0.5 rounded bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 text-green-700 dark:text-[#d4ff00] font-mono font-semibold cursor-pointer border border-gray-200 dark:border-white/10"
           >
             EPA-2026-7201
@@ -164,8 +167,9 @@ export const PublicVerifyView: React.FC<PublicVerifyViewProps> = ({
           <div className="p-6 space-y-6">
             <div className="flex items-center gap-4 pb-6 border-b border-gray-200 dark:border-white/10">
               <img
-                src={verifiedMember.photo_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200'}
+                src={memberPhotoUrl(verifiedMember.id)}
                 alt=""
+                onError={useFallbackMemberPhoto}
                 className="w-20 h-20 rounded-2xl object-cover border-2 border-[#d4ff00] shadow-md bg-stone-100 dark:bg-stone-900"
               />
               <div>

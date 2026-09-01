@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { isSupabaseConfigured } from './lib/supabase';
 import { 
-  fetchMembers, fetchApplications, fetchAnnouncements, 
-  fetchUniversities, fetchCPDCourses, fetchAuditLogs, fetchElectionCandidates, fetchResearchSubmissions,
+  fetchMembers, fetchDirectoryMembers, fetchApplications, fetchApplicationDetail, fetchAnnouncements,
+  fetchUniversities, fetchAuditLogs, fetchResearchSubmissions,
   submitApplication, updateApplicationStatus, publishAnnouncement, createMember, deleteMember, deleteAnnouncement, submitResearchSubmission, updateResearchSubmission
 } from './lib/api';
 import { 
@@ -82,28 +82,62 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [researchSubmissions, setResearchSubmissions] = useState<ResearchSubmission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
+  const [directoryLoaded, setDirectoryLoaded] = useState(false);
+  const [adminLoaded, setAdminLoaded] = useState(false);
+  const directoryLoadingRef = useRef(false);
+  const adminLoadingRef = useRef(false);
 
-  // Load Data
+  const loadDirectoryMembers = async () => {
+    if (directoryLoaded || directoryLoadingRef.current) return;
+    directoryLoadingRef.current = true;
+    try {
+      const directory = await fetchDirectoryMembers();
+      setMembers(current => {
+        const existing = new Map<string, Member>(current.map((member): [string, Member] => [member.id, member]));
+        return directory.map((member: Member) => {
+          const previous = existing.get(member.id);
+          return previous ? Object.assign({}, member, previous) as Member : member;
+        });
+      });
+      setDirectoryLoaded(true);
+    } finally {
+      directoryLoadingRef.current = false;
+    }
+  };
+
+  const loadAdminData = async () => {
+    if (adminLoaded || adminLoadingRef.current) return;
+    adminLoadingRef.current = true;
+    try {
+      // Admin data can contain private records and document-bearing rows, so it
+      // must never be part of every public app launch.
+      const [fetchedMembers, fetchedApps, fetchedLogs, fetchedResearchSubmissions] = await Promise.all([
+        fetchMembers(), fetchApplications(), fetchAuditLogs(), fetchResearchSubmissions()
+      ]);
+      setMembers(fetchedMembers);
+      setApplications(fetchedApps);
+      setAuditLogs(fetchedLogs);
+      setResearchSubmissions(fetchedResearchSubmissions);
+      setDirectoryLoaded(true);
+      setAdminLoaded(true);
+    } finally {
+      adminLoadingRef.current = false;
+    }
+  };
+
+  // Public startup data only. Private/admin datasets are loaded when their
+  // screen is explicitly opened instead of for every visitor.
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
       try {
         if (isSupabaseConfigured) {
-          const [
-            fetchedMembers, fetchedApps, fetchedAnnouncements, 
-            fetchedUnivs, fetchedCPDs, fetchedLogs, fetchedCandidates, fetchedResearchSubmissions
-          ] = await Promise.all([
-            fetchMembers(), fetchApplications(), fetchAnnouncements(),
-            fetchUniversities(), fetchCPDCourses(), fetchAuditLogs(), fetchElectionCandidates(), fetchResearchSubmissions()
+          const [fetchedAnnouncements, fetchedUnivs] = await Promise.all([
+            fetchAnnouncements(), fetchUniversities()
           ]);
-          let resolvedMembers = fetchedMembers;
-          setApplications(fetchedApps);
           setAnnouncements(fetchedAnnouncements);
           setUniversities(fetchedUnivs);
-          setCpdCourses(fetchedCPDs);
-          setAuditLogs(fetchedLogs);
-          setCandidates(fetchedCandidates);
-          setResearchSubmissions(fetchedResearchSubmissions);
 
           // Telegram Auto-Login: resolve the active account from the server so
           // approval and login use the same persisted member record.
@@ -118,9 +152,7 @@ export default function App() {
               const data = await response.json();
               if (data.success && data.member) {
                 const telegramMember = data.member as Member;
-                resolvedMembers = fetchedMembers.some(member => member.id === telegramMember.id)
-                  ? fetchedMembers.map(member => member.id === telegramMember.id ? { ...member, ...telegramMember } : member)
-                  : [telegramMember, ...fetchedMembers];
+                setMembers([telegramMember]);
                 setActiveMemberId(telegramMember.id);
                 setCurrentTab('portal');
               } else {
@@ -133,7 +165,6 @@ export default function App() {
           } else {
             setActiveMemberId(null);
           }
-          setMembers(resolvedMembers);
         } else {
           // If Supabase isn't configured, we leave the app empty!
           // No more mock data demo mode.
@@ -148,8 +179,13 @@ export default function App() {
     loadData();
   }, []);
 
-  // Active Logged-in Member
-  const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
+  // Load heavier datasets only after a user actually enters the relevant area.
+  useEffect(() => {
+    if (currentTab === 'directory' || (currentTab === 'portal' && activeMemberId)) {
+      void loadDirectoryMembers();
+    }
+    if (currentTab === 'admin') void loadAdminData();
+  }, [currentTab, activeMemberId]);
 
   // Modals and Drawers
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
@@ -224,10 +260,25 @@ export default function App() {
   };
 
 
+  const loadApplicationDossier = async (applicationId: string): Promise<Application> => {
+    const application = await fetchApplicationDetail(applicationId);
+    if (!application) throw new Error('The application dossier could not be found.');
+    setApplications(current => current.map(item => item.id === application.id ? { ...item, ...application } : item));
+    return application;
+  };
+
   // Handler: Admin approves application -> generates Member Record & Digital ID
   const handleApproveApplication = async (appId: string) => {
-    const app = applications.find(a => a.id === appId);
-    if (!app) return false;
+    if (!applications.some(application => application.id === appId)) return false;
+    let app: Application;
+    try {
+      // The table deliberately omits large, embedded documents. Fetch the
+      // complete record only for this explicit approval action.
+      app = await loadApplicationDossier(appId);
+    } catch (error: any) {
+      showToast(error.message || 'The application dossier could not be loaded.', 'error');
+      return false;
+    }
 
     const newMembershipNum = `EPA-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const newVerificationToken = `epa_tok_${Math.random().toString(36).substring(2, 10)}`;
@@ -375,8 +426,6 @@ export default function App() {
   const handleResearchSubmission = async (submission: Partial<ResearchSubmission>) => {
     const result = await submitResearchSubmission(submission);
     if (!result.success) throw new Error(result.error || 'Research submission failed.');
-    const updated = await fetchResearchSubmissions();
-    setResearchSubmissions(updated);
     setAuditLogs(prev => [{
       id: `log-${Date.now()}`,
       action: `Research submitted: ${submission.title || 'Untitled research'}`,
@@ -607,7 +656,6 @@ export default function App() {
         {currentTab === 'verify' && (
           <PublicVerifyView
             lang={lang}
-            members={members}
             initialToken={activeVerifyToken}
             onToast={showToast}
           />
@@ -632,6 +680,7 @@ export default function App() {
             onDeleteAnnouncement={handleDeleteAnnouncement}
             onAddUniversity={handleAddUniversity}
             onUpdateResearchSubmission={handleResearchStatusChange}
+            onOpenApplication={loadApplicationDossier}
             onMembersImported={async () => setMembers(await fetchMembers())}
             onToast={showToast}
           />

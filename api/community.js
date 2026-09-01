@@ -39,7 +39,10 @@ export default async function handler(req, res) {
         const announcementId = requireId(req.query.announcementId, 'Announcement id');
         const comments = await dbSelect(
           'announcement_comments',
-          `announcement_id=eq.${announcementId}&order=created_at.asc`
+          // Old comments may contain an embedded author photo. The client can
+          // load the public profile image separately, so never return that
+          // binary copy with every comment thread.
+          `announcement_id=eq.${announcementId}&select=id,announcement_id,member_id,author_name,content,created_at&order=created_at.asc`
         );
         return res.status(200).json(comments);
       }
@@ -62,7 +65,7 @@ export default async function handler(req, res) {
         );
         const voterIds = [...new Set(votes.map(vote => vote.member_id))];
         const members = voterIds.length
-          ? await dbSelect('members', `id=in.(${voterIds.join(',')})&select=id,first_name,father_name,photo_url`)
+          ? await dbSelect('members', `id=in.(${voterIds.join(',')})&select=id,first_name,father_name`)
           : [];
         const memberById = new Map(members.map(member => [member.id, member]));
         const voters = votes.map(vote => {
@@ -70,8 +73,7 @@ export default async function handler(req, res) {
           return {
             member_id: vote.member_id,
             choice: vote.choice,
-            name: member ? `${member.first_name} ${member.father_name}`.trim() : 'EPA Member',
-            photo_url: member?.photo_url || null
+            name: member ? `${member.first_name} ${member.father_name}`.trim() : 'EPA Member'
           };
         });
         return res.status(200).json({
@@ -101,7 +103,7 @@ export default async function handler(req, res) {
         const announcementId = requireId(req.body.announcementId, 'Announcement id');
         const memberId = requireId(req.body.memberId, 'Member id');
         const content = requireContent(req.body.content);
-        const members = await dbSelect('members', `id=eq.${memberId}&select=first_name,father_name,photo_url&limit=1`);
+        const members = await dbSelect('members', `id=eq.${memberId}&select=first_name,father_name&limit=1`);
         if (!members[0]) return res.status(404).json({ error: 'Member not found' });
 
         const comment = {
@@ -109,7 +111,6 @@ export default async function handler(req, res) {
           announcement_id: announcementId,
           member_id: memberId,
           author_name: `${members[0].first_name} ${members[0].father_name}`.trim(),
-          author_photo_url: members[0].photo_url || null,
           content,
           created_at: new Date().toISOString()
         };
