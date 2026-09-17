@@ -436,6 +436,16 @@ export default function RegistrationModal({
           <div><span className="font-bold text-gray-900 dark:text-white block">Commercial Bank of Ethiopia (CBE)</span><span className="text-xs text-neutral-500">CBE is the only accepted registration payment method.</span></div>
         </div>
 
+        <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 dark:border-purple-400/30 dark:bg-purple-500/10">
+          <p className="text-[10px] font-black uppercase tracking-wider text-purple-800 dark:text-purple-200">Pay to</p>
+          <p className="mt-1 text-sm font-black text-gray-900 dark:text-white">Ethiopian Psychologists Association</p>
+          <div className="mt-3 rounded-lg border border-purple-200 bg-white px-3 py-2.5 dark:border-purple-400/20 dark:bg-black/30">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500">CBE Account Number</span>
+            <span className="mt-0.5 block font-mono text-xl font-black tracking-wide text-purple-800 dark:text-[#d4ff00]">1000033376964</span>
+          </div>
+          <p className="mt-2 text-[11px] text-purple-800/80 dark:text-purple-200/75">Confirm the account holder and account number before making your transfer, then upload the receipt below.</p>
+        </div>
+
         <FileUpload label="Upload Payment Receipt *" hint="Screenshot of successful transfer" onChange={(url: string) => updateNested('payment', 'receipt_url', url)} />
         {formData.payment?.receipt_url && <div className="text-sm text-green-600 dark:text-[#d4ff00]">✓ Receipt uploaded</div>}
       </div>
