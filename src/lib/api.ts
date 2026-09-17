@@ -54,10 +54,19 @@ async function apiPost(path: string, body: any, authenticated = false): Promise<
       headers: { 'Content-Type': 'application/json', ...(authenticated ? adminHeaders() : {}) },
       body: JSON.stringify(body)
     });
-    const data = await res.json();
+    const responseText = await res.text();
+    let data: any = {};
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      data = {};
+    }
     if (!res.ok) {
       console.error(`[API] POST ${path} failed:`, res.status, data);
-      return { success: false, error: data.error || `HTTP ${res.status}` };
+      const payloadHint = res.status === 413
+        ? 'The application request was too large. Please try submitting again; documents are now uploaded securely before submission.'
+        : undefined;
+      return { success: false, error: data.error || payloadHint || `HTTP ${res.status}` };
     }
     return {
       success: true,
@@ -305,4 +314,57 @@ export async function uploadFile(file: File): Promise<string> {
     reader.onerror = () => reject(new Error('File read failed'));
     reader.readAsDataURL(file);
   });
+}
+
+const isDataUrl = (value: unknown): value is string => typeof value === 'string' && /^data:/i.test(value);
+
+function documentFileName(label: string, contentType: string) {
+  const extension = contentType === 'application/pdf' ? 'pdf'
+    : contentType === 'image/png' ? 'png'
+    : contentType === 'image/webp' ? 'webp' : 'jpg';
+  return `${label.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'document'}.${extension}`;
+}
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+  try { return text ? JSON.parse(text) : {}; } catch { return {}; }
+}
+
+/**
+ * Moves a data-URL attachment straight from the browser to private Supabase
+ * Storage. Only the small storage reference is then included in /api/applications.
+ */
+export async function uploadVerifiedApplicationAttachment(dataUrl: string, email: string, verificationCode: string, label: string): Promise<string> {
+  if (!isDataUrl(dataUrl)) return dataUrl;
+  const blob = await (await fetch(dataUrl)).blob();
+  const contentType = blob.type || (/^data:([^;,]+)/i.exec(dataUrl)?.[1] || '');
+  const authorization = await fetch(`${API_BASE}/api/application-upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email,
+      verificationCode,
+      contentType,
+      size: blob.size,
+      fileName: documentFileName(label, contentType),
+    }),
+  });
+  const prepared = await readJsonResponse(authorization);
+  if (!authorization.ok || !prepared.success || !prepared.signedUrl || !prepared.storageRef) {
+    throw new Error(prepared.error || 'Could not prepare the secure document upload.');
+  }
+
+  const body = new FormData();
+  body.append('cacheControl', '3600');
+  body.append('', blob, documentFileName(label, contentType));
+  const uploaded = await fetch(prepared.signedUrl, {
+    method: 'PUT',
+    headers: { 'x-upsert': 'false' },
+    body,
+  });
+  if (!uploaded.ok) {
+    const detail = await uploaded.text();
+    throw new Error(`Secure document upload failed${detail ? `: ${detail}` : '.'}`);
+  }
+  return prepared.storageRef;
 }

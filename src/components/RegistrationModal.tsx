@@ -4,7 +4,7 @@ import {
   User, GraduationCap, Building2, UploadCloud, FileText, Check
 } from 'lucide-react';
 import { Application, MembershipTypeCode, University } from '../types';
-import { uploadFile } from '../lib/api';
+import { uploadFile, uploadVerifiedApplicationAttachment } from '../lib/api';
 
 interface RegistrationModalProps {
   isOpen: boolean;
@@ -95,6 +95,7 @@ const FileUpload = ({ label, hint, onChange }: any) => {
           type="file" 
           ref={fileInputRef}
           className="hidden" 
+          accept="image/jpeg,image/png,image/webp,application/pdf"
           onChange={async (e) => {
             const file = e.target.files?.[0];
             if (file) {
@@ -265,8 +266,30 @@ export default function RegistrationModal({
       city: formData.corporate_profile?.headquarters_city || ''
     } : {};
     try {
+      // Vercel rejects request bodies over 4.5 MB. Move documents to private
+      // storage after the email has been verified, then save only references.
+      // The profile photo stays local and compressed because it becomes the
+      // member's directory image after approval.
+      const applicationData = JSON.parse(JSON.stringify(formData));
+      const secure = async (parent: any, field: string, label: string) => {
+        if (parent?.[field]) {
+          parent[field] = await uploadVerifiedApplicationAttachment(
+            parent[field], applicantEmail, emailVerificationCode.trim(), label
+          );
+        }
+      };
+      await secure(applicationData, 'degree_certificate_url', 'degree-certificate');
+      await secure(applicationData, 'id_document_url', 'identity-document');
+      await secure(applicationData.payment, 'receipt_url', 'payment-receipt');
+      await secure(applicationData.student_profile, 'student_id_url', 'student-id');
+      await secure(applicationData.corporate_profile, 'registration_cert_url', 'registration-certificate');
+      await secure(applicationData, 'tin_cert_url', 'tin-certificate');
+      // Keep the transformed values so a network retry does not upload the
+      // same documents again.
+      setFormData(applicationData);
+
       await onSubmitApplication({
-        ...formData, ...corporateIdentity,
+        ...applicationData, ...corporateIdentity,
         membership_type: tier,
         application_number: generatedAppNum,
         status: 'SUBMITTED',

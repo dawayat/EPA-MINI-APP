@@ -2,6 +2,7 @@ import { dbSelect, dbInsert, dbUpdate, noStore, cors } from './_db.js';
 import { applicationReceivedEmail, applicationStatusEmail, isEmailConfigured, sendEmail } from './_email.js';
 import { requireAdmin } from './_admin.js';
 import { randomUUID } from 'node:crypto';
+import { hydrateApplicationMedia } from './_application_media.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -49,7 +50,7 @@ export default async function handler(req, res) {
       if (applicationId) {
         const rows = await dbSelect('applications', `id=eq.${encodeURIComponent(applicationId)}&limit=1`);
         noStore(res);
-        return res.status(200).json(rows[0] || null);
+        return res.status(200).json(await hydrateApplicationMedia(rows[0] || null));
       }
 
       // Never pull identity documents, certificates, receipts, or profile images
@@ -70,7 +71,7 @@ export default async function handler(req, res) {
         'first_name','father_name','grandfather_name','amharic_full_name',
         'gender','date_of_birth','phone','email','city','national_id_number',
         'photo_url','current_workplace','current_specialty','years_of_experience',
-        'license_number','degree_certificate_url','id_document_url',
+        'license_number','degree_certificate_url','id_document_url','tin_cert_url',
         'agreed_to_ethics','student_profile','corporate_profile','qualifications','payment',
         'phone_password','email_verified',
         'submitted_at','updated_at'

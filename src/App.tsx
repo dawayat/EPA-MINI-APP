@@ -321,6 +321,20 @@ export default function App() {
 
     const newMembershipNum = `EPA-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const newVerificationToken = `epa_tok_${Math.random().toString(36).substring(2, 10)}`;
+    // Application documents are private review evidence, not member profile
+    // data. Avoid copying their short-lived admin viewing URLs into a member.
+    const memberStudentProfile: Member['student_profile'] = app.student_profile
+      ? (() => {
+        const { student_id_url: _studentIdDocument, ...profile } = app.student_profile!;
+        return profile;
+      })()
+      : undefined;
+    const memberCorporateProfile: Member['corporate_profile'] = app.corporate_profile
+      ? (() => {
+        const { registration_cert_url: _registrationDocument, ...profile } = app.corporate_profile!;
+        return profile;
+      })()
+      : undefined;
 
     const newMember: Member = {
       id: 'mem-' + Date.now(),
@@ -347,8 +361,8 @@ export default function App() {
       expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       is_verified: true,
       license_number: app.license_number || undefined,
-      corporate_profile: app.corporate_profile,
-      student_profile: app.student_profile,
+      corporate_profile: memberCorporateProfile,
+      student_profile: memberStudentProfile,
       phone_password: (app as any).phone_password,
       email_verified: Boolean(app.email_verified)
     };

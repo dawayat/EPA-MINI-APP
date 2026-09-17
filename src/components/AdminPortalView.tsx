@@ -1106,7 +1106,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     {reviewingApp.degree_certificate_url && (
                       <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
                         <div className="font-bold text-gray-900 dark:text-white mb-2">Degree Certificate</div>
-                        {reviewingApp.degree_certificate_url.startsWith('data:image') || reviewingApp.degree_certificate_url.match(/\.(jpeg|jpg|gif|png)$/) != null ? (
+                        {isImageAsset(reviewingApp.degree_certificate_url) ? (
                           <img src={reviewingApp.degree_certificate_url} alt="Degree" className="w-full max-h-40 object-contain rounded bg-black/5" />
                         ) : (
                           <a href={reviewingApp.degree_certificate_url} target="_blank" rel="noreferrer" className="text-blue-500 underline break-all">View Document</a>
@@ -1116,7 +1116,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     {reviewingApp.id_document_url && (
                       <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
                         <div className="font-bold text-gray-900 dark:text-white mb-2">ID Document</div>
-                        {reviewingApp.id_document_url.startsWith('data:image') || reviewingApp.id_document_url.match(/\.(jpeg|jpg|gif|png)$/) != null ? (
+                        {isImageAsset(reviewingApp.id_document_url) ? (
                           <img src={reviewingApp.id_document_url} alt="ID" className="w-full max-h-40 object-contain rounded bg-black/5" />
                         ) : (
                           <a href={reviewingApp.id_document_url} target="_blank" rel="noreferrer" className="text-blue-500 underline break-all">View Document</a>
