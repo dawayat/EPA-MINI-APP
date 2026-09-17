@@ -254,6 +254,26 @@ export async function createMember(memberData: Partial<Member>) {
   return apiPost('/api/members', memberData, true);
 }
 
+export type MemberSession = { token: string; expiresAt: number };
+
+/** Update only the signed-in member's compressed profile photo. */
+export async function updateOwnProfilePhoto(memberId: string, file: File, session: MemberSession): Promise<Member> {
+  const photo_url = await uploadFile(file);
+  const response = await fetch(`${API_BASE}/api/members`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.token}`,
+    },
+    body: JSON.stringify({ action: 'update-profile-photo', id: memberId, photo_url }),
+  });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.success || !result.member) {
+    throw new Error(result.error || 'Could not update your profile photo.');
+  }
+  return result.member as Member;
+}
+
 export async function deleteMember(id: string) {
   return apiDelete('/api/members', { id }, true);
 }

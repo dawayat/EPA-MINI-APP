@@ -35,6 +35,48 @@ interface AdminPortalViewProps {
 }
 
 const isImageAsset = (value?: string) => Boolean(value && (/^data:image\//i.test(value) || /\.(?:avif|gif|jpe?g|png|webp)(?:[?#].*)?$/i.test(value)));
+const isPdfAsset = (value?: string) => Boolean(value && (/^data:application\/pdf(?:;|,)/i.test(value) || /\.pdf(?:[?#].*)?$/i.test(value)));
+
+/**
+ * A PDF saved as a data URL is unreliable as a plain browser link on some
+ * desktop browsers. Convert it to an object URL for an in-page preview while
+ * leaving signed Storage URLs untouched.
+ */
+const ApplicationDocumentPreview: React.FC<{ value: string; label: string; imageClassName?: string }> = ({ value, label, imageClassName }) => {
+  const [previewUrl, setPreviewUrl] = React.useState(() => /^data:application\/pdf/i.test(value) ? '' : value);
+
+  React.useEffect(() => {
+    if (!/^data:application\/pdf/i.test(value)) {
+      setPreviewUrl(value);
+      return;
+    }
+    let active = true;
+    let objectUrl = '';
+    setPreviewUrl('');
+    void fetch(value)
+      .then(response => response.blob())
+      .then(blob => {
+        objectUrl = URL.createObjectURL(blob);
+        if (active) setPreviewUrl(objectUrl);
+      })
+      .catch(() => {
+        if (active) setPreviewUrl(value);
+      });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [value]);
+
+  if (isImageAsset(value)) {
+    return <img src={value} alt={label} className={imageClassName || 'w-full max-h-40 object-contain rounded bg-black/5'} />;
+  }
+  if (isPdfAsset(value)) {
+    const documentUrl = previewUrl || value;
+    return <div className="space-y-2"><iframe src={documentUrl} title={`${label} preview`} className="w-full h-64 rounded-lg border border-gray-200 dark:border-white/10 bg-white" /><a href={documentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-blue-500 underline text-xs font-bold"><ExternalLink className="w-3.5 h-3.5" /> Open {label} in a new tab</a></div>;
+  }
+  return <a href={value} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-blue-500 underline break-all text-xs font-bold"><ExternalLink className="w-3.5 h-3.5" /> Open {label}</a>;
+};
 
 export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   lang,
@@ -1072,10 +1114,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       </div>
                       <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px]">Student ID: {reviewingApp.student_profile.student_id_number || 'N/A'}</div>
                       {reviewingApp.student_profile.student_id_url && (
-                        <a href={reviewingApp.student_profile.student_id_url} target="_blank" rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-blue-500 underline text-xs font-bold pt-1">
-                          📎 View Student ID Card
-                        </a>
+                        <div className="pt-2"><ApplicationDocumentPreview value={reviewingApp.student_profile.student_id_url} label="Student ID card" /></div>
                       )}
                     </div>
                   ) : reviewingApp.membership_type === 'FULL' && reviewingApp.qualifications && reviewingApp.qualifications.length > 0 ? (
@@ -1097,7 +1136,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               )}
 
               {/* Uploaded Documents */}
-              {(reviewingApp.degree_certificate_url || reviewingApp.id_document_url) && (
+              {(reviewingApp.degree_certificate_url || reviewingApp.id_document_url || reviewingApp.corporate_profile?.registration_cert_url || (reviewingApp as any).tin_cert_url) && (
                 <div>
                   <h4 className="font-mono font-bold text-xs text-green-700 dark:text-[#d4ff00] uppercase tracking-wider mb-2">
                     Attached Documents
@@ -1106,21 +1145,25 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     {reviewingApp.degree_certificate_url && (
                       <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
                         <div className="font-bold text-gray-900 dark:text-white mb-2">Degree Certificate</div>
-                        {isImageAsset(reviewingApp.degree_certificate_url) ? (
-                          <img src={reviewingApp.degree_certificate_url} alt="Degree" className="w-full max-h-40 object-contain rounded bg-black/5" />
-                        ) : (
-                          <a href={reviewingApp.degree_certificate_url} target="_blank" rel="noreferrer" className="text-blue-500 underline break-all">View Document</a>
-                        )}
+                        <ApplicationDocumentPreview value={reviewingApp.degree_certificate_url} label="degree certificate" />
                       </div>
                     )}
                     {reviewingApp.id_document_url && (
                       <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
                         <div className="font-bold text-gray-900 dark:text-white mb-2">ID Document</div>
-                        {isImageAsset(reviewingApp.id_document_url) ? (
-                          <img src={reviewingApp.id_document_url} alt="ID" className="w-full max-h-40 object-contain rounded bg-black/5" />
-                        ) : (
-                          <a href={reviewingApp.id_document_url} target="_blank" rel="noreferrer" className="text-blue-500 underline break-all">View Document</a>
-                        )}
+                        <ApplicationDocumentPreview value={reviewingApp.id_document_url} label="ID document" />
+                      </div>
+                    )}
+                    {reviewingApp.corporate_profile?.registration_cert_url && (
+                      <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                        <div className="font-bold text-gray-900 dark:text-white mb-2">Commercial Registration Certificate</div>
+                        <ApplicationDocumentPreview value={reviewingApp.corporate_profile.registration_cert_url} label="registration certificate" />
+                      </div>
+                    )}
+                    {(reviewingApp as any).tin_cert_url && (
+                      <div className="p-3 bg-gray-50 dark:bg-black/60 rounded-xl border border-gray-200 dark:border-white/10">
+                        <div className="font-bold text-gray-900 dark:text-white mb-2">TIN Certificate</div>
+                        <ApplicationDocumentPreview value={(reviewingApp as any).tin_cert_url} label="TIN certificate" />
                       </div>
                     )}
                   </div>
@@ -1146,13 +1189,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       {reviewingApp.payment.receipt_url && (
                         <div className="mt-3 rounded-xl overflow-hidden border border-[#d4ff00]/25 bg-white/60 dark:bg-black/30">
                           <div className="px-3 py-2 text-[10px] font-mono font-black uppercase tracking-wider text-neutral-600 dark:text-neutral-300 border-b border-[#d4ff00]/20">Receipt attachment</div>
-                          {isImageAsset(reviewingApp.payment.receipt_url) ? (
-                            <img src={reviewingApp.payment.receipt_url} alt="Payment receipt" className="w-full max-h-80 object-contain bg-black/5" />
-                          ) : (
-                            <a href={reviewingApp.payment.receipt_url} target="_blank" rel="noreferrer" className="m-3 inline-flex items-center gap-1.5 text-blue-500 underline text-xs font-bold">
-                              <ExternalLink className="w-3.5 h-3.5" /> Open receipt file
-                            </a>
-                          )}
+                          <div className="p-3"><ApplicationDocumentPreview value={reviewingApp.payment.receipt_url} label="payment receipt" imageClassName="w-full max-h-80 object-contain bg-black/5" /></div>
                         </div>
                       )}
                     </div>

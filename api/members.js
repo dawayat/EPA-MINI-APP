@@ -1,6 +1,7 @@
 import { cachePublic, dbSelect, dbInsert, dbUpdate, noStore, cors } from './_db.js';
 import { isEmailConfigured, memberInviteEmail, sendEmail } from './_email.js';
 import { requireAdmin } from './_admin.js';
+import { requireMemberSession } from './_member_session.js';
 
 const importId = () => `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const token = () => `epa_tok_${Math.random().toString(36).slice(2, 10)}`;
@@ -11,6 +12,8 @@ const dateValue = (value) => {
 
 const safeMember = (member) => member ? { ...member, phone_password: undefined } : member;
 const isCurrentlyActive = (member) => member?.status === 'ACTIVE' && (!member.expires_at || new Date(member.expires_at).getTime() >= Date.now());
+const PROFILE_PHOTO_DATA_URL = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=\s]+$/i;
+const MAX_PROFILE_PHOTO_LENGTH = 2 * 1024 * 1024;
 
 const directorySelect = [
   'id', 'membership_number', 'verification_token',
@@ -295,9 +298,18 @@ export default async function handler(req, res) {
 
     if (req.method === 'PATCH') {
       const { id, action, photo_url, phone, city, workplace, specialty, gender, date_of_birth, bio, student_profile, corporate_profile } = req.body || {};
-      if (action !== 'complete-onboarding' || !id) return res.status(400).json({ error: 'A valid member profile is required.' });
+      if (!id || !['complete-onboarding', 'update-profile-photo'].includes(action)) return res.status(400).json({ error: 'A valid member profile update is required.' });
+      requireMemberSession(req, id);
       const existing = (await dbSelect('members', `id=eq.${encodeURIComponent(id)}&limit=1`))[0];
       if (!existing) return res.status(404).json({ success: false, error: 'Member account was not found.' });
+
+      if (action === 'update-profile-photo') {
+        if (typeof photo_url !== 'string' || !PROFILE_PHOTO_DATA_URL.test(photo_url) || photo_url.length > MAX_PROFILE_PHOTO_LENGTH) {
+          return res.status(400).json({ success: false, error: 'Upload a JPEG, PNG, or WebP profile photo under 2 MB.' });
+        }
+        await dbUpdate('members', { photo_url }, 'id', id);
+        return res.status(200).json({ success: true, member: safeMember({ ...existing, photo_url }) });
+      }
 
       const memberType = existing.membership_type;
       const value = (incoming, saved) => String(incoming ?? saved ?? '').trim();

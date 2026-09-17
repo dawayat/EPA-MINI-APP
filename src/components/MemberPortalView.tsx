@@ -4,7 +4,7 @@ import {
   BookOpen, Clock, ExternalLink, Sparkles, ShieldCheck, Check, Download,
   Search, Heart, Bookmark, GraduationCap, Building2, Briefcase,
   Star, Bell, TrendingUp, AlertCircle, Plus, Shield, Edit3, ChevronRight,
-  MessageSquare
+  MessageSquare, Camera
 } from 'lucide-react';
 import {
   Announcement,
@@ -45,8 +45,51 @@ interface MemberPortalViewProps {
   onOpenDirectory: () => void;
   onRegisterCPD: (courseId: string) => void;
   onSubmitResearch: (submission: Partial<ResearchSubmission>) => Promise<void>;
+  onUpdateProfilePhoto: (file: File) => Promise<void>;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
+
+/** Small, reusable file control used by every member portal header. */
+const ProfilePhotoEditor: React.FC<{
+  lang: 'EN' | 'AM';
+  onUpdate: (file: File) => Promise<void>;
+  onToast: MemberPortalViewProps['onToast'];
+}> = ({ lang, onUpdate, onToast }) => {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const choosePhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      onToast('Choose a JPEG, PNG, or WebP profile photo.', 'error');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      onToast('Choose an image smaller than 10 MB. It will be compressed before saving.', 'error');
+      event.target.value = '';
+      return;
+    }
+    setIsUpdating(true);
+    try {
+      await onUpdate(file);
+      onToast(lang === 'EN' ? 'Profile photo updated.' : 'የመገለጫ ፎቶ ተሻሽሏል።', 'success');
+    } catch (error: any) {
+      onToast(error.message || 'Could not update your profile photo.', 'error');
+    } finally {
+      setIsUpdating(false);
+      event.target.value = '';
+    }
+  };
+
+  return (
+    <label title={lang === 'EN' ? 'Update profile photo' : 'የመገለጫ ፎቶ ቀይር'} className="absolute -bottom-1 -left-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-white dark:border-[#121214] bg-black text-white shadow-lg hover:bg-[#d4ff00] hover:text-black disabled:opacity-60">
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={isUpdating} onChange={choosePhoto} />
+      {isUpdating ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Camera className="h-3.5 w-3.5" />}
+    </label>
+  );
+};
 
 // ── ANNOUNCEMENT CARD (shared across all portals) ───────────────────────────
 interface AnnCardProps {
@@ -445,7 +488,7 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
 // ── STUDENT PORTAL ─────────────────────────────────────────────────────────────
 
 const StudentPortal: React.FC<MemberPortalViewProps> = ({
-  member, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenDirectory, onRegisterCPD, onToast
+  member, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenDirectory, onRegisterCPD, onUpdateProfilePhoto, onToast
 }) => {
   const [section, setSection] = useState<'overview' | 'cpd' | 'mentor' | 'jobs' | 'news'>('overview');
   const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
@@ -470,7 +513,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 82% 12%, #d4ff00 0%, transparent 30%), radial-gradient(circle at 5% 105%, #49a85a 0%, transparent 35%)' }} />
         <div className="absolute right-[-32px] top-[-32px] w-40 h-40 rounded-full border-[18px] border-[#d4ff00]/[0.07]" />
         <div className="relative z-10 flex items-start gap-4">
-          <div className="relative shrink-0"><img src={member.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'} alt={member.first_name} className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl object-cover border-2 border-[#d4ff00]/70 shadow-lg" /><span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#d4ff00] border-2 border-[#0b1c0e] flex items-center justify-center"><Check className="w-3 h-3 text-black" /></span></div>
+          <div className="relative shrink-0"><img src={member.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'} alt={member.first_name} className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl object-cover border-2 border-[#d4ff00]/70 shadow-lg" /><span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#d4ff00] border-2 border-[#0b1c0e] flex items-center justify-center"><Check className="w-3 h-3 text-black" /></span><ProfilePhotoEditor lang={lang} onUpdate={onUpdateProfilePhoto} onToast={onToast} /></div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#d4ff00] bg-[#d4ff00]/10 px-2 py-0.5 rounded-full border border-[#d4ff00]/20">
@@ -684,7 +727,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
 
 // ── FULL MEMBER PORTAL ─────────────────────────────────────────────────────────
 const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
-  member, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenVoting, onOpenDirectory, onRegisterCPD, onSubmitResearch, onToast
+  member, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenVoting, onOpenDirectory, onRegisterCPD, onSubmitResearch, onUpdateProfilePhoto, onToast
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'cpd' | 'announcements' | 'license' | 'research' | 'connect'>('overview');
   const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
@@ -712,6 +755,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
               <div className="absolute -bottom-1 -right-1 bg-[#d4ff00] text-black p-1 rounded-full border-2 border-black">
                 <CheckCircle2 className="w-3.5 h-3.5" />
               </div>
+              <ProfilePhotoEditor lang={lang} onUpdate={onUpdateProfilePhoto} onToast={onToast} />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -975,7 +1019,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
 
 // ── CORPORATE PORTAL ───────────────────────────────────────────────────────────
 const CorporatePortal: React.FC<MemberPortalViewProps> = ({
-  member, lang, cpdCourses, announcements, onOpenDirectory, onRegisterCPD, onToast
+  member, lang, cpdCourses, announcements, onOpenDirectory, onRegisterCPD, onUpdateProfilePhoto, onToast
 }) => {
   const [section, setSection] = useState<'overview' | 'staff' | 'workshops' | 'jobs' | 'news'>('overview');
   const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
@@ -1000,8 +1044,9 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
         style={{ background: 'linear-gradient(135deg, #1a1200 0%, #120d00 50%, #0a0900 100%)', border: '1px solid rgba(245,158,11,0.3)' }}>
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 70% 20%, #f59e0b 0%, transparent 50%)' }} />
         <div className="relative z-10 flex items-start gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
-            <Building2 className="w-8 h-8 text-amber-400" />
+          <div className="relative w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0 overflow-visible">
+            {member.photo_url ? <img src={member.photo_url} alt="Organisation profile" className="w-full h-full rounded-2xl object-cover" /> : <Building2 className="w-8 h-8 text-amber-400" />}
+            <ProfilePhotoEditor lang={lang} onUpdate={onUpdateProfilePhoto} onToast={onToast} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">

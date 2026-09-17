@@ -1,5 +1,6 @@
 import { dbSelect, dbUpdate, cors } from './_db.js';
 import { authenticateAdmin, createAdminSession } from './_admin.js';
+import { createMemberSession } from './_member_session.js';
 
 /**
  * POST /api/auth
@@ -46,7 +47,7 @@ export default async function handler(req, res) {
       if (!member) {
         return res.status(401).json({ success: false, error: 'No active EPA member account is linked to this Telegram profile yet.' });
       }
-      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined } });
+      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined }, session: createMemberSession(member.id) });
     }
 
     if (action === 'bind-telegram') {
@@ -67,7 +68,7 @@ export default async function handler(req, res) {
       const member = await findMember(loginIdentifier);
       if (!member || member.phone_password !== currentPassword) return res.status(401).json({ success: false, error: 'Your current password is incorrect.' });
       await dbUpdate('members', { phone_password: newPassword, must_change_password: false }, 'id', member.id);
-      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined, must_change_password: false } });
+      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined, must_change_password: false }, session: createMemberSession(member.id) });
     }
 
     if (!loginIdentifier || !password) {
@@ -83,7 +84,7 @@ export default async function handler(req, res) {
       if (member.phone_password !== password) {
         return res.status(401).json({ success: false, error: 'Incorrect password.' });
       }
-      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined } });
+      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined }, session: createMemberSession(member.id) });
     }
 
     return res.status(400).json({ success: false, error: 'Unknown action' });

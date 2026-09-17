@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Lock, X, LogIn, Eye, EyeOff, Mail, UploadCloud, CheckCircle2, Phone, MapPin, Building2, GraduationCap, CalendarDays, UserRound } from 'lucide-react';
 import { Member } from '../types';
-import { uploadFile } from '../lib/api';
+import { uploadFile, MemberSession } from '../lib/api';
 
 interface PhoneLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   lang: 'EN' | 'AM';
-  onSuccess: (member: Member) => void;
+  onSuccess: (member: Member, session?: MemberSession) => void;
   onToast: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
 
@@ -20,6 +20,7 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [mode, setMode] = useState<'login' | 'password' | 'profile'>('login');
   const [pendingMember, setPendingMember] = useState<Member | null>(null);
+  const [memberSession, setMemberSession] = useState<MemberSession | null>(null);
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [profilePhone, setProfilePhone] = useState('');
   const [city, setCity] = useState('');
@@ -88,7 +89,7 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
     corporateServices: pendingMember.membership_type === 'CORPORATE' && !pendingMember.corporate_profile?.services_description
   } : { photo: false, phone: false, city: false, gender: false, dateOfBirth: false, workplace: false, specialty: false, studentUniversity: false, studentProgramme: false, studentYear: false, studentId: false, studentGraduation: false, corporateOrganisation: false, corporateType: false, corporateTin: false, corporateContact: false, corporateTitle: false, corporatePhone: false, corporateEmail: false, corporateStaff: false, corporateCity: false, corporateServices: false };
 
-  const completeLogin = async (member: Member) => {
+  const completeLogin = async (member: Member, session: MemberSession | null = memberSession) => {
     const telegramId = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id;
     if (telegramId && String(member.telegram_id || '') !== String(telegramId)) {
       try {
@@ -99,7 +100,7 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
       } catch { /* Login should still succeed if Telegram capture is unavailable. */ }
     }
     onToast(lang === 'EN' ? `Welcome back, ${member.first_name}!` : `እንኳን ደህና መጡ, ${member.first_name}!`, 'success');
-    onSuccess(member);
+    onSuccess(member, session || undefined);
     onClose();
   };
 
@@ -125,9 +126,11 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
 
       if (data.success && data.member) {
         const member = data.member as Member;
+        const session = (data.session || null) as MemberSession | null;
+        setMemberSession(session);
         if (member.must_change_password) setMode('password');
         else if (member.onboarding_completed === false) beginProfileCompletion(member);
-        else await completeLogin(member);
+        else await completeLogin(member, session);
       } else {
         setError(data.error || 'Login failed. Please try again.');
       }
@@ -151,8 +154,10 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
       const data = await res.json();
       if (!data.success || !data.member) return setError(data.error || 'Could not update your password.');
       const member = data.member as Member;
+      const session = (data.session || null) as MemberSession | null;
+      setMemberSession(session);
       if (member.onboarding_completed === false) beginProfileCompletion(member);
-      else await completeLogin(member);
+      else await completeLogin(member, session);
     } catch {
       setError('Connection error. Please try again.');
     } finally { setIsLoading(false); }
@@ -162,11 +167,12 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
     if (!pendingMember) return;
     setError('');
     if (needs.photo && !profilePhoto) return setError('Please upload a profile photo to finish setting up your membership.');
+    if (!memberSession?.token) return setError('Your sign-in session expired. Please log in again.');
     setIsLoading(true);
     try {
       const photo_url = profilePhoto ? await uploadFile(profilePhoto) : pendingMember.photo_url;
       const res = await fetch('/api/members', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${memberSession.token}` },
         body: JSON.stringify({
           action: 'complete-onboarding', id: pendingMember.id, photo_url, phone: profilePhone, city, workplace, specialty, gender, date_of_birth: dateOfBirth, bio,
           student_profile: pendingMember.membership_type === 'STUDENT' ? { ...studentProfile, academic_year: Number(studentProfile.academic_year), expected_graduation_year: Number(studentProfile.expected_graduation_year) } : undefined,
@@ -175,7 +181,7 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
       });
       const data = await res.json();
       if (!data.success || !data.member) return setError(data.error || 'Could not save your member profile.');
-      await completeLogin(data.member as Member);
+      await completeLogin(data.member as Member, memberSession);
     } catch {
       setError('Could not upload your profile information. Please try again.');
     } finally { setIsLoading(false); }

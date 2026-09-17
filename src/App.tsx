@@ -3,7 +3,7 @@ import { isSupabaseConfigured } from './lib/supabase';
 import { 
   fetchMembers, fetchMemberStats, fetchDirectoryMembers, fetchApplications, fetchApplicationDetail, fetchAnnouncements,
   fetchUniversities, fetchAuditLogs, fetchResearchSubmissions,
-  submitApplication, updateApplicationStatus, publishAnnouncement, createMember, deleteMember, deleteAnnouncement, submitResearchSubmission, updateResearchSubmission
+  submitApplication, updateApplicationStatus, publishAnnouncement, createMember, deleteMember, deleteAnnouncement, submitResearchSubmission, updateResearchSubmission, updateOwnProfilePhoto, MemberSession
 } from './lib/api';
 import { 
   Member, 
@@ -86,6 +86,7 @@ export default function App() {
   const [memberStats, setMemberStats] = useState({ member_count: 0, cpd_points: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
+  const [memberSession, setMemberSession] = useState<MemberSession | null>(null);
   const [directoryLoaded, setDirectoryLoaded] = useState(false);
   const [adminLoaded, setAdminLoaded] = useState(false);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
@@ -159,6 +160,7 @@ export default function App() {
               if (data.success && data.member) {
                 const telegramMember = data.member as Member;
                 setMembers([telegramMember]);
+                setMemberSession(data.session || null);
                 setActiveMemberId(telegramMember.id);
                 setCurrentTab('portal');
               } else {
@@ -205,12 +207,13 @@ export default function App() {
   const activeMember = members.find(m => m.id === activeMemberId);
 
   // Handler: Phone login success - add member to state if not already there
-  const handlePhoneLoginSuccess = (member: Member) => {
+  const handlePhoneLoginSuccess = (member: Member, session?: MemberSession) => {
     setMembers(prev => {
       const exists = prev.find(m => m.id === member.id);
       if (exists) return prev.map(existing => existing.id === member.id ? { ...existing, ...member } : existing);
       return [member, ...prev];
     });
+    setMemberSession(session || null);
     setActiveMemberId(member.id);
     setCurrentTab('portal');
   };
@@ -223,6 +226,12 @@ export default function App() {
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4000);
+  };
+
+  const handleMemberPhotoUpdate = async (file: File) => {
+    if (!activeMember || !memberSession) throw new Error('Your member session has expired. Please log in again.');
+    const updated = await updateOwnProfilePhoto(activeMember.id, file, memberSession);
+    setMembers(current => current.map(member => member.id === updated.id ? { ...member, ...updated } : member));
   };
 
   const requestAdminAccess = () => {
@@ -653,6 +662,7 @@ export default function App() {
               onOpenDirectory={() => setCurrentTab('directory')}
               onRegisterCPD={handleRegisterCPD}
               onSubmitResearch={handleResearchSubmission}
+              onUpdateProfilePhoto={handleMemberPhotoUpdate}
               onToast={showToast}
             />
           ) : (
