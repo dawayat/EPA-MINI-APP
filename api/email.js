@@ -23,11 +23,22 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true });
     }
     if (action === 'verify-email') {
-      const rows = await dbSelect('email_verifications', `email=eq.${encodeURIComponent(address)}&verified_at=is.null&order=created_at.desc&limit=1`);
-      const record = rows[0];
-      if (!record || record.code !== String(verificationCode || '') || new Date(record.expires_at).getTime() < Date.now()) return res.status(400).json({ success: false, error: 'That verification code is invalid or has expired.' });
-      await dbUpdate('email_verifications', { verified_at: new Date().toISOString() }, 'id', record.id);
-      return res.status(200).json({ success: true });
+      const submittedCode = String(verificationCode || '').trim();
+      if (!/^\d{6}$/.test(submittedCode)) return res.status(400).json({ success: false, error: 'Enter the six-digit verification code from the email.' });
+
+      // Do not filter only unverified rows. The client verifies the code before
+      // creating the application; if that later insert fails, the applicant
+      // must be able to retry with the same still-valid code instead of being
+      // locked out by a code already marked verified.
+      const rows = await dbSelect('email_verifications', `email=eq.${encodeURIComponent(address)}&order=created_at.desc&limit=10`);
+      const now = Date.now();
+      const record = rows.find(candidate => (
+        String(candidate.code || '') === submittedCode
+        && new Date(candidate.expires_at).getTime() >= now
+      ));
+      if (!record) return res.status(400).json({ success: false, error: 'That verification code is invalid or has expired.' });
+      if (!record.verified_at) await dbUpdate('email_verifications', { verified_at: new Date().toISOString() }, 'id', record.id);
+      return res.status(200).json({ success: true, alreadyVerified: Boolean(record.verified_at) });
     }
     let message;
     if (action === 'application-received') message = applicationReceivedEmail(name, applicationNumber);

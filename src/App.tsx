@@ -277,13 +277,15 @@ export default function App() {
     const result = await submitApplication(fullApp);
     if (!result.success) {
       console.error('[App] Application submission failed:', result.error);
-      showToast(`Submission error: ${result.error}`, 'error');
       throw new Error(result.error || 'Application submission failed.');
     } else {
       showToast('Application submitted and saved successfully!', 'success');
     }
 
-    setApplications(prev => [fullApp, ...prev]);
+    // The server owns the database UUID; retain it so follow-up review,
+    // approval, and email actions target the record that was actually saved.
+    const savedApplication = { ...fullApp, id: result.id || fullApp.id };
+    setApplications(prev => [savedApplication, ...prev]);
 
     // Add audit log
     setAuditLogs(prev => [{
@@ -412,18 +414,29 @@ export default function App() {
 
 
   const handleRejectApplication = async (appId: string, reason: string) => {
-    if (isSupabaseConfigured) {
-      await updateApplicationStatus(appId, 'REJECTED', reason);
+    try {
+      const result = await updateApplicationStatus(appId, 'REJECTED', reason);
+      setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'REJECTED', rejection_reason: reason } : a));
+      setAuditLogs(prev => [{
+        id: 'log-' + Date.now(),
+        action: `Rejected Application (Reason: ${reason})`,
+        entity_type: 'Application',
+        entity_id: appId,
+        admin_username: 'superadmin_council',
+        created_at: new Date().toISOString()
+      }, ...prev]);
+
+      if (result.email?.delivered) {
+        showToast('Application rejected and rejection email sent to the applicant.', 'success');
+      } else {
+        showToast(`Application was rejected, but the rejection email was not delivered: ${result.email?.error || 'email service is not configured in Vercel.'}`, 'error');
+      }
+      return true;
+    } catch (err: any) {
+      console.error('[App] Rejection failed:', err);
+      showToast(`Application was not rejected: ${err.message || 'Please try again.'}`, 'error');
+      return false;
     }
-    setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'REJECTED', rejection_reason: reason } : a));
-    setAuditLogs(prev => [{
-      id: 'log-' + Date.now(),
-      action: `Rejected Application (Reason: ${reason})`,
-      entity_type: 'Application',
-      entity_id: appId,
-      admin_username: 'superadmin_council',
-      created_at: new Date().toISOString()
-    }, ...prev]);
   };
 
   const handleRequestCorrection = async (appId: string, notes: string) => {

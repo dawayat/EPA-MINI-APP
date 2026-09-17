@@ -249,9 +249,14 @@ export default function RegistrationModal({
       const verificationResponse = await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'verify-email', email: applicantEmail, verificationCode: emailVerificationCode.trim() }) });
       const verification = await verificationResponse.json();
       if (!verificationResponse.ok || !verification.success) throw new Error(verification.error || 'Email verification failed.');
+    } catch (error: any) {
+      onToast(error.message || 'Could not verify your email. Please try again.', 'error');
+      setIsVerifyingEmail(false);
+      return;
+    }
+
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const generatedAppNum = `EPA-${new Date().getFullYear()}-${randomNum}`;
-    
     const corporateIdentity = tier === 'CORPORATE' ? {
       first_name: formData.corporate_profile?.organization_name || 'EPA Corporate',
       father_name: 'Organisation',
@@ -259,19 +264,19 @@ export default function RegistrationModal({
       phone: formData.corporate_profile?.contact_phone || '',
       city: formData.corporate_profile?.headquarters_city || ''
     } : {};
-    await onSubmitApplication({
-      ...formData, ...corporateIdentity,
-      membership_type: tier,
-      application_number: generatedAppNum,
-      id: `app-${Date.now()}`,
-      status: 'SUBMITTED',
-      submitted_at: new Date().toISOString(),
-      email_verified: true
-    });
-    setAppNumber(generatedAppNum);
-    setIsSuccess(true);
+    try {
+      await onSubmitApplication({
+        ...formData, ...corporateIdentity,
+        membership_type: tier,
+        application_number: generatedAppNum,
+        status: 'SUBMITTED',
+        submitted_at: new Date().toISOString(),
+        email_verified: true
+      });
+      setAppNumber(generatedAppNum);
+      setIsSuccess(true);
     } catch (error: any) {
-      onToast(error.message || 'Could not verify your email. Please try again.', 'error');
+      onToast(`Your email is verified, but the application could not be saved: ${error.message || 'Please try again.'}`, 'error');
     } finally {
       setIsVerifyingEmail(false);
     }

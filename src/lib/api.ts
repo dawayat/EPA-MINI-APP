@@ -44,6 +44,7 @@ type TelegramPublishStatus = { attempted: boolean; posted: boolean; error?: stri
 async function apiPost(path: string, body: any, authenticated = false): Promise<{
   success: boolean;
   error?: string;
+  id?: string;
   telegram?: TelegramPublishStatus;
   telegram_conflict?: boolean;
 }> {
@@ -60,6 +61,7 @@ async function apiPost(path: string, body: any, authenticated = false): Promise<
     }
     return {
       success: true,
+      id: data.id,
       telegram: data.telegram,
       telegram_conflict: Boolean(data.telegram_conflict),
     };
@@ -173,7 +175,7 @@ export async function fetchResearchSubmissions(): Promise<ResearchSubmission[]> 
 
 // ─── MUTATIONS ──────────────────────────────────────────────────────────────
 
-export async function submitApplication(appData: Partial<Application>): Promise<{ success: boolean; error?: string }> {
+export async function submitApplication(appData: Partial<Application>): Promise<{ success: boolean; error?: string; id?: string }> {
   // Sanitize: remove undefined/null/empty string fields
   const sanitized: Record<string, any> = {};
   for (const [key, val] of Object.entries(appData)) {

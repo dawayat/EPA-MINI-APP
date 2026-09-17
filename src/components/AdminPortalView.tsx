@@ -20,7 +20,7 @@ interface AdminPortalViewProps {
   researchSubmissions: ResearchSubmission[];
   onApproveApplication: (appId: string) => Promise<boolean>;
   onResendApprovalEmail: (appId: string) => Promise<boolean>;
-  onRejectApplication: (appId: string, reason: string) => void;
+  onRejectApplication: (appId: string, reason: string) => Promise<boolean>;
   onRequestCorrection: (appId: string, notes: string) => void;
   onVerifyPayment: (appId: string) => void;
   onAddAnnouncement: (ann: Partial<Announcement>) => Promise<boolean>;
@@ -1234,14 +1234,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                   </button>
                 ) : (
                   <button
-                    onClick={() => {
-                      if (!rejectReasonInput) {
+                    onClick={async () => {
+                      const reason = rejectReasonInput.trim();
+                      if (!reason) {
                         onToast('Please enter a rejection reason', 'error');
                         return;
                       }
-                      onRejectApplication(reviewingApp.id, rejectReasonInput);
-                      setReviewingApp(null);
-                      onToast('Application rejected', 'info');
+                      const rejected = await onRejectApplication(reviewingApp.id, reason);
+                      if (rejected) setReviewingApp(null);
                     }}
                     className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-gray-900 dark:text-white text-xs font-mono font-black uppercase cursor-pointer"
                   >

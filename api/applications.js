@@ -1,6 +1,9 @@
 import { dbSelect, dbInsert, dbUpdate, noStore, cors } from './_db.js';
 import { applicationReceivedEmail, applicationStatusEmail, isEmailConfigured, sendEmail } from './_email.js';
 import { requireAdmin } from './_admin.js';
+import { randomUUID } from 'node:crypto';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 async function deliverEmail(address, message) {
   if (!address) return { attempted: false, delivered: false, error: 'The application has no email address.' };
@@ -77,6 +80,10 @@ export default async function handler(req, res) {
           row[f] = app[f];
         }
       }
+      // The database uses a UUID primary key. Older browser code supplied
+      // display IDs such as "app-...", which are not valid UUID values and
+      // can make an otherwise verified application fail to save.
+      if (!UUID.test(String(row.id || ''))) row.id = randomUUID();
       // A public application cannot grant itself an administrative status.
       row.status = 'SUBMITTED';
       if (!row.submitted_at) row.submitted_at = new Date().toISOString();
@@ -84,7 +91,7 @@ export default async function handler(req, res) {
 
       await dbInsert('applications', row);
       const email = await deliverEmail(row.email, applicationReceivedEmail(`${row.first_name || ''} ${row.father_name || ''}`.trim(), row.application_number));
-      return res.status(201).json({ success: true, email });
+      return res.status(201).json({ success: true, id: row.id, email });
     }
 
     if (req.method === 'PATCH') {

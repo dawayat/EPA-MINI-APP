@@ -90,13 +90,17 @@ export function applicationReceivedEmail(name, applicationNumber) {
 }
 
 export function applicationStatusEmail(name, applicationNumber, status, note) {
-  const statusText = status === 'APPROVED' ? 'Your EPA membership has been approved' : status === 'REJECTED' ? 'There is an update on your EPA application' : 'Your EPA application needs an update';
+  const statusText = status === 'APPROVED'
+    ? 'Your EPA membership has been approved'
+    : status === 'REJECTED'
+      ? 'Your EPA membership application was not approved'
+      : 'Your EPA application needs an update';
   return {
     subject: `${statusText} · ${applicationNumber}`,
     html: emailShell({
       eyebrow: 'EPA application update',
       title: statusText,
-      body: `<p>Hello ${escapeHtml(name)},</p><p><b>Application reference:</b> ${escapeHtml(applicationNumber)}</p>${status === 'APPROVED' ? '<p>Your EPA membership has been approved. Your Digital ID and portal access are now ready. Sign in with your registered email or phone number and password, or open EPA through Telegram when available.</p>' : '<p>The EPA membership review team has reviewed your application and posted an update.</p>'}${note ? `<p style="background:#f3f8ef;border-left:3px solid #1d5b35;border-radius:8px;padding:14px"><b>Message from EPA:</b><br>${escapeHtml(note)}</p>` : ''}`
+      body: `<p>Hello ${escapeHtml(name)},</p><p><b>Application reference:</b> ${escapeHtml(applicationNumber)}</p>${status === 'APPROVED' ? '<p>Your EPA membership has been approved. Your Digital ID and portal access are now ready. Sign in with your registered email or phone number and password, or open EPA through Telegram when available.</p>' : status === 'REJECTED' ? '<p>After review, we are unable to approve your EPA membership application at this time.</p>' : '<p>The EPA membership review team has reviewed your application and posted an update.</p>'}${note ? `<p style="background:#f3f8ef;border-left:3px solid #1d5b35;border-radius:8px;padding:14px"><b>Message from EPA:</b><br>${escapeHtml(note)}</p>` : ''}`
     }),
     text: `Ethiopian Psychologists’ Association\n\nHello ${name},\n\n${statusText}.\nApplication reference: ${applicationNumber}${note ? `\n\nMessage from EPA: ${note}` : ''}`
   };
