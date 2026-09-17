@@ -1,5 +1,6 @@
 import { cachePublic, dbSelect, dbInsert, dbUpdate, noStore, cors } from './_db.js';
 import { isEmailConfigured, memberInviteEmail, sendEmail } from './_email.js';
+import { requireAdmin } from './_admin.js';
 
 const importId = () => `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const token = () => `epa_tok_${Math.random().toString(36).slice(2, 10)}`;
@@ -81,6 +82,14 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const view = String(req.query.view || '').trim();
+      if (view === 'stats') {
+        // Keep hero figures truthful without downloading a single profile,
+        // contact field, document, or photo.
+        const rows = await dbSelect('members', 'select=cpd_points');
+        const cpdPoints = rows.reduce((sum, member) => sum + (Number(member.cpd_points) || 0), 0);
+        cachePublic(res, 60, 300);
+        return res.status(200).json({ member_count: rows.length, cpd_points: cpdPoints });
+      }
       if (view === 'directory') {
         const rows = await dbSelect(
           'members',
@@ -106,6 +115,7 @@ export default async function handler(req, res) {
         return res.status(200).json(rows[0] || null);
       }
 
+      requireAdmin(req);
       // The member table can contain base64 profile photos and renewal
       // receipts. The admin list only needs a compact summary; sensitive
       // details are fetched by the action that needs them (for example,
@@ -118,6 +128,7 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const m = req.body;
       if (m.action === 'record-attendance') {
+        requireAdmin(req);
         const token = String(m.token || '').trim();
         const membershipNumber = String(m.membership_number || '').trim();
         const eventName = String(m.event_name || '').trim();
@@ -151,6 +162,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, renewal_request });
       }
       if (m.action === 'approve-renewal') {
+        requireAdmin(req);
         const memberId = String(m.memberId || '').trim();
         const member = (await dbSelect('members', `id=eq.${encodeURIComponent(memberId)}&limit=1`))[0];
         if (!member?.renewal_request || member.renewal_request.status !== 'PENDING') return res.status(400).json({ success: false, error: 'No pending renewal was found for this member.' });
@@ -162,6 +174,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, member: safeMember({ ...member, status: 'ACTIVE', expires_at: expiresAt.toISOString(), renewal_request }) });
       }
       if (m.action === 'bulk-import') {
+        requireAdmin(req);
         if (!Array.isArray(m.rows) || m.rows.length === 0) return res.status(400).json({ success: false, error: 'Choose a CSV with at least one member row.' });
         if (m.rows.length > 200) return res.status(400).json({ success: false, error: 'Import a maximum of 200 members at a time.' });
         const created = [];
@@ -214,6 +227,7 @@ export default async function handler(req, res) {
         }
         return res.status(201).json({ success: true, created, errors });
       }
+      requireAdmin(req);
       const row = {};
       const fields = [
         'id','membership_number','verification_token','telegram_id',
@@ -230,6 +244,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
+      requireAdmin(req);
       const { id } = req.body;
       if (!id) return res.status(400).json({ error: 'Member id required' });
       const base = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -313,6 +328,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('[members]', err.message);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message });
   }
 }

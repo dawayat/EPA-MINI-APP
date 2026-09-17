@@ -7,13 +7,14 @@ import {
   Member, Application, Announcement, University, CPDCourse,
   ElectionCandidate, AuditLog, Election, ResearchSubmission
 } from '../types';
+import { adminHeaders } from './admin';
 
 // Base URL for API calls - works in both local dev and production
 const API_BASE = '';
 
-async function apiGet<T>(path: string): Promise<T[]> {
+async function apiGet<T>(path: string, headers?: HeadersInit): Promise<T[]> {
   try {
-    const res = await fetch(`${API_BASE}${path}`);
+    const res = await fetch(`${API_BASE}${path}`, { headers });
     if (!res.ok) {
       console.error(`[API] GET ${path} failed:`, res.status, await res.text());
       return [];
@@ -25,9 +26,9 @@ async function apiGet<T>(path: string): Promise<T[]> {
   }
 }
 
-async function apiGetOne<T>(path: string): Promise<T | null> {
+async function apiGetOne<T>(path: string, headers?: HeadersInit): Promise<T | null> {
   try {
-    const res = await fetch(`${API_BASE}${path}`);
+    const res = await fetch(`${API_BASE}${path}`, { headers });
     if (!res.ok) {
       console.error(`[API] GET ${path} failed:`, res.status, await res.text());
       return null;
@@ -40,11 +41,11 @@ async function apiGetOne<T>(path: string): Promise<T | null> {
 }
 
 type TelegramPublishStatus = { attempted: boolean; posted: boolean; error?: string; message_id?: number };
-async function apiPost(path: string, body: any): Promise<{ success: boolean; error?: string; telegram?: TelegramPublishStatus }> {
+async function apiPost(path: string, body: any, authenticated = false): Promise<{ success: boolean; error?: string; telegram?: TelegramPublishStatus }> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(authenticated ? adminHeaders() : {}) },
       body: JSON.stringify(body)
     });
     const data = await res.json();
@@ -59,11 +60,11 @@ async function apiPost(path: string, body: any): Promise<{ success: boolean; err
   }
 }
 
-async function apiPatch(path: string, body: any): Promise<{ success: boolean; error?: string; email?: { attempted: boolean; delivered: boolean; error?: string } }> {
+async function apiPatch(path: string, body: any, authenticated = false): Promise<{ success: boolean; error?: string; email?: { attempted: boolean; delivered: boolean; error?: string } }> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(authenticated ? adminHeaders() : {}) },
       body: JSON.stringify(body)
     });
     const data = await res.json();
@@ -74,11 +75,11 @@ async function apiPatch(path: string, body: any): Promise<{ success: boolean; er
   }
 }
 
-async function apiDelete(path: string, body: any): Promise<{ success: boolean; error?: string }> {
+async function apiDelete(path: string, body: any, authenticated = false): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(authenticated ? adminHeaders() : {}) },
       body: JSON.stringify(body)
     });
     const data = await res.json();
@@ -92,7 +93,14 @@ async function apiDelete(path: string, body: any): Promise<{ success: boolean; e
 // ─── FETCHERS ───────────────────────────────────────────────────────────────
 
 export async function fetchMembers(): Promise<Member[]> {
-  return apiGet<Member>('/api/members');
+  return apiGet<Member>('/api/members', adminHeaders());
+}
+
+export type MemberStats = { member_count: number; cpd_points: number };
+
+/** Compact public totals for the homepage; does not expose member records. */
+export async function fetchMemberStats(): Promise<MemberStats | null> {
+  return apiGetOne<MemberStats>('/api/members?view=stats');
 }
 
 /** Public directory projection; excludes member contact and account data. */
@@ -106,12 +114,12 @@ export async function verifyMembership(reference: string): Promise<Member | null
 }
 
 export async function fetchApplications(): Promise<Application[]> {
-  return apiGet<Application>('/api/applications');
+  return apiGet<Application>('/api/applications', adminHeaders());
 }
 
 /** Document-bearing application fields are loaded only when the dossier is opened. */
 export async function fetchApplicationDetail(id: string): Promise<Application | null> {
-  return apiGetOne<Application>(`/api/applications?id=${encodeURIComponent(id)}`);
+  return apiGetOne<Application>(`/api/applications?id=${encodeURIComponent(id)}`, adminHeaders());
 }
 
 export async function fetchAnnouncements(): Promise<Announcement[]> {
@@ -147,11 +155,11 @@ export async function fetchElectionCandidates(electionId?: string): Promise<Elec
 }
 
 export async function fetchAuditLogs(): Promise<AuditLog[]> {
-  return apiGet<AuditLog>('/api/audit-logs');
+  return apiGet<AuditLog>('/api/audit-logs', adminHeaders());
 }
 
 export async function fetchResearchSubmissions(): Promise<ResearchSubmission[]> {
-  return apiGet<ResearchSubmission>('/api/research');
+  return apiGet<ResearchSubmission>('/api/research', adminHeaders());
 }
 
 // ─── MUTATIONS ──────────────────────────────────────────────────────────────
@@ -204,7 +212,7 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
     telegram_media_type: announcementData.telegram_media_type,
     telegram_button_label: announcementData.telegram_button_label,
     telegram_button_url: announcementData.telegram_button_url
-  });
+  }, true);
 }
 
 export async function submitRenewal(memberId: string, transactionNumber: string, receiptUrl: string, amount = 1500) {
@@ -212,25 +220,25 @@ export async function submitRenewal(memberId: string, transactionNumber: string,
 }
 
 export async function approveRenewal(memberId: string) {
-  return apiPost('/api/members', { action: 'approve-renewal', memberId });
+  return apiPost('/api/members', { action: 'approve-renewal', memberId }, true);
 }
 
 export async function updateApplicationStatus(id: string, status: string, adminNotes?: string) {
-  const result = await apiPatch('/api/applications', { id, status, admin_notes: adminNotes });
+  const result = await apiPatch('/api/applications', { id, status, admin_notes: adminNotes }, true);
   if (!result.success) throw new Error(result.error || 'Update failed');
   return { id, status, email: result.email };
 }
 
 export async function createMember(memberData: Partial<Member>) {
-  return apiPost('/api/members', memberData);
+  return apiPost('/api/members', memberData, true);
 }
 
 export async function deleteMember(id: string) {
-  return apiDelete('/api/members', { id });
+  return apiDelete('/api/members', { id }, true);
 }
 
 export async function deleteAnnouncement(id: string) {
-  return apiDelete('/api/announcements', { id });
+  return apiDelete('/api/announcements', { id }, true);
 }
 
 export async function submitResearchSubmission(submission: Partial<ResearchSubmission>) {
@@ -238,7 +246,7 @@ export async function submitResearchSubmission(submission: Partial<ResearchSubmi
 }
 
 export async function updateResearchSubmission(id: string, status: ResearchSubmission['status'], review_notes?: string) {
-  return apiPatch('/api/research', { id, status, review_notes });
+  return apiPatch('/api/research', { id, status, review_notes }, true);
 }
 
 export async function createCPDCourse(courseData: Partial<CPDCourse>) {

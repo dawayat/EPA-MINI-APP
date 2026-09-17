@@ -1,4 +1,5 @@
 import { dbInsert, dbSelect, dbUpdate, cors } from './_db.js';
+import { requireAdmin } from './_admin.js';
 
 const VALID_STATUSES = new Set(['SUBMITTED', 'UNDER_REVIEW', 'ACCEPTED', 'REVISION_REQUESTED', 'DECLINED']);
 const VALID_TYPES = new Set(['Research Paper', 'Journal Article', 'Case Study', 'Conference Paper', 'Other']);
@@ -13,6 +14,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
+      requireAdmin(req);
       const rows = await dbSelect('research_submissions', 'order=submitted_at.desc');
       return res.status(200).json(rows);
     }
@@ -50,6 +52,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'PATCH') {
+      requireAdmin(req);
       const { id: submissionId, status, review_notes } = req.body || {};
       if (!submissionId || !VALID_STATUSES.has(status)) {
         return res.status(400).json({ success: false, error: 'A valid submission status is required.' });
@@ -61,6 +64,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (error) {
     console.error('[research]', error.message);
-    return res.status(500).json({ success: false, error: error.message });
+    return res.status(error.statusCode || 500).json({ success: false, error: error.message });
   }
 }

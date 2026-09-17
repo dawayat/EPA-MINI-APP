@@ -208,7 +208,7 @@ export default function RegistrationModal({
     if (!formData.phone_password || String(formData.phone_password).length < 8) { onToast('Create a password with at least 8 characters before verifying your email.', 'error'); return false; }
     if (formData.phone_password !== formData.phone_password_confirm) { onToast('Your password confirmation does not match.', 'error'); return false; }
     if (!formData.agreed_to_ethics) { onToast('You must agree to the EPA Code of Ethics before submitting.', 'error'); return false; }
-    if (!formData.payment?.transaction_number || !formData.payment?.receipt_url) { onToast('Enter your CBE transaction reference and attach the payment receipt.', 'error'); return false; }
+    if (!formData.payment?.receipt_url) { onToast('Attach the payment receipt screenshot before continuing.', 'error'); return false; }
     return true;
   };
 
@@ -349,9 +349,6 @@ export default function RegistrationModal({
         <Input label="Email Address" type="email" required value={formData.email || ''} onChange={(e: any) => updateForm('email', e.target.value)} />
         <Input label="Phone Number" type="tel" required value={formData.phone || ''} onChange={(e: any) => updateForm('phone', e.target.value)} />
         <Select label="City" options={CITIES} required value={formData.city} onChange={(e: any) => updateForm('city', e.target.value)} />
-        {tier !== 'STUDENT' && (
-          <Input label="National ID, Passport, or Kebele ID Number" required value={formData.national_id_number || ''} onChange={(e: any) => updateForm('national_id_number', e.target.value)} />
-        )}
       </div>
     </div>
   );
@@ -427,7 +424,6 @@ export default function RegistrationModal({
           <div><span className="font-bold text-gray-900 dark:text-white block">Commercial Bank of Ethiopia (CBE)</span><span className="text-xs text-neutral-500">CBE is the only accepted registration payment method.</span></div>
         </div>
 
-        <Input label="Transaction Reference Number *" value={formData.payment?.transaction_number || ''} onChange={(e: any) => updateNested('payment', 'transaction_number', e.target.value)} />
         <FileUpload label="Upload Payment Receipt *" hint="Screenshot of successful transfer" onChange={(url: string) => updateNested('payment', 'receipt_url', url)} />
         {formData.payment?.receipt_url && <div className="text-sm text-green-600 dark:text-[#d4ff00]">✓ Receipt uploaded</div>}
       </div>
@@ -507,7 +503,6 @@ export default function RegistrationModal({
             <Input label="Email Address" type="email" required value={formData.email || ''} onChange={(e: any) => updateForm('email', e.target.value)} />
             <Input label="Phone Number" type="tel" required value={formData.phone || ''} onChange={(e: any) => updateForm('phone', e.target.value)} />
             <Select label="City" options={CITIES} required value={formData.city} onChange={(e: any) => updateForm('city', e.target.value)} />
-            <Input label="National ID Number" required value={formData.national_id_number || ''} onChange={(e: any) => updateForm('national_id_number', e.target.value)} />
           </div>
         </div>
       )}
@@ -751,11 +746,11 @@ export default function RegistrationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-white dark:bg-[#080808]/40 md:bg-black/40 backdrop-blur-sm flex md:items-center justify-center">
-      <div className="w-full h-full md:h-auto md:max-w-2xl bg-white/95 dark:bg-[#080808]/95 backdrop-blur-2xl md:rounded-3xl flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.1)] dark:shadow-[0_0_60px_rgba(212,255,0,0.05)] overflow-hidden relative border border-white/40 dark:border-white/10">
+    <div className="fixed inset-0 z-50 bg-white dark:bg-[#080808]/40 md:bg-black/40 backdrop-blur-sm flex items-stretch md:items-center justify-center overflow-y-auto p-0 md:p-6">
+      <div className="w-full h-[100dvh] max-h-[100dvh] md:h-[min(52rem,calc(100dvh-3rem))] md:max-w-2xl bg-white/95 dark:bg-[#080808]/95 backdrop-blur-2xl md:rounded-3xl flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.1)] dark:shadow-[0_0_60px_rgba(212,255,0,0.05)] overflow-hidden relative border border-white/40 dark:border-white/10">
         
         {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-200/50 dark:border-white/10 flex justify-between items-center bg-white/50 dark:bg-black/40 backdrop-blur-md sticky top-0 z-10">
+        <div className="shrink-0 px-6 py-5 border-b border-gray-200/50 dark:border-white/10 flex justify-between items-center bg-white/50 dark:bg-black/40 backdrop-blur-md">
           <div>
             <h2 className="text-xl font-black text-gray-900 dark:text-white font-syne uppercase tracking-tight">Become a Member</h2>
             <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
@@ -781,7 +776,7 @@ export default function RegistrationModal({
         )}
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 scrollbar-hide">
           {/* Step 0: Tier Selection */}
           {step === 0 && renderTierSelection()}
           
@@ -818,7 +813,7 @@ export default function RegistrationModal({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-gray-200/50 dark:border-white/10 bg-white/50 dark:bg-black/40 backdrop-blur-md flex justify-between gap-4 sticky bottom-0 z-10">
+        <div className="shrink-0 px-6 py-4 border-t border-gray-200/50 dark:border-white/10 bg-white/50 dark:bg-black/40 backdrop-blur-md flex justify-between gap-4">
           {step > 0 ? (
             <button 
               onClick={handlePrev}

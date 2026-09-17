@@ -1,5 +1,6 @@
 import { dbSelect, dbInsert, dbUpdate, cachePublic, cors } from './_db.js';
 import { announcementEmail, isEmailConfigured, sendEmail } from './_email.js';
+import { requireAdmin } from './_admin.js';
 
 const escapeHtml = (value = '') => String(value).replace(/[&<>]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[char]));
 const configuredTelegramAppLink = () => {
@@ -76,6 +77,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      requireAdmin(req);
       const a = req.body;
       const row = {};
       const fields = [
@@ -115,6 +117,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
+      requireAdmin(req);
       const { id } = req.body;
       if (!id) return res.status(400).json({ error: 'Announcement id required' });
       const base = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -137,6 +140,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('[announcements]', err.message);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message });
   }
 }

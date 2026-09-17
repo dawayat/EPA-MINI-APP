@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { isSupabaseConfigured } from './lib/supabase';
 import { 
-  fetchMembers, fetchDirectoryMembers, fetchApplications, fetchApplicationDetail, fetchAnnouncements,
+  fetchMembers, fetchMemberStats, fetchDirectoryMembers, fetchApplications, fetchApplicationDetail, fetchAnnouncements,
   fetchUniversities, fetchAuditLogs, fetchResearchSubmissions,
   submitApplication, updateApplicationStatus, publishAnnouncement, createMember, deleteMember, deleteAnnouncement, submitResearchSubmission, updateResearchSubmission
 } from './lib/api';
@@ -33,6 +33,8 @@ import { BottomBar } from './components/BottomBar';
 import { initTelegramApp, getTelegramColorScheme, getTelegramUser, isTelegramMiniApp } from './lib/telegram';
 import { CheckCircle2, AlertCircle, Info, ShieldCheck, CreditCard } from 'lucide-react';
 import { PhoneLoginModal } from './components/PhoneLoginModal';
+import { AdminLoginModal } from './components/AdminLoginModal';
+import { clearAdminSession, hasAdminSession } from './lib/admin';
 
 interface Toast {
   id: string;
@@ -81,10 +83,13 @@ export default function App() {
   const [candidates, setCandidates] = useState<ElectionCandidate[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [researchSubmissions, setResearchSubmissions] = useState<ResearchSubmission[]>([]);
+  const [memberStats, setMemberStats] = useState({ member_count: 0, cpd_points: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
   const [directoryLoaded, setDirectoryLoaded] = useState(false);
   const [adminLoaded, setAdminLoaded] = useState(false);
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(() => hasAdminSession());
   const directoryLoadingRef = useRef(false);
   const adminLoadingRef = useRef(false);
 
@@ -133,11 +138,12 @@ export default function App() {
       setIsLoading(true);
       try {
         if (isSupabaseConfigured) {
-          const [fetchedAnnouncements, fetchedUnivs] = await Promise.all([
-            fetchAnnouncements(), fetchUniversities()
+          const [fetchedAnnouncements, fetchedUnivs, fetchedStats] = await Promise.all([
+            fetchAnnouncements(), fetchUniversities(), fetchMemberStats()
           ]);
           setAnnouncements(fetchedAnnouncements);
           setUniversities(fetchedUnivs);
+          if (fetchedStats) setMemberStats(fetchedStats);
 
           // Telegram Auto-Login: resolve the active account from the server so
           // approval and login use the same persisted member record.
@@ -184,8 +190,8 @@ export default function App() {
     if (currentTab === 'directory' || (currentTab === 'portal' && activeMemberId)) {
       void loadDirectoryMembers();
     }
-    if (currentTab === 'admin') void loadAdminData();
-  }, [currentTab, activeMemberId]);
+    if (currentTab === 'admin' && isAdminAuthenticated) void loadAdminData();
+  }, [currentTab, activeMemberId, isAdminAuthenticated]);
 
   // Modals and Drawers
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState<boolean>(false);
@@ -217,6 +223,37 @@ export default function App() {
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4000);
+  };
+
+  const requestAdminAccess = () => {
+    if (hasAdminSession()) {
+      setIsAdminAuthenticated(true);
+      setCurrentTab('admin');
+      return;
+    }
+    setIsAdminAuthenticated(false);
+    setIsAdminLoginOpen(true);
+  };
+
+  const completeAdminLogin = () => {
+    setIsAdminAuthenticated(true);
+    setAdminLoaded(false);
+    setIsAdminLoginOpen(false);
+    setCurrentTab('admin');
+  };
+
+  const signOutAdmin = () => {
+    clearAdminSession();
+    setIsAdminAuthenticated(false);
+    setAdminLoaded(false);
+    setDirectoryLoaded(false);
+    setMembers([]);
+    setActiveMemberId(null);
+    setApplications([]);
+    setAuditLogs([]);
+    setResearchSubmissions([]);
+    setCurrentTab('welcome');
+    showToast('Admin session ended.', 'info');
   };
 
   // Handler: Application submission from registration modal
@@ -322,6 +359,7 @@ export default function App() {
       const approvalUpdate = await updateApplicationStatus(appId, 'APPROVED');
 
       setMembers(prev => [newMember, ...prev]);
+      setMemberStats(current => ({ member_count: current.member_count + 1, cpd_points: current.cpd_points + newMember.cpd_points }));
       setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'APPROVED' } : a));
       setActiveMemberId(newMember.id);
       setCurrentTab('idcard');
@@ -393,6 +431,9 @@ export default function App() {
       setCurrentTab('welcome');
     }
     showToast('Member deleted successfully', 'success');
+    if (member) {
+      setMemberStats(current => ({ member_count: Math.max(0, current.member_count - 1), cpd_points: Math.max(0, current.cpd_points - (Number(member.cpd_points) || 0)) }));
+    }
 
     // 2. Persist to DB
     if (isSupabaseConfigured) {
@@ -540,6 +581,7 @@ export default function App() {
           setSelectedRegTier(null as any); // null = show tier selection step
           setIsRegisterModalOpen(true);
         }}
+        onRequestAdminAccess={requestAdminAccess}
       />
 
       {/* Main Tab Content Display */}
@@ -548,6 +590,8 @@ export default function App() {
           <WelcomeView
             lang={lang}
             announcements={announcements}
+            memberCount={memberStats.member_count}
+            cpdPoints={memberStats.cpd_points}
             onSelectMembership={(code) => {
               setSelectedRegTier(code);
               setIsRegisterModalOpen(true);
@@ -649,6 +693,8 @@ export default function App() {
             members={members}
             lang={lang}
             onVerifyMember={handleVerifyClick}
+            activeMember={activeMember}
+            onRequestMemberLogin={() => setIsPhoneLoginOpen(true)}
             onToast={showToast}
           />
         )}
@@ -661,7 +707,7 @@ export default function App() {
           />
         )}
 
-        {currentTab === 'admin' && (
+        {currentTab === 'admin' && isAdminAuthenticated && (
           <AdminPortalView
             lang={lang}
             applications={applications}
@@ -682,8 +728,18 @@ export default function App() {
             onUpdateResearchSubmission={handleResearchStatusChange}
             onOpenApplication={loadApplicationDossier}
             onMembersImported={async () => setMembers(await fetchMembers())}
+            onSignOut={signOutAdmin}
             onToast={showToast}
           />
+        )}
+
+        {currentTab === 'admin' && !isAdminAuthenticated && (
+          <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
+            <ShieldCheck className="h-12 w-12 text-green-700 dark:text-[#d4ff00]" />
+            <h2 className="mt-4 text-2xl font-black font-syne uppercase">Admin sign-in required</h2>
+            <p className="mt-2 max-w-sm text-sm text-neutral-600 dark:text-neutral-400">The EPA administration portal and its records are available only to authenticated administrators.</p>
+            <button onClick={() => setIsAdminLoginOpen(true)} className="mt-6 rounded-xl bg-[#d4ff00] px-5 py-3 text-xs font-black uppercase tracking-wider text-black">Sign in</button>
+          </div>
         )}
 
         {currentTab === 'elections' && (
@@ -698,8 +754,8 @@ export default function App() {
         )}
       </main>
 
-      {/* Demo Mode Switcher — hidden in production Telegram env */}
-      {!isTelegramMiniApp() && (
+      {/* Demo Mode Switcher — never included in a production website. */}
+      {import.meta.env.DEV && !isTelegramMiniApp() && (
         <div className="fixed bottom-4 right-4 z-40 bg-white/90 dark:bg-[#121214]/95 backdrop-blur-md text-gray-900 dark:text-white p-2 rounded-2xl shadow-2xl border border-gray-200 dark:border-white/10 flex items-center gap-1.5">
           <span className="text-[9px] font-mono font-black uppercase text-green-700 dark:text-[#d4ff00] tracking-wider hidden sm:inline pl-1">DEMO:</span>
           {[
@@ -715,7 +771,7 @@ export default function App() {
             >{p.label}</button>
           ))}
           <button
-            onClick={() => setCurrentTab('admin')}
+            onClick={requestAdminAccess}
             className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
               currentTab === 'admin' ? 'bg-amber-400 text-black' : 'bg-black/5 dark:bg-white/5 text-neutral-700 dark:text-neutral-300 border border-gray-100 dark:border-white/5'
             }`}
@@ -792,7 +848,7 @@ export default function App() {
             <button onClick={() => setCurrentTab('idcard')} className="hover:text-green-700 dark:text-[#d4ff00] transition-colors cursor-pointer">Digital ID</button>
             <button onClick={() => setCurrentTab('directory')} className="hover:text-green-700 dark:text-[#d4ff00] transition-colors cursor-pointer">Psychologist Directory</button>
             <button onClick={() => setCurrentTab('verify')} className="hover:text-green-700 dark:text-[#d4ff00] transition-colors cursor-pointer">QR Verification</button>
-            <button onClick={() => setCurrentTab('admin')} className="hover:text-green-700 dark:text-[#d4ff00] transition-colors cursor-pointer">Council Admin</button>
+            <button onClick={requestAdminAccess} className="hover:text-green-700 dark:text-[#d4ff00] transition-colors cursor-pointer">Council Admin</button>
           </div>
         </div>
 
@@ -813,6 +869,12 @@ export default function App() {
           onClose={() => setIsPhoneLoginOpen(false)}
           lang={lang}
           onSuccess={handlePhoneLoginSuccess}
+          onToast={showToast}
+        />
+        <AdminLoginModal
+          isOpen={isAdminLoginOpen}
+          onClose={() => setIsAdminLoginOpen(false)}
+          onAuthenticated={completeAdminLogin}
           onToast={showToast}
         />
       </footer>

@@ -11,7 +11,6 @@ import {
   Briefcase
 } from 'lucide-react';
 import { Member } from '../types';
-import { isTelegramMiniApp } from '../lib/telegram';
 
 interface BottomBarProps {
   currentTab: string;
@@ -19,6 +18,7 @@ interface BottomBarProps {
   lang: 'EN' | 'AM';
   activeMember?: Member;
   pendingApplicationsCount: number;
+  onRequestAdminAccess: () => void;
 }
 
 export const BottomBar: React.FC<BottomBarProps> = ({
@@ -27,11 +27,8 @@ export const BottomBar: React.FC<BottomBarProps> = ({
   lang,
   activeMember,
   pendingApplicationsCount,
+  onRequestAdminAccess,
 }) => {
-  const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-  const adminIds = (import.meta.env.VITE_ADMIN_TELEGRAM_IDS || '').split(',').filter(Boolean);
-  const isAdmin = tgUser && adminIds.includes(tgUser.id.toString());
-
   // Build nav items — mirrors the top-bar navItems exactly
   const navItems: { id: string; label: string; icon: React.ReactNode; badge?: string }[] = [
     {
@@ -73,15 +70,12 @@ export const BottomBar: React.FC<BottomBarProps> = ({
     }
   }
 
-  // Admin tab — secured
-  if (isAdmin || (!isTelegramMiniApp() && import.meta.env.MODE === 'development')) {
-    navItems.push({
-      id: 'admin',
-      label: lang === 'EN' ? 'Admin' : 'አስተዳዳሪ',
-      icon: <UserCheck className="w-4 h-4" />,
-      badge: pendingApplicationsCount > 0 ? `${pendingApplicationsCount}` : undefined,
-    });
-  }
+  navItems.push({
+    id: 'admin',
+    label: lang === 'EN' ? 'Admin' : 'አስተዳዳሪ',
+    icon: <UserCheck className="w-4 h-4" />,
+    badge: pendingApplicationsCount > 0 ? `${pendingApplicationsCount}` : undefined,
+  });
 
   return (
     // Only visible on mobile, hidden on md+, same background as header
@@ -95,7 +89,7 @@ export const BottomBar: React.FC<BottomBarProps> = ({
             <button
               key={`${item.id}-${idx}`}
               id={`bottom-nav-${item.id}-${idx}`}
-              onClick={() => setCurrentTab(item.id)}
+              onClick={() => item.id === 'admin' ? onRequestAdminAccess() : setCurrentTab(item.id)}
               className={`relative flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl text-[10px] whitespace-nowrap font-black uppercase tracking-wider transition-all cursor-pointer min-w-[52px] ${
                 activeByTab
                   ? 'bg-[#d4ff00] text-black shadow-sm'

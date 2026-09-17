@@ -31,6 +31,7 @@ import {
   sendMemberMessage
 } from '../lib/community';
 import { memberPhotoUrl, useFallbackMemberPhoto } from '../lib/media';
+import { AnnouncementReaderModal } from './AnnouncementReaderModal';
 
 
 interface MemberPortalViewProps {
@@ -63,6 +64,7 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
   const [myVote, setMyVote] = useState<AnnouncementVoteChoice | null>(null);
   const [voteSummary, setVoteSummary] = useState<AnnouncementVoteSummary>({ total: 0, approve: 0, adjust: 0, voters: [] });
   const [isSaving, setIsSaving] = useState(false);
+  const [isReaderOpen, setIsReaderOpen] = useState(false);
   const isVoting = Boolean(ann.is_draft) || ['election', 'vote', 'voting', 'draft'].includes(String(ann.category).toLowerCase());
 
   useEffect(() => {
@@ -148,7 +150,8 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
           <span className="text-[10px] text-neutral-500 font-mono shrink-0">{new Date(ann.published_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
         </div>
         <h4 className="font-black text-[15px] text-gray-900 dark:text-white leading-snug group-hover:text-green-800 dark:group-hover:text-[#d4ff00] transition-colors">{lang === 'EN' ? ann.title : (ann.amharic_title || ann.title)}</h4>
-        <p className="text-[12px] text-gray-600 dark:text-gray-400 mt-2.5 leading-relaxed line-clamp-4">{ann.content}</p>
+        <p className="text-[12px] text-gray-600 dark:text-gray-400 mt-2.5 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+        <button onClick={() => setIsReaderOpen(true)} className="mt-3 text-[11px] font-black uppercase tracking-wider text-green-700 dark:text-[#d4ff00] hover:underline">{lang === 'EN' ? 'Read full update' : 'ሙሉ ማስታወቂያ አንብብ'}</button>
         {ann.file_attachment_url && (
           <a href={ann.file_attachment_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-3 text-[11px] text-blue-500 hover:underline font-bold">
             <FileText className="w-3.5 h-3.5" /> {lang === 'EN' ? 'Open Attachment' : 'ፋይል ክፈት'}
@@ -221,6 +224,7 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
           </div>
         )}
       </div>
+      {isReaderOpen && <AnnouncementReaderModal announcement={ann} lang={lang} onClose={() => setIsReaderOpen(false)} />}
     </article>
   );
 };

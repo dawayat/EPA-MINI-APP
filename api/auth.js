@@ -1,4 +1,5 @@
 import { dbSelect, dbUpdate, cors } from './_db.js';
+import { authenticateAdmin, createAdminSession } from './_admin.js';
 
 /**
  * POST /api/auth
@@ -18,8 +19,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { identifier, phone, password, currentPassword, newPassword, memberId, telegramId, action } = req.body || {};
+    const { identifier, phone, password, currentPassword, newPassword, memberId, telegramId, action, username } = req.body || {};
     const loginIdentifier = String(identifier || phone || '').trim();
+
+    if (action === 'admin-login') {
+      if (!authenticateAdmin(String(username || '').trim(), String(password || ''))) {
+        return res.status(401).json({ success: false, error: 'Invalid administrator username or password.' });
+      }
+      return res.status(200).json({ success: true, session: createAdminSession() });
+    }
 
     const findMember = async (value) => {
       if (value.includes('@')) return (await dbSelect('members', `email=eq.${encodeURIComponent(value.toLowerCase())}&limit=1`))[0];
@@ -81,6 +89,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, error: 'Unknown action' });
   } catch (err) {
     console.error('[auth]', err.message);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message });
   }
 }

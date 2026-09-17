@@ -1,5 +1,6 @@
 import { dbSelect, dbInsert, dbUpdate, noStore, cors } from './_db.js';
 import { applicationReceivedEmail, applicationStatusEmail, isEmailConfigured, sendEmail } from './_email.js';
+import { requireAdmin } from './_admin.js';
 
 async function deliverEmail(address, message) {
   if (!address) return { attempted: false, delivered: false, error: 'The application has no email address.' };
@@ -40,6 +41,7 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
+      requireAdmin(req);
       const applicationId = String(req.query.id || '').trim();
       if (applicationId) {
         const rows = await dbSelect('applications', `id=eq.${encodeURIComponent(applicationId)}&limit=1`);
@@ -61,13 +63,13 @@ export default async function handler(req, res) {
       // Build clean row - only include fields that have values
       const row = {};
       const fields = [
-        'id','application_number','telegram_id','membership_type','status',
+        'id','application_number','telegram_id','membership_type',
         'first_name','father_name','grandfather_name','amharic_full_name',
         'gender','date_of_birth','phone','email','city','national_id_number',
         'photo_url','current_workplace','current_specialty','years_of_experience',
         'license_number','degree_certificate_url','id_document_url',
         'agreed_to_ethics','student_profile','corporate_profile','qualifications','payment',
-        'phone_password','email_verified','rejection_reason','admin_notes',
+        'phone_password','email_verified',
         'submitted_at','updated_at'
       ];
       for (const f of fields) {
@@ -75,7 +77,8 @@ export default async function handler(req, res) {
           row[f] = app[f];
         }
       }
-      if (!row.status || row.status === 'UNDER_REVIEW') row.status = 'SUBMITTED';
+      // A public application cannot grant itself an administrative status.
+      row.status = 'SUBMITTED';
       if (!row.submitted_at) row.submitted_at = new Date().toISOString();
       if (!row.updated_at) row.updated_at = new Date().toISOString();
 
@@ -85,6 +88,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'PATCH') {
+      requireAdmin(req);
       const { id, status, admin_notes } = req.body;
       const applications = await dbSelect('applications', `id=eq.${encodeURIComponent(id)}&select=email,first_name,father_name,application_number&limit=1`);
       const application = applications[0];
@@ -98,6 +102,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('[applications]', err.message);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message });
   }
 }

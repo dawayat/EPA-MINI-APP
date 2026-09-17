@@ -26,6 +26,7 @@ interface NavbarProps {
   unreadNotificationsCount: number;
   onOpenNotifications: () => void;
   onOpenRegisterModal: () => void;
+  onRequestAdminAccess: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -38,6 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   unreadNotificationsCount,
   onOpenNotifications,
   onOpenRegisterModal,
+  onRequestAdminAccess,
 }) => {
   const { theme, setTheme } = useTheme();
 
@@ -154,7 +156,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   key={item.id}
                   id={`nav-item-${item.id}`}
-                  onClick={() => setCurrentTab(item.id)}
+                  onClick={() => item.id === 'admin' ? onRequestAdminAccess() : setCurrentTab(item.id)}
                   className={`relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                     isActive
                       ? 'bg-[#d4ff00] text-black shadow-md font-black'

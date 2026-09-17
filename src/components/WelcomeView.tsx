@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   GraduationCap, 
   UserCheck, 
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { MEMBERSHIP_TYPES } from '../data/mockData';
 import { Announcement, MembershipTypeCode } from '../types';
+import { AnnouncementReaderModal } from './AnnouncementReaderModal';
 
 interface WelcomeViewProps {
   lang: 'EN' | 'AM';
@@ -26,6 +27,8 @@ interface WelcomeViewProps {
   onOpenDirectory: () => void;
   onOpenVerify: () => void;
   onOpenIdCard: () => void;
+  memberCount: number;
+  cpdPoints: number;
 }
 
 export const WelcomeView: React.FC<WelcomeViewProps> = ({
@@ -35,7 +38,10 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
   onOpenDirectory,
   onOpenVerify,
   onOpenIdCard,
+  memberCount,
+  cpdPoints,
 }) => {
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   return (
     <div className="w-full bg-white dark:bg-[#080808] text-gray-900 dark:text-white">
       {/* ════════ HERO SECTION ════════ */}
@@ -98,7 +104,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
             {/* Quick trust metrics */}
             <div className="mt-14 grid grid-cols-2 sm:grid-cols-4 gap-4 w-full pt-10 border-t border-gray-200 dark:border-white/10 text-center">
               <div className="p-4 bg-black/5 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
-                <div className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white font-syne">1,280+</div>
+                <div className="text-3xl sm:text-4xl font-black text-gray-900 dark:text-white font-syne">{memberCount.toLocaleString()}</div>
                 <div className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mt-1">{lang === 'EN' ? 'EPA Members' : 'የEPA አባላት'}</div>
               </div>
               <div className="p-4 bg-black/5 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
@@ -110,8 +116,8 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                 <div className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mt-1">{lang === 'EN' ? 'Biometric QR Verified' : 'የተረጋገጠ ዲጂታል መታወቂያ'}</div>
               </div>
               <div className="p-4 bg-black/5 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-white/5">
-                <div className="text-3xl sm:text-4xl font-black text-green-700 dark:text-[#d4ff00] font-syne">4,800+</div>
-                <div className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mt-1">{lang === 'EN' ? 'Annual CPD Hours' : 'የሙያ ማሻሻያ ሰዓታት'}</div>
+                <div className="text-3xl sm:text-4xl font-black text-green-700 dark:text-[#d4ff00] font-syne">{cpdPoints.toLocaleString()}</div>
+                <div className="text-[11px] font-mono uppercase tracking-wider text-neutral-600 dark:text-neutral-400 mt-1">{lang === 'EN' ? 'Recorded CPD Points' : 'የተመዘገቡ የCPD ነጥቦች'}</div>
               </div>
             </div>
           </div>
@@ -340,13 +346,14 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
                   </span>
                 </div>
 
-                <h3 className="font-black text-base text-gray-900 dark:text-white font-syne uppercase leading-snug line-clamp-2">
+                <h3 className="font-black text-base text-gray-900 dark:text-white font-syne uppercase leading-snug">
                   {lang === 'EN' ? ann.title : ann.amharic_title || ann.title}
                 </h3>
 
-                <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-2.5 line-clamp-3 leading-relaxed">
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-2.5 leading-relaxed whitespace-pre-wrap">
                   {ann.content}
                 </p>
+                <button onClick={() => setSelectedAnnouncement(ann)} className="mt-4 text-xs font-black uppercase tracking-wider text-green-700 dark:text-[#d4ff00] hover:underline">Read full update</button>
               </div>
 
               <div className="px-6 py-3 bg-gray-50 dark:bg-[#0d0d0f] border-t border-gray-200 dark:border-white/10 flex items-center justify-between text-[11px] font-mono text-neutral-600 dark:text-neutral-400">
@@ -357,6 +364,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           ))}
         </div>
       </section>
+      {selectedAnnouncement && <AnnouncementReaderModal announcement={selectedAnnouncement} lang={lang} onClose={() => setSelectedAnnouncement(null)} />}
     </div>
   );
 };

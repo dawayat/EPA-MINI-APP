@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Search, 
   MapPin, 
@@ -10,15 +10,21 @@ import {
   Filter, 
   ExternalLink, 
   Building,
-  UserCheck
+  UserCheck,
+  MessageCircle,
+  Send,
+  X
 } from 'lucide-react';
-import { Member } from '../types';
+import { Member, MemberMessage } from '../types';
 import { memberPhotoUrl, useFallbackMemberPhoto } from '../lib/media';
+import { fetchMemberMessages, notifyCommunityUpdate, onCommunityUpdate, sendMemberMessage } from '../lib/community';
 
 interface PsychologistDirectoryProps {
   members: Member[];
   lang: 'EN' | 'AM';
   onVerifyMember: (token: string) => void;
+  activeMember?: Member;
+  onRequestMemberLogin: () => void;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
@@ -26,6 +32,8 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
   members,
   lang,
   onVerifyMember,
+  activeMember,
+  onRequestMemberLogin,
   onToast,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -33,6 +41,11 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('ALL');
   const [selectedMembershipType, setSelectedMembershipType] = useState<'ALL' | 'FULL' | 'STUDENT' | 'CORPORATE'>('ALL');
   const [selectedMemberModal, setSelectedMemberModal] = useState<Member | null>(null);
+  const [chatMember, setChatMember] = useState<Member | null>(null);
+  const [messages, setMessages] = useState<MemberMessage[]>([]);
+  const [messageText, setMessageText] = useState('');
+  const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
 
   const cities = ['ALL', 'Addis Ababa', 'Hawassa', 'Bahir Dar', 'Jimma', 'Mekelle', 'Gondar'];
   const specialties = [
@@ -55,6 +68,59 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
     const matchesSearch = !searchQuery || searchString.includes(searchQuery.toLowerCase());
     return matchesCity && matchesType && matchesSpec && matchesSearch;
   });
+
+  useEffect(() => {
+    if (!chatMember || !activeMember) return;
+    let active = true;
+    const refresh = async () => {
+      setIsLoadingChat(true);
+      try {
+        const allMessages = await fetchMemberMessages(activeMember.id);
+        if (active) setMessages(allMessages.filter(message =>
+          (message.sender_id === activeMember.id && message.recipient_id === chatMember.id) ||
+          (message.sender_id === chatMember.id && message.recipient_id === activeMember.id)
+        ));
+      } catch (error: any) {
+        if (active) onToast(error.message || 'Could not load this conversation.', 'error');
+      } finally {
+        if (active) setIsLoadingChat(false);
+      }
+    };
+    void refresh();
+    return onCommunityUpdate(refresh);
+  }, [activeMember?.id, chatMember?.id]);
+
+  const openChat = (member: Member) => {
+    if (!activeMember) {
+      onToast('Sign in as an EPA member to use directory chat.', 'info');
+      onRequestMemberLogin();
+      return;
+    }
+    if (activeMember.id === member.id) {
+      onToast('This is your own member profile.', 'info');
+      return;
+    }
+    setMessages([]);
+    setMessageText('');
+    setChatMember(member);
+  };
+
+  const submitMessage = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const content = messageText.trim();
+    if (!activeMember || !chatMember || !content || isSendingMessage) return;
+    setIsSendingMessage(true);
+    try {
+      const { message } = await sendMemberMessage(activeMember.id, chatMember.id, content);
+      setMessages(current => [...current, message]);
+      setMessageText('');
+      notifyCommunityUpdate();
+    } catch (error: any) {
+      onToast(error.message || 'Could not send your message.', 'error');
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -180,7 +246,7 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
               </div>
             </div>
 
-            <div className="mt-5 pt-4 border-t border-gray-200 dark:border-white/10 flex items-center justify-between gap-2">
+            <div className="mt-5 pt-4 border-t border-gray-200 dark:border-white/10 flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setSelectedMemberModal(member)}
                 className="px-3.5 py-1.5 rounded-xl bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 text-gray-900 dark:text-white text-xs font-mono font-bold transition-colors cursor-pointer border border-gray-200 dark:border-white/10"
@@ -194,6 +260,13 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-black" />
                 <span>Verify Live</span>
+              </button>
+              <button
+                onClick={() => openChat(member)}
+                className="flex items-center gap-1 px-3.5 py-1.5 rounded-xl bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/15 text-gray-900 dark:text-white text-xs font-mono font-black uppercase tracking-wider transition-colors cursor-pointer border border-gray-200 dark:border-white/10"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>Chat</span>
               </button>
             </div>
           </div>
@@ -255,15 +328,33 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
                 Close
               </button>
               <button
-                onClick={() => {
-                  onToast(`Referral inquiry requested for ${selectedMemberModal.first_name}`, 'success');
-                  setSelectedMemberModal(null);
-                }}
+                onClick={() => { setSelectedMemberModal(null); openChat(selectedMemberModal); }}
                 className="flex-1 py-2.5 rounded-xl bg-[#d4ff00] text-black text-xs font-mono font-black uppercase tracking-wider hover:bg-[#c2eb00] cursor-pointer"
               >
-                Request Referral
+                Start Chat
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {chatMember && activeMember && (
+        <div className="fixed inset-0 z-[55] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-lg max-h-[80dvh] rounded-3xl bg-gray-50 dark:bg-[#121214] border border-white/20 shadow-2xl overflow-hidden flex flex-col">
+            <div className="shrink-0 flex items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-3 min-w-0"><img src={memberPhotoUrl(chatMember.id)} onError={useFallbackMemberPhoto} alt="" className="w-10 h-10 rounded-xl object-cover" /><div className="min-w-0"><h3 className="font-black text-sm text-gray-900 dark:text-white truncate">{chatMember.first_name} {chatMember.father_name}</h3><p className="text-[10px] font-mono text-green-700 dark:text-[#d4ff00] uppercase">EPA member chat</p></div></div>
+              <button onClick={() => setChatMember(null)} className="p-2 rounded-xl text-neutral-500 hover:bg-black/5 dark:hover:bg-white/10" aria-label="Close chat"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-3 bg-white/50 dark:bg-black/10">
+              {isLoadingChat ? <p className="py-8 text-center text-xs text-neutral-500">Loading conversation…</p> : messages.length === 0 ? <p className="py-8 text-center text-xs text-neutral-500">No messages yet. Start the conversation.</p> : messages.map(message => {
+                const mine = message.sender_id === activeMember.id;
+                return <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${mine ? 'bg-[#d4ff00] text-black rounded-br-sm' : 'bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white rounded-bl-sm'}`}><p>{message.content}</p><p className={`mt-1 text-[9px] font-mono ${mine ? 'text-black/60' : 'text-neutral-500'}`}>{new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p></div></div>;
+              })}
+            </div>
+            <form onSubmit={submitMessage} className="shrink-0 flex gap-2 p-3 border-t border-gray-200 dark:border-white/10">
+              <input value={messageText} onChange={event => setMessageText(event.target.value)} maxLength={2000} placeholder="Write a message…" className="min-w-0 flex-1 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black px-3 py-2.5 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00]" />
+              <button disabled={!messageText.trim() || isSendingMessage} className="rounded-xl bg-[#d4ff00] px-3 text-black disabled:opacity-50" aria-label="Send message"><Send className="w-4 h-4" /></button>
+            </form>
           </div>
         </div>
       )}

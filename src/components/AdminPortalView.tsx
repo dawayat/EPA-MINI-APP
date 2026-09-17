@@ -3,9 +3,10 @@ import {
   Users, Clock, CreditCard, CheckCircle2, XCircle, AlertTriangle,
   Search, FileText, Plus, Building, ShieldCheck, Send, Eye, Check,
   X, ExternalLink, History, GraduationCap, Vote, BookOpen, BarChart2,
-  Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud, Settings, Mail, Phone, ClipboardCheck, ScanLine, RefreshCw
+  Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud, Settings, Mail, Phone, ClipboardCheck, ScanLine, RefreshCw, LogOut
 } from 'lucide-react';
 import { uploadFile } from '../lib/api';
+import { adminHeaders } from '../lib/admin';
 import { memberPhotoUrl, useFallbackMemberPhoto } from '../lib/media';
 import { Application, Member, University, Announcement, AuditLog, ApplicationStatus, ResearchSubmission } from '../types';
 
@@ -29,8 +30,11 @@ interface AdminPortalViewProps {
   onUpdateResearchSubmission: (id: string, status: ResearchSubmission['status'], reviewNotes?: string) => Promise<void>;
   onOpenApplication: (applicationId: string) => Promise<Application>;
   onMembersImported: () => Promise<void>;
+  onSignOut: () => void;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
+
+const isImageAsset = (value?: string) => Boolean(value && (/^data:image\//i.test(value) || /\.(?:avif|gif|jpe?g|png|webp)(?:[?#].*)?$/i.test(value)));
 
 export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   lang,
@@ -52,6 +56,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   onUpdateResearchSubmission,
   onOpenApplication,
   onMembersImported,
+  onSignOut,
   onToast,
 }) => {
   const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'members' | 'cpd' | 'elections' | 'universities' | 'audit' | 'announcements' | 'research'>('applications');
@@ -218,7 +223,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     try {
       const content = await file.text();
       const rows = parseCsv(content);
-      const resultResponse = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'bulk-import', rows }) });
+      const resultResponse = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify({ action: 'bulk-import', rows }) });
       const result = await resultResponse.json();
       if (!resultResponse.ok || !result.success) throw new Error(result.error || 'Member import failed.');
       const errors = (result.errors || []).map((error: { row: number; error: string }) => `Row ${error.row}: ${error.error}`);
@@ -259,7 +264,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     const membership_number = token ? '' : scanned;
     setIsRecordingAttendance(true); setScanResult(null);
     try {
-      const response = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'record-attendance', token, membership_number, event_name: attendanceEvent.trim(), checked_in_by: 'EPA admin scanner' }) });
+      const response = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify({ action: 'record-attendance', token, membership_number, event_name: attendanceEvent.trim(), checked_in_by: 'EPA admin scanner' }) });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'ID could not be verified.');
       setScanResult({ success: true, message: `${result.member.first_name} ${result.member.father_name} verified and checked in at ${attendanceEvent}.`, member: result.member });
@@ -296,7 +301,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
 
   const approvePendingRenewal = async (memberId: string) => {
     try {
-      const response = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'approve-renewal', memberId }) });
+      const response = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify({ action: 'approve-renewal', memberId }) });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Could not approve renewal.');
       await onMembersImported();
@@ -323,6 +328,12 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={onSignOut}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-gray-900 dark:text-white text-xs font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer"
+            >
+              <LogOut className="w-4 h-4" /> Sign out
+            </button>
             <button 
               onClick={openDatabaseSetup}
               className="flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-xs font-black uppercase tracking-wider transition-all shadow-lg shadow-orange-500/20 active:scale-95 cursor-pointer"
@@ -1126,14 +1137,21 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       <div className="font-black text-gray-900 dark:text-white font-syne">
                         {reviewingApp.payment.amount} ETB via {reviewingApp.payment.provider}
                       </div>
-                      <div className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300 mt-0.5">
-                        Ref: {reviewingApp.payment.transaction_number}
-                      </div>
+                      {reviewingApp.payment.transaction_number && (
+                        <div className="font-mono text-[11px] text-neutral-700 dark:text-neutral-300 mt-0.5">
+                          Ref: {reviewingApp.payment.transaction_number}
+                        </div>
+                      )}
                       {reviewingApp.payment.receipt_url && (
-                        <div className="mt-2">
-                          <a href={reviewingApp.payment.receipt_url} target="_blank" rel="noreferrer" className="text-blue-500 underline text-xs font-bold">
-                            View Receipt Attachment
-                          </a>
+                        <div className="mt-3 rounded-xl overflow-hidden border border-[#d4ff00]/25 bg-white/60 dark:bg-black/30">
+                          <div className="px-3 py-2 text-[10px] font-mono font-black uppercase tracking-wider text-neutral-600 dark:text-neutral-300 border-b border-[#d4ff00]/20">Receipt attachment</div>
+                          {isImageAsset(reviewingApp.payment.receipt_url) ? (
+                            <img src={reviewingApp.payment.receipt_url} alt="Payment receipt" className="w-full max-h-80 object-contain bg-black/5" />
+                          ) : (
+                            <a href={reviewingApp.payment.receipt_url} target="_blank" rel="noreferrer" className="m-3 inline-flex items-center gap-1.5 text-blue-500 underline text-xs font-bold">
+                              <ExternalLink className="w-3.5 h-3.5" /> Open receipt file
+                            </a>
+                          )}
                         </div>
                       )}
                     </div>

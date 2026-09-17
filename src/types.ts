@@ -63,7 +63,7 @@ export interface PaymentProof {
   amount: number;
   currency: string;
   provider: 'Telebirr' | 'CBE' | 'Awash Bank' | 'Direct Transfer';
-  transaction_number: string;
+  transaction_number?: string;
   payment_date: string;
   status: 'PENDING' | 'VERIFIED' | 'REJECTED';
   receipt_url?: string;

@@ -1,10 +1,12 @@
 import { dbSelect, dbInsert, cors } from './_db.js';
+import { requireAdmin } from './_admin.js';
 
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
+    requireAdmin(req);
     if (req.method === 'GET') {
       const rows = await dbSelect('audit_logs', 'order=created_at.desc&limit=500');
       return res.status(200).json(rows);
@@ -25,6 +27,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('[audit-logs]', err.message);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(err.statusCode || 500).json({ success: false, error: err.message });
   }
 }

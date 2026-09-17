@@ -34,6 +34,18 @@ TELEGRAM_CHANNEL_ID=@epaminiapp
 
 Channel buttons use `https://t.me/EPAMINIAPP_bot/EPAPORTAL` by default, which opens the EPA Mini App inside Telegram. If it ever changes, set `TELEGRAM_MINI_APP_LINK` to the replacement `https://t.me/...` Mini App link.
 
+## Admin portal sign-in
+
+The admin screen and its private API routes require a server-side session. In Vercel Project Settings → Environment Variables, set all three values below (and use the same values in `.env.local` for local testing):
+
+```text
+EPA_ADMIN_USERNAME=your-admin-username
+EPA_ADMIN_PASSWORD=a-long-unique-password
+EPA_ADMIN_SESSION_SECRET=a-different-long-random-secret
+```
+
+Do not use `VITE_` for these values and do not place them in frontend code. A session lasts eight hours and can be ended with **Sign out** in the admin portal.
+
 ## Stack
 - React
 - Vite
