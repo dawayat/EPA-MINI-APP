@@ -21,11 +21,15 @@ async function postToTelegram(a) {
   const reply_markup = { inline_keyboard: [[{ text: String(a.telegram_button_label || 'Open EPA Mini App').slice(0, 64), url: buttonUrl }]] };
   const caption = `<b>${escapeHtml(a.title || 'EPA Update').slice(0, 180)}</b>\n\n${escapeHtml(a.content || '').slice(0, 760)}`;
   const mediaUrl = String(a.telegram_media_url || '').trim();
+  const telegramFileId = String(a.telegram_media_file_id || '').trim();
+  // A Telegram file ID refers to media Telegram already hosts for this bot.
+  // Reusing it avoids a browser -> Vercel -> Telegram media transfer entirely.
+  const mediaReference = telegramFileId || mediaUrl;
   const mediaType = a.telegram_media_type || (mediaUrl.startsWith('data:video/') ? 'video' : 'image');
-  const endpoint = mediaUrl ? (mediaType === 'video' ? 'sendVideo' : 'sendPhoto') : 'sendMessage';
+  const endpoint = mediaReference ? (mediaType === 'video' ? 'sendVideo' : 'sendPhoto') : 'sendMessage';
   const url = `https://api.telegram.org/bot${botToken}/${endpoint}`;
   let response;
-  if (mediaUrl) {
+  if (mediaReference) {
     const payload = new FormData();
     payload.append('chat_id', channelId);
     payload.append('caption', caption);
@@ -37,7 +41,7 @@ async function postToTelegram(a) {
       const binary = Buffer.from(encoded || '', 'base64');
       payload.append(mediaType === 'video' ? 'video' : 'photo', new Blob([binary], { type: mime }), mediaType === 'video' ? 'epa-announcement.mp4' : 'epa-announcement.jpg');
     } else {
-      payload.append(mediaType === 'video' ? 'video' : 'photo', mediaUrl);
+      payload.append(mediaType === 'video' ? 'video' : 'photo', mediaReference);
     }
     response = await fetch(url, { method: 'POST', body: payload });
   } else {

@@ -188,6 +188,8 @@ export interface Announcement {
   file_attachment_url?: string;
   is_draft?: boolean;
   telegram_media_url?: string;
+  /** A Telegram-hosted image/video reference, never stored in the database. */
+  telegram_media_file_id?: string;
   telegram_media_type?: 'image' | 'video';
   publish_to_telegram?: boolean;
   telegram_button_label?: string;

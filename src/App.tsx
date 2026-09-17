@@ -358,13 +358,23 @@ export default function App() {
       if (!memberResult.success) throw new Error(memberResult.error || 'Member account could not be created.');
       const approvalUpdate = await updateApplicationStatus(appId, 'APPROVED');
 
-      setMembers(prev => [newMember, ...prev]);
+      // The API deliberately removes an ID already linked to another member
+      // rather than aborting approval. Reflect the saved record locally.
+      const savedMember = memberResult.telegram_conflict
+        ? { ...newMember, telegram_id: undefined }
+        : newMember;
+      setMembers(prev => [savedMember, ...prev]);
       setMemberStats(current => ({ member_count: current.member_count + 1, cpd_points: current.cpd_points + newMember.cpd_points }));
       setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'APPROVED' } : a));
       setActiveMemberId(newMember.id);
       setCurrentTab('idcard');
       if (approvalUpdate.email?.delivered) {
-        showToast('Application approved, member account created, and approval email sent.', 'success');
+        showToast(
+          memberResult.telegram_conflict
+            ? `Application approved and email sent to ${app.email}. Its Telegram account is already linked to another member, so it was not linked again.`
+            : 'Application approved, member account created, and approval email sent.',
+          'success'
+        );
       } else {
         showToast(`Application approved and member account created. Approval email was not delivered: ${approvalUpdate.email?.error || 'email service is not configured in Vercel.'}`, 'error');
       }
@@ -506,6 +516,7 @@ export default function App() {
       target_audience: ann.target_audience,
       is_draft: ann.is_draft,
       telegram_media_url: ann.telegram_media_url,
+      telegram_media_file_id: ann.telegram_media_file_id,
       telegram_media_type: ann.telegram_media_type,
       publish_to_telegram: ann.publish_to_telegram,
       telegram_button_label: ann.telegram_button_label,

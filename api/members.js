@@ -126,7 +126,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const m = req.body;
+      const m = req.body || {};
       if (m.action === 'record-attendance') {
         requireAdmin(req);
         const token = String(m.token || '').trim();
@@ -239,8 +239,37 @@ export default async function handler(req, res) {
       for (const f of fields) {
         if (m[f] !== undefined && m[f] !== null) row[f] = m[f];
       }
-      await dbInsert('members', row);
-      return res.status(201).json({ success: true });
+
+      // A Telegram account may only be linked to one EPA record. Do not let a
+      // re-used Telegram ID block the rest of the approval workflow (including
+      // its approval email); create the member without that duplicate link.
+      let telegramConflict = false;
+      const telegramId = String(row.telegram_id ?? '').trim();
+      if (telegramId) {
+        const existingTelegramMember = await dbSelect(
+          'members',
+          `telegram_id=eq.${encodeURIComponent(telegramId)}&select=id&limit=1`
+        );
+        if (existingTelegramMember.length > 0) {
+          delete row.telegram_id;
+          telegramConflict = true;
+        }
+      }
+
+      try {
+        await dbInsert('members', row);
+      } catch (error) {
+        // Protect the rare race where a second approval links this Telegram ID
+        // after the check above but before this insert reaches Postgres.
+        const isTelegramUniqueConflict = !telegramConflict
+          && telegramId
+          && /members_telegram_id_key|Key \(telegram_id\)/.test(String(error?.message || ''));
+        if (!isTelegramUniqueConflict) throw error;
+        delete row.telegram_id;
+        telegramConflict = true;
+        await dbInsert('members', row);
+      }
+      return res.status(201).json({ success: true, telegram_conflict: telegramConflict });
     }
 
     if (req.method === 'DELETE') {

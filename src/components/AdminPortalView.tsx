@@ -97,6 +97,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     target_audience: [] as string[],
     publish_to_telegram: true,
     telegram_media_url: '',
+    telegram_media_file_id: '',
     telegram_media_type: 'image' as 'image' | 'video',
     telegram_button_label: 'Open EPA Mini App',
     telegram_button_url: ''
@@ -246,7 +247,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     const published = await onAddAnnouncement(newAnn);
     if (!published) return;
     setShowAnnModal(false);
-    setNewAnn({ title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '', is_draft: false, file_attachment_url: '', target_audience: [], publish_to_telegram: true, telegram_media_url: '', telegram_media_type: 'image', telegram_button_label: 'Open EPA Mini App', telegram_button_url: '' });
+    setNewAnn({ title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '', is_draft: false, file_attachment_url: '', target_audience: [], publish_to_telegram: true, telegram_media_url: '', telegram_media_file_id: '', telegram_media_type: 'image', telegram_button_label: 'Open EPA Mini App', telegram_button_url: '' });
   };
 
   const stopAttendanceCamera = () => {
@@ -1381,7 +1382,36 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </div>
               {newAnn.publish_to_telegram && <div className="mt-4 space-y-3">
                 <div><div className="grid gap-3 sm:grid-cols-2"><input value={newAnn.telegram_button_label} onChange={event => setNewAnn(current => ({ ...current, telegram_button_label: event.target.value }))} placeholder="Button label" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" /><input value={newAnn.telegram_button_url} onChange={event => setNewAnn(current => ({ ...current, telegram_button_url: event.target.value }))} placeholder="Telegram Mini App link (optional)" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" /></div><p className="mt-1.5 text-[10px] text-sky-800/70 dark:text-sky-200/60">Leave the link blank to use the configured Main Mini App. Do not paste the ordinary Vercel website URL here.</p></div>
-                <div className="flex flex-wrap items-center gap-2"><input ref={annTelegramMediaInputRef} type="file" accept="image/*,video/mp4,video/webm" className="hidden" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; if (file.type.startsWith('video/') && file.size > 2.5 * 1024 * 1024) { onToast('Use a video smaller than 2.5 MB for reliable channel posting.', 'error'); event.currentTarget.value = ''; return; } setIsUploadingTelegramMedia(true); try { const url = await uploadFile(file); setNewAnn(current => ({ ...current, telegram_media_url: url, telegram_media_type: file.type.startsWith('video/') ? 'video' : 'image' })); } catch (error) { onToast('Could not prepare Telegram media.', 'error'); } finally { setIsUploadingTelegramMedia(false); event.currentTarget.value = ''; } }} /><button type="button" onClick={() => annTelegramMediaInputRef.current?.click()} disabled={isUploadingTelegramMedia} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs font-bold text-sky-950 disabled:opacity-60 dark:border-white/10 dark:bg-black dark:text-white"><UploadCloud className="h-4 w-4" />{isUploadingTelegramMedia ? 'Preparing media…' : newAnn.telegram_media_url ? 'Replace image/video' : 'Add image or video'}</button><span className="text-[10px] text-sky-800/70 dark:text-sky-200/60">Video limit: 2.5 MB</span>{newAnn.telegram_media_url && <button type="button" onClick={() => setNewAnn(current => ({ ...current, telegram_media_url: '' }))} className="text-[11px] font-bold text-red-600">Remove</button>}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input ref={annTelegramMediaInputRef} type="file" accept="image/*,video/mp4,video/webm" className="hidden" onChange={async event => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    if (file.type.startsWith('video/') && file.size > 2.5 * 1024 * 1024) {
+                      onToast('For videos over 2.5 MB, send it to the EPA bot in Telegram and paste the returned File ID below (up to 50 MB).', 'error');
+                      event.currentTarget.value = '';
+                      return;
+                    }
+                    setIsUploadingTelegramMedia(true);
+                    try {
+                      const url = await uploadFile(file);
+                      setNewAnn(current => ({ ...current, telegram_media_url: url, telegram_media_file_id: '', telegram_media_type: file.type.startsWith('video/') ? 'video' : 'image' }));
+                    } catch (error) {
+                      onToast('Could not prepare Telegram media.', 'error');
+                    } finally {
+                      setIsUploadingTelegramMedia(false);
+                      event.currentTarget.value = '';
+                    }
+                  }} />
+                  <button type="button" onClick={() => annTelegramMediaInputRef.current?.click()} disabled={isUploadingTelegramMedia} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs font-bold text-sky-950 disabled:opacity-60 dark:border-white/10 dark:bg-black dark:text-white"><UploadCloud className="h-4 w-4" />{isUploadingTelegramMedia ? 'Preparing media…' : newAnn.telegram_media_url ? 'Replace image/video' : 'Add image or video'}</button>
+                  <span className="text-[10px] text-sky-800/70 dark:text-sky-200/60">Direct site upload: 2.5 MB max</span>
+                  {newAnn.telegram_media_url && <button type="button" onClick={() => setNewAnn(current => ({ ...current, telegram_media_url: '' }))} className="text-[11px] font-bold text-red-600">Remove</button>}
+                </div>
+                <div className="grid gap-2 sm:grid-cols-[9rem_1fr]">
+                  <select value={newAnn.telegram_media_type} onChange={event => setNewAnn(current => ({ ...current, telegram_media_type: event.target.value as 'image' | 'video' }))} className="rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white"><option value="image">Telegram photo</option><option value="video">Telegram video</option></select>
+                  <input value={newAnn.telegram_media_file_id || ''} onChange={event => setNewAnn(current => ({ ...current, telegram_media_file_id: event.target.value.trim(), telegram_media_url: '' }))} placeholder="Telegram File ID — up to 50 MB" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" />
+                </div>
+                <p className="text-[10px] leading-relaxed text-sky-800/70 dark:text-sky-200/60">For a 50 MB video, send it to the EPA bot as a video in Telegram. The bot replies with its File ID; paste it here and select Telegram video. The post reuses Telegram-hosted media, so it does not consume Vercel transfer.</p>
+                {newAnn.telegram_media_file_id && <p className="rounded-lg bg-green-500/10 px-3 py-2 text-[10px] font-bold text-green-700 dark:text-[#d4ff00]">Telegram-hosted {newAnn.telegram_media_type} selected (up to 50 MB).</p>}
                 {newAnn.telegram_media_url && (newAnn.telegram_media_type === 'video' ? <video src={newAnn.telegram_media_url} controls className="h-32 w-full rounded-xl bg-black object-cover" /> : <img src={newAnn.telegram_media_url} alt="Telegram post preview" className="h-32 w-full rounded-xl object-cover" />)}
               </div>}
             </div>

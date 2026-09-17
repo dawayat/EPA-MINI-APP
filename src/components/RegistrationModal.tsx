@@ -348,7 +348,19 @@ export default function RegistrationModal({
         <Input label="Date of Birth" type="date" required value={formData.date_of_birth || ''} onChange={(e: any) => updateForm('date_of_birth', e.target.value)} />
         <Input label="Email Address" type="email" required value={formData.email || ''} onChange={(e: any) => updateForm('email', e.target.value)} />
         <Input label="Phone Number" type="tel" required value={formData.phone || ''} onChange={(e: any) => updateForm('phone', e.target.value)} />
-        <Select label="City" options={CITIES} required value={formData.city} onChange={(e: any) => updateForm('city', e.target.value)} />
+        <div>
+          <Input
+            label="City"
+            required
+            list="epa-city-suggestions"
+            placeholder="Start typing your city"
+            value={formData.city || ''}
+            onChange={(e: any) => updateForm('city', e.target.value)}
+          />
+          <datalist id="epa-city-suggestions">
+            {CITIES.filter(city => city !== 'Other').map(city => <option key={city} value={city} />)}
+          </datalist>
+        </div>
       </div>
     </div>
   );

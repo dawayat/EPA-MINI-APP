@@ -41,7 +41,12 @@ async function apiGetOne<T>(path: string, headers?: HeadersInit): Promise<T | nu
 }
 
 type TelegramPublishStatus = { attempted: boolean; posted: boolean; error?: string; message_id?: number };
-async function apiPost(path: string, body: any, authenticated = false): Promise<{ success: boolean; error?: string; telegram?: TelegramPublishStatus }> {
+async function apiPost(path: string, body: any, authenticated = false): Promise<{
+  success: boolean;
+  error?: string;
+  telegram?: TelegramPublishStatus;
+  telegram_conflict?: boolean;
+}> {
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
@@ -53,7 +58,11 @@ async function apiPost(path: string, body: any, authenticated = false): Promise<
       console.error(`[API] POST ${path} failed:`, res.status, data);
       return { success: false, error: data.error || `HTTP ${res.status}` };
     }
-    return { success: true, telegram: data.telegram };
+    return {
+      success: true,
+      telegram: data.telegram,
+      telegram_conflict: Boolean(data.telegram_conflict),
+    };
   } catch (err: any) {
     console.error(`[API] POST ${path} error:`, err);
     return { success: false, error: err.message };
@@ -209,6 +218,7 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
     ...dbRow,
     publish_to_telegram: Boolean(announcementData.publish_to_telegram),
     telegram_media_url: announcementData.telegram_media_url,
+    telegram_media_file_id: announcementData.telegram_media_file_id,
     telegram_media_type: announcementData.telegram_media_type,
     telegram_button_label: announcementData.telegram_button_label,
     telegram_button_url: announcementData.telegram_button_url
