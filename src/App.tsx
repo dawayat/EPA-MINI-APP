@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { isSupabaseConfigured } from './lib/supabase';
 import { 
   fetchMembers, fetchMemberStats, fetchDirectoryMembers, fetchApplications, fetchApplicationDetail, fetchAnnouncements,
@@ -538,7 +538,7 @@ export default function App() {
     }));
   };
 
-  const handleAddAnnouncement = async (ann: Partial<Announcement>) => {
+  const handleAddAnnouncement = async (ann: Partial<Announcement> & { recipient_member_ids?: string[] }) => {
     const fullAnn: Announcement = {
       id: 'ann-' + Date.now(),
       title: ann.title || 'Untitled Announcement',
@@ -561,19 +561,21 @@ export default function App() {
       views_count: 1
     };
     if (isSupabaseConfigured) {
-      const result = await publishAnnouncement(fullAnn);
+      const result = await publishAnnouncement({ ...fullAnn, recipient_member_ids: ann.recipient_member_ids });
       if (!result.success) {
         console.error('[App] Announcement publish failed:', result.error);
         showToast(`Database error: ${result.error}`, 'error');
-        return false;
+        return { success: false as const, emailReport: [] };
       } else {
         if (ann.publish_to_telegram) {
           showToast(result.telegram?.posted ? 'Announcement published to the portal, email list, and Telegram channel.' : `Announcement published to the portal. Telegram was not posted: ${result.telegram?.error || 'Telegram is not configured.'}`, result.telegram?.posted ? 'success' : 'error');
         } else showToast('Announcement published to the member portal and email list.', 'success');
       }
+      setAnnouncements(prev => [fullAnn, ...prev]);
+      return { success: true as const, emailReport: result.emailReport || [] };
     }
     setAnnouncements(prev => [fullAnn, ...prev]);
-    return true;
+    return { success: true as const, emailReport: [] };
   };
 
   const handleAddUniversity = (uni: Partial<University>) => {
@@ -593,7 +595,7 @@ export default function App() {
     showToast(
       lang === 'EN' 
         ? 'Successfully registered for CPD session! Zoom confirmation link generated.' 
-        : 'ለስልጠናው በተሳካ ሁኔታ ተመዝግበዋል!',
+        : 'áˆˆáˆµáˆáŒ áŠ“á‹ á‰ á‰°áˆ³áŠ« áˆáŠ”á‰³ á‰°áˆ˜á‹áŒá‰ á‹‹áˆ!',
       'success'
     );
   };
@@ -671,25 +673,25 @@ export default function App() {
                 <ShieldCheck className="w-10 h-10 text-neutral-400 dark:text-neutral-500" />
               </div>
               <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-3 font-syne">
-                {lang === 'EN' ? 'Access Restricted' : 'መግባት አይቻልም'}
+                {lang === 'EN' ? 'Access Restricted' : 'áˆ˜áŒá‰£á‰µ áŠ á‹­á‰»áˆáˆ'}
               </h2>
               <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-sm mb-6 leading-relaxed">
                 {lang === 'EN' 
                   ? 'This portal is for approved members only. Log in with your phone and password, or submit an application.'
-                  : 'ይህ ገጽ ለተረጋገጡ አባላት ብቻ ነው። ስልክ ቁጥርዎ እና የይለፍ ቃልዎን ይጠቀሙ።'}
+                  : 'á‹­áˆ… áŒˆáŒ½ áˆˆá‰°áˆ¨áŒ‹áŒˆáŒ¡ áŠ á‰£áˆ‹á‰µ á‰¥á‰» áŠá‹á¢ áˆµáˆáŠ­ á‰áŒ¥áˆ­á‹Ž áŠ¥áŠ“ á‹¨á‹­áˆˆá á‰ƒáˆá‹ŽáŠ• á‹­áŒ á‰€áˆ™á¢'}
               </p>
               <div className="flex flex-col gap-3 w-full max-w-xs">
                 <button 
                   onClick={() => setIsPhoneLoginOpen(true)} 
                   className="px-8 py-3.5 bg-[#d4ff00] text-black font-black uppercase text-xs rounded-xl shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:shadow-[0_0_30px_rgba(212,255,0,0.5)] transition-all active:scale-95"
                 >
-                  🔐 {lang === 'EN' ? 'Login with Phone & Password' : 'ስልክ ቁጥርዎ በመጠቀም ግባ'}
+                  ðŸ” {lang === 'EN' ? 'Login with Phone & Password' : 'áˆµáˆáŠ­ á‰áŒ¥áˆ­á‹Ž á‰ áˆ˜áŒ á‰€áˆ áŒá‰£'}
                 </button>
                 <button 
                   onClick={() => setCurrentTab('welcome')} 
                   className="px-8 py-3 bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 font-bold uppercase text-xs rounded-xl hover:bg-gray-200 dark:hover:bg-white/20 transition-all active:scale-95"
                 >
-                  {lang === 'EN' ? 'Return Home' : 'ወደ መነሻ ተመለስ'}
+                  {lang === 'EN' ? 'Return Home' : 'á‹ˆá‹° áˆ˜áŠáˆ» á‰°áˆ˜áˆˆáˆµ'}
                 </button>
               </div>
             </div>
@@ -711,25 +713,25 @@ export default function App() {
                 <CreditCard className="w-10 h-10 text-neutral-400 dark:text-neutral-500" />
               </div>
               <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-3 font-syne">
-                {lang === 'EN' ? 'No Digital ID Found' : 'መታወቂያ አልተገኘም'}
+                {lang === 'EN' ? 'No Digital ID Found' : 'áˆ˜á‰³á‹ˆá‰‚á‹« áŠ áˆá‰°áŒˆáŠ˜áˆ'}
               </h2>
               <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-sm mb-6 leading-relaxed">
                 {lang === 'EN' 
                   ? 'Log in with your phone and password to view your Digital ID, or submit an application to become a member.'
-                  : 'ስልክ ቁጥርዎን እና የይለፍ ቃልዎን ይጠቀሙ ወይም ማመልከቻ ያስገቡ።'}
+                  : 'áˆµáˆáŠ­ á‰áŒ¥áˆ­á‹ŽáŠ• áŠ¥áŠ“ á‹¨á‹­áˆˆá á‰ƒáˆá‹ŽáŠ• á‹­áŒ á‰€áˆ™ á‹ˆá‹­áˆ áˆ›áˆ˜áˆáŠ¨á‰» á‹«áˆµáŒˆá‰¡á¢'}
               </p>
               <div className="flex flex-col gap-3 w-full max-w-xs">
                 <button 
                   onClick={() => setIsPhoneLoginOpen(true)} 
                   className="px-8 py-3.5 bg-[#d4ff00] text-black font-black uppercase text-xs rounded-xl shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:shadow-[0_0_30px_rgba(212,255,0,0.5)] transition-all active:scale-95"
                 >
-                  🔐 {lang === 'EN' ? 'Login with Phone & Password' : 'ስልክ ቁጥርዎ በመጠቀም ግባ'}
+                  ðŸ” {lang === 'EN' ? 'Login with Phone & Password' : 'áˆµáˆáŠ­ á‰áŒ¥áˆ­á‹Ž á‰ áˆ˜áŒ á‰€áˆ áŒá‰£'}
                 </button>
                 <button 
                   onClick={() => setCurrentTab('welcome')} 
                   className="px-8 py-3 bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 font-bold uppercase text-xs rounded-xl hover:bg-gray-200 dark:hover:bg-white/20 transition-all active:scale-95"
                 >
-                  {lang === 'EN' ? 'Return Home' : 'ወደ መነሻ ተመለስ'}
+                  {lang === 'EN' ? 'Return Home' : 'á‹ˆá‹° áˆ˜áŠáˆ» á‰°áˆ˜áˆˆáˆµ'}
                 </button>
               </div>
             </div>
@@ -802,7 +804,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Demo Mode Switcher — never included in a production website. */}
+      {/* Demo Mode Switcher â€” never included in a production website. */}
       {import.meta.env.DEV && !isTelegramMiniApp() && (
         <div className="fixed bottom-4 right-4 z-40 bg-white/90 dark:bg-[#121214]/95 backdrop-blur-md text-gray-900 dark:text-white p-2 rounded-2xl shadow-2xl border border-gray-200 dark:border-white/10 flex items-center gap-1.5">
           <span className="text-[9px] font-mono font-black uppercase text-green-700 dark:text-[#d4ff00] tracking-wider hidden sm:inline pl-1">DEMO:</span>
@@ -885,8 +887,8 @@ export default function App() {
               EPA
             </div>
             <div>
-              <div className="font-black text-sm uppercase tracking-wider text-gray-900 dark:text-white">Ethiopian Psychologists’ Association</div>
-              <div className="text-xs font-bold text-green-700 dark:text-[#d4ff00]">የኢትዮጵያ ሳይኮሎጂ ባለሙያዎች ማኅበር (ኢሳይባ)</div>
+              <div className="font-black text-sm uppercase tracking-wider text-gray-900 dark:text-white">Ethiopian Psychologistsâ€™ Association</div>
+              <div className="text-xs font-bold text-green-700 dark:text-[#d4ff00]">á‹¨áŠ¢á‰µá‹®áŒµá‹« áˆ³á‹­áŠ®áˆŽáŒ‚ á‰£áˆˆáˆ™á‹«á‹Žá‰½ áˆ›áŠ…á‰ áˆ­ (áŠ¢áˆ³á‹­á‰£)</div>
             </div>
           </div>
 
@@ -902,13 +904,13 @@ export default function App() {
 
         <div className="max-w-6xl mx-auto pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono uppercase text-neutral-500 dark:text-neutral-500">
           <div>
-            © 2026 Ethiopian Psychologists’ Association. Federal Proclamation No. 1113/2019.
+            Â© 2026 Ethiopian Psychologistsâ€™ Association. Federal Proclamation No. 1113/2019.
           </div>
           <div className="flex items-center gap-4">
             <span>Addis Ababa, Ethiopia</span>
-            <span>•</span>
+            <span>â€¢</span>
             <span>Tel: +251 11 123 4567</span>
-            <span>•</span>
+            <span>â€¢</span>
             <span className="text-green-700 dark:text-[#d4ff00] font-bold">REGISTRY V2.4.0</span>
           </div>
         </div>

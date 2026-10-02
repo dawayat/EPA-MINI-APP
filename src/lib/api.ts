@@ -200,7 +200,9 @@ export async function submitApplication(appData: Partial<Application>): Promise<
   return apiPost('/api/applications', sanitized);
 }
 
-export async function publishAnnouncement(announcementData: Partial<Announcement>): Promise<{ success: boolean; error?: string; telegram?: TelegramPublishStatus }> {
+export type EmailDeliveryRecord = { name: string; email: string; status: 'sent' | 'failed'; error?: string };
+
+export async function publishAnnouncement(announcementData: Partial<Announcement> & { recipient_member_ids?: string[] }): Promise<{ success: boolean; error?: string; telegram?: TelegramPublishStatus; emailed?: number; emailReport?: EmailDeliveryRecord[] }> {
   const dbRow: Record<string, any> = {
     id: announcementData.id,
     title: announcementData.title,
@@ -223,17 +225,29 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
   // not persisted in attachments, so it cannot inflate future list responses.
   if (attachments.length > 0) dbRow.attachments = attachments;
   if (announcementData.target_audience) dbRow.target_audience = announcementData.target_audience;
+  if (announcementData.recipient_member_ids) dbRow.recipient_member_ids = announcementData.recipient_member_ids;
 
   console.log('[API] Publishing announcement:', dbRow.title);
-  return apiPost('/api/announcements', {
-    ...dbRow,
-    publish_to_telegram: Boolean(announcementData.publish_to_telegram),
-    telegram_media_url: announcementData.telegram_media_url,
-    telegram_media_file_id: announcementData.telegram_media_file_id,
-    telegram_media_type: announcementData.telegram_media_type,
-    telegram_button_label: announcementData.telegram_button_label,
-    telegram_button_url: announcementData.telegram_button_url
-  }, true);
+  try {
+    const res = await fetch('/api/announcements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...adminHeaders() },
+      body: JSON.stringify({
+        ...dbRow,
+        publish_to_telegram: Boolean(announcementData.publish_to_telegram),
+        telegram_media_url: announcementData.telegram_media_url,
+        telegram_media_file_id: announcementData.telegram_media_file_id,
+        telegram_media_type: announcementData.telegram_media_type,
+        telegram_button_label: announcementData.telegram_button_label,
+        telegram_button_url: announcementData.telegram_button_url,
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { success: false, error: data.error || `HTTP ${res.status}` };
+    return { success: true, telegram: data.telegram, emailed: data.emailed, emailReport: data.emailReport };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 }
 
 export async function submitRenewal(memberId: string, transactionNumber: string, receiptUrl: string, amount = 1500) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { 
   Users, Clock, CreditCard, CheckCircle2, XCircle, AlertTriangle,
   Search, FileText, Plus, Building, ShieldCheck, Send, Eye, Check,
@@ -23,7 +23,7 @@ interface AdminPortalViewProps {
   onRejectApplication: (appId: string, reason: string) => Promise<boolean>;
   onRequestCorrection: (appId: string, notes: string) => void;
   onVerifyPayment: (appId: string) => void;
-  onAddAnnouncement: (ann: Partial<Announcement>) => Promise<boolean>;
+  onAddAnnouncement: (ann: Partial<Announcement> & { recipient_member_ids?: string[] }) => Promise<any>;
   onDeleteMember?: (memberId: string) => void;
   onDeleteAnnouncement?: (annId: string) => void;
   onAddUniversity: (uni: Partial<University>) => void;
@@ -145,6 +145,20 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     telegram_button_url: ''
   });
   
+  const [emailNotify, setEmailNotify] = useState<boolean>(true);
+  const [recipientMode, setRecipientMode] = useState<'all' | 'selected'>('all');
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]);
+  const [recipientSearch, setRecipientSearch] = useState<string>('');
+  const [isPublishingAnn, setIsPublishingAnn] = useState<boolean>(false);
+  const [deliveryReport, setDeliveryReport] = useState<{
+    title: string;
+    total: number;
+    sent: number;
+    failed: number;
+    records: { name: string; email: string; status: 'sent' | 'failed'; error?: string }[];
+  } | null>(null);
+  const [showDeliveryReportModal, setShowDeliveryReportModal] = useState<boolean>(false);
+  const [reportSearch, setReportSearch] = useState<string>('');
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const annFileInputRef = React.useRef<HTMLInputElement>(null);
@@ -281,15 +295,49 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     }
   };
 
+  const emailableMembers = members.filter(m => m.email && m.email.trim());
+  const filteredEmailMembers = emailableMembers.filter(m => {
+    const q = recipientSearch.toLowerCase();
+    const name = `${m.first_name} ${m.father_name} ${m.email}`.toLowerCase();
+    return !q || name.includes(q);
+  });
+
   const handlePublishAnnouncement = async () => {
     if (!newAnn.title || !newAnn.content) {
       onToast(lang === 'EN' ? 'Title and content are required' : 'ርዕስ እና ይዘት ያስፈልጋል', 'error');
       return;
     }
-    const published = await onAddAnnouncement(newAnn);
-    if (!published) return;
-    setShowAnnModal(false);
-    setNewAnn({ title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '', is_draft: false, file_attachment_url: '', target_audience: [], publish_to_telegram: true, telegram_media_url: '', telegram_media_file_id: '', telegram_media_type: 'image', telegram_button_label: 'Open EPA Mini App', telegram_button_url: '' });
+    setIsPublishingAnn(true);
+    try {
+      const recipientIds = emailNotify && recipientMode === 'selected' ? selectedRecipientIds : undefined;
+      const res: any = await onAddAnnouncement({
+        ...newAnn,
+        recipient_member_ids: recipientIds
+      });
+
+      if (!res) return;
+
+      const reportRecords = res?.emailReport || [];
+      if (reportRecords.length > 0) {
+        const sentCount = reportRecords.filter((r: any) => r.status === 'sent').length;
+        const failedCount = reportRecords.filter((r: any) => r.status === 'failed').length;
+        setDeliveryReport({
+          title: newAnn.title,
+          total: reportRecords.length,
+          sent: sentCount,
+          failed: failedCount,
+          records: reportRecords
+        });
+        setShowDeliveryReportModal(true);
+      }
+
+      setShowAnnModal(false);
+      setNewAnn({ title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '', is_draft: false, file_attachment_url: '', target_audience: [], publish_to_telegram: true, telegram_media_url: '', telegram_media_file_id: '', telegram_media_type: 'image', telegram_button_label: 'Open EPA Mini App', telegram_button_url: '' });
+      setSelectedRecipientIds([]);
+      setRecipientMode('all');
+    } finally {
+      setIsPublishingAnn(false);
+    }
   };
 
   const stopAttendanceCamera = () => {
@@ -355,18 +403,18 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   return (
     <div className="w-full max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-white dark:bg-[#080808] text-gray-900 dark:text-white">
       
-      {/* ════════ ADMIN HEADER & STATS ════════ */}
+      {/* â•â•â•â•â•â•â•â• ADMIN HEADER & STATS â•â•â•â•â•â•â•â• */}
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-mono font-black uppercase tracking-widest text-green-700 dark:text-[#d4ff00] bg-[#d4ff00]/10 px-3 py-1 rounded-full border border-[#d4ff00]/30">
-                {lang === 'EN' ? 'EPA Administration' : 'የአስተዳዳሪ መቆጣጠሪያ ገጽ'}
+                {lang === 'EN' ? 'EPA Administration' : 'á‹¨áŠ áˆµá‰°á‹³á‹³áˆª áˆ˜á‰†áŒ£áŒ áˆªá‹« áŒˆáŒ½'}
               </span>
               <span className="text-xs text-neutral-600 dark:text-neutral-500 dark:text-neutral-500 font-mono">ID: EPA-ADMIN-SECURE</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-gray-900 dark:text-white font-syne uppercase tracking-tight mt-2">
-              {lang === 'EN' ? 'EPA Association Administration' : 'የማኅበሩ አስተዳደር መድረክ'}
+              {lang === 'EN' ? 'EPA Association Administration' : 'á‹¨áˆ›áŠ…á‰ áˆ© áŠ áˆµá‰°á‹³á‹°áˆ­ áˆ˜á‹µáˆ¨áŠ­'}
             </h1>
           </div>
 
@@ -390,7 +438,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider shadow-lg shadow-[#d4ff00]/15 transition-all active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4 text-black" />
-              <span>{lang === 'EN' ? 'New Announcement' : 'አዲስ ማስታወቂያ'}</span>
+              <span>{lang === 'EN' ? 'New Announcement' : 'áŠ á‹²áˆµ áˆ›áˆµá‰³á‹ˆá‰‚á‹«'}</span>
             </button>
           </div>
         </div>
@@ -398,10 +446,10 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {[
-            { label: lang === 'EN' ? 'Active Members' : 'ንቁ አባላት', value: members.length, sub: '✓ Active EPA records', icon: <Users className="w-4 h-4" />, color: 'text-green-700 dark:text-[#d4ff00]' },
-            { label: lang === 'EN' ? 'Pending Review' : 'በግምገማ ላይ', value: pendingAppsCount, sub: lang === 'EN' ? 'Awaiting council' : 'ውሳኔ የሚጠብቁ', icon: <Clock className="w-4 h-4" />, color: 'text-green-700 dark:text-[#d4ff00]' },
-            { label: lang === 'EN' ? 'Unverified Payments' : 'ያልተረጋገጡ ክፍያዎች', value: unverifiedPaymentsCount, sub: 'Telebirr & CBE Slips', icon: <CreditCard className="w-4 h-4" />, color: 'text-amber-600 dark:text-amber-400' },
-            { label: lang === 'EN' ? 'MoE Universities' : 'ተቋማት', value: universities.length, sub: 'Accredited Departments', icon: <GraduationCap className="w-4 h-4" />, color: 'text-gray-900 dark:text-white' },
+            { label: lang === 'EN' ? 'Active Members' : 'áŠ•á‰ áŠ á‰£áˆ‹á‰µ', value: members.length, sub: 'âœ“ Active EPA records', icon: <Users className="w-4 h-4" />, color: 'text-green-700 dark:text-[#d4ff00]' },
+            { label: lang === 'EN' ? 'Pending Review' : 'á‰ áŒáˆáŒˆáˆ› áˆ‹á‹­', value: pendingAppsCount, sub: lang === 'EN' ? 'Awaiting council' : 'á‹áˆ³áŠ” á‹¨áˆšáŒ á‰¥á‰', icon: <Clock className="w-4 h-4" />, color: 'text-green-700 dark:text-[#d4ff00]' },
+            { label: lang === 'EN' ? 'Unverified Payments' : 'á‹«áˆá‰°áˆ¨áŒ‹áŒˆáŒ¡ áŠ­áá‹«á‹Žá‰½', value: unverifiedPaymentsCount, sub: 'Telebirr & CBE Slips', icon: <CreditCard className="w-4 h-4" />, color: 'text-amber-600 dark:text-amber-400' },
+            { label: lang === 'EN' ? 'MoE Universities' : 'á‰°á‰‹áˆ›á‰µ', value: universities.length, sub: 'Accredited Departments', icon: <GraduationCap className="w-4 h-4" />, color: 'text-gray-900 dark:text-white' },
           ].map((s, i) => (
             <div key={i} className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-6 border border-gray-200 dark:border-white/10 shadow-md">
               <div className="flex items-center justify-between mb-2">
@@ -418,7 +466,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl p-5 border border-gray-200 dark:border-white/10">
           <div className="flex items-center gap-2 mb-4">
             <BarChart2 className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />
-            <span className="text-xs font-black uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'Member Distribution by Tier' : 'አባላት ስርጭት'}</span>
+            <span className="text-xs font-black uppercase text-gray-900 dark:text-white">{lang === 'EN' ? 'Member Distribution by Tier' : 'áŠ á‰£áˆ‹á‰µ áˆµáˆ­áŒ­á‰µ'}</span>
           </div>
           <div className="flex items-end gap-4">
             {[
@@ -436,17 +484,17 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       </div>
 
-      {/* ════════ ADMIN SUB-TABS ════════ */}
+      {/* â•â•â•â•â•â•â•â• ADMIN SUB-TABS â•â•â•â•â•â•â•â• */}
       <div className="flex items-center gap-2 border-b border-gray-200 dark:border-white/10 mb-6 overflow-x-auto no-scrollbar">
         {[
-          { id: 'applications', label: `${lang === 'EN' ? 'Applications' : 'ማመልከቻዎች'} (${applications.length})` },
-          { id: 'members', label: lang === 'EN' ? 'Members' : 'አባላት' },
-          { id: 'announcements', label: lang === 'EN' ? `Announcements (${announcements.length})` : 'ማስታወቂያዎች' },
-          { id: 'research', label: lang === 'EN' ? `Research Review (${researchSubmissions.filter(item => item.status === 'SUBMITTED' || item.status === 'UNDER_REVIEW').length})` : 'የምርምር ግምገማ' },
+          { id: 'applications', label: `${lang === 'EN' ? 'Applications' : 'áˆ›áˆ˜áˆáŠ¨á‰»á‹Žá‰½'} (${applications.length})` },
+          { id: 'members', label: lang === 'EN' ? 'Members' : 'áŠ á‰£áˆ‹á‰µ' },
+          { id: 'announcements', label: lang === 'EN' ? `Announcements (${announcements.length})` : 'áˆ›áˆµá‰³á‹ˆá‰‚á‹«á‹Žá‰½' },
+          { id: 'research', label: lang === 'EN' ? `Research Review (${researchSubmissions.filter(item => item.status === 'SUBMITTED' || item.status === 'UNDER_REVIEW').length})` : 'á‹¨áˆáˆ­áˆáˆ­ áŒáˆáŒˆáˆ›' },
           { id: 'cpd', label: 'CPD Manager' },
-          { id: 'elections', label: lang === 'EN' ? 'Elections' : 'ምርጫ' },
-          { id: 'universities', label: lang === 'EN' ? 'Universities' : 'ዩኒቨርሲቲዎች' },
-          { id: 'audit', label: lang === 'EN' ? 'Audit Logs' : 'ኦዲት' },
+          { id: 'elections', label: lang === 'EN' ? 'Elections' : 'áˆáˆ­áŒ«' },
+          { id: 'universities', label: lang === 'EN' ? 'Universities' : 'á‹©áŠ’á‰¨áˆ­áˆ²á‰²á‹Žá‰½' },
+          { id: 'audit', label: lang === 'EN' ? 'Audit Logs' : 'áŠ¦á‹²á‰µ' },
         ].map(t => (
           <button key={t.id} onClick={() => setActiveAdminTab(t.id as any)}
             className={`pb-3 px-4 text-xs font-mono font-black uppercase tracking-wider transition-colors border-b-2 whitespace-nowrap cursor-pointer ${
@@ -457,7 +505,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         ))}
       </div>
 
-      {/* ════════ TAB: APPLICATIONS ════════ */}
+      {/* â•â•â•â•â•â•â•â• TAB: APPLICATIONS â•â•â•â•â•â•â•â• */}
       {activeAdminTab === 'applications' && (
         <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl border border-gray-200 dark:border-white/10 shadow-md overflow-hidden">
           {/* Filter and Search Bar */}
@@ -482,7 +530,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               <Search className="w-4 h-4 text-neutral-600 dark:text-neutral-500 dark:text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder={lang === 'EN' ? 'Search applicant name/ref...' : 'ፈልግ...'}
+                placeholder={lang === 'EN' ? 'Search applicant name/ref...' : 'áˆáˆáŒ...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-black text-gray-900 dark:text-white font-mono placeholder:text-neutral-600"
@@ -525,7 +573,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                               {app.first_name} {app.father_name}
                             </div>
                             <div className="text-[11px] text-neutral-600 dark:text-neutral-400 font-mono">
-                              {app.application_number} • {app.city}
+                              {app.application_number} â€¢ {app.city}
                             </div>
                           </div>
                         </div>
@@ -556,7 +604,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                             </span>
                           </div>
                         ) : (
-                          <span className="text-neutral-600 dark:text-neutral-500 dark:text-neutral-500">—</span>
+                          <span className="text-neutral-600 dark:text-neutral-500 dark:text-neutral-500">â€”</span>
                         )}
                       </td>
 
@@ -611,7 +659,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       )}
 
-      {/* ════════ TAB: UNIVERSITIES ════════ */}
+      {/* â•â•â•â•â•â•â•â• TAB: UNIVERSITIES â•â•â•â•â•â•â•â• */}
       {activeAdminTab === 'universities' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {universities.map(u => (
@@ -620,7 +668,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded bg-black/5 dark:bg-white/5 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/30 uppercase">
                   {u.type}
                 </span>
-                <span className="text-green-700 dark:text-[#d4ff00] text-xs font-mono font-bold">✓ MoE Accredited</span>
+                <span className="text-green-700 dark:text-[#d4ff00] text-xs font-mono font-bold">âœ“ MoE Accredited</span>
               </div>
               <h4 className="font-black text-base text-gray-900 dark:text-white font-syne uppercase mt-2">{u.name}</h4>
               <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 font-mono">{u.city}, Ethiopia</p>
@@ -637,21 +685,21 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       )}
 
-      {/* ════════ TAB: MEMBERS ════════ */}
+      {/* â•â•â•â•â•â•â•â• TAB: MEMBERS â•â•â•â•â•â•â•â• */}
       {activeAdminTab === 'members' && (
         <div className="space-y-4">
           <div className="rounded-2xl p-5 bg-gradient-to-br from-[#d4ff00]/10 to-transparent dark:from-[#d4ff00]/[0.08] border border-[#d4ff00]/25 flex flex-col lg:flex-row lg:items-center gap-4">
-            <div className="flex-1"><div className="flex items-center gap-2"><UploadCloud className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" /><h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">Import existing members</h3></div><p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">Create active member accounts without payment or re-registration. The membership start date in the CSV becomes the ID issue date—not the upload date. Imported members receive a temporary password and must set a new password and profile photo at first sign-in.</p></div>
-            <div className="flex flex-wrap gap-2"><input ref={csvImportRef} type="file" accept=".csv,text/csv" className="hidden" onChange={event => importMemberCsv(event.target.files?.[0])} /><button onClick={downloadMemberCsvSample} className="px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/15 bg-white dark:bg-white/5 text-xs font-black uppercase text-gray-900 dark:text-white">Download CSV sample</button><button onClick={() => csvImportRef.current?.click()} disabled={isImportingMembers} className="px-3.5 py-2.5 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase disabled:opacity-50">{isImportingMembers ? 'Importing…' : 'Upload member CSV'}</button></div>
+            <div className="flex-1"><div className="flex items-center gap-2"><UploadCloud className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" /><h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">Import existing members</h3></div><p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">Create active member accounts without payment or re-registration. The membership start date in the CSV becomes the ID issue dateâ€”not the upload date. Imported members receive a temporary password and must set a new password and profile photo at first sign-in.</p></div>
+            <div className="flex flex-wrap gap-2"><input ref={csvImportRef} type="file" accept=".csv,text/csv" className="hidden" onChange={event => importMemberCsv(event.target.files?.[0])} /><button onClick={downloadMemberCsvSample} className="px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/15 bg-white dark:bg-white/5 text-xs font-black uppercase text-gray-900 dark:text-white">Download CSV sample</button><button onClick={() => csvImportRef.current?.click()} disabled={isImportingMembers} className="px-3.5 py-2.5 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase disabled:opacity-50">{isImportingMembers ? 'Importingâ€¦' : 'Upload member CSV'}</button></div>
           </div>
-          {memberImportResult && <div className={`p-4 rounded-2xl border text-xs ${memberImportResult.errors.length ? 'bg-amber-500/10 border-amber-500/25 text-amber-800 dark:text-amber-300' : 'bg-green-500/10 border-green-500/25 text-green-800 dark:text-green-300'}`}><b>{memberImportResult.created} account(s) created.</b>{memberImportResult.errors.length > 0 && <details className="mt-2"><summary className="cursor-pointer font-bold">{memberImportResult.errors.length} row issue(s) — review details</summary><ul className="mt-2 space-y-1 list-disc pl-5">{memberImportResult.errors.map(error => <li key={error}>{error}</li>)}</ul></details>}</div>}
+          {memberImportResult && <div className={`p-4 rounded-2xl border text-xs ${memberImportResult.errors.length ? 'bg-amber-500/10 border-amber-500/25 text-amber-800 dark:text-amber-300' : 'bg-green-500/10 border-green-500/25 text-green-800 dark:text-green-300'}`}><b>{memberImportResult.created} account(s) created.</b>{memberImportResult.errors.length > 0 && <details className="mt-2"><summary className="cursor-pointer font-bold">{memberImportResult.errors.length} row issue(s) â€” review details</summary><ul className="mt-2 space-y-1 list-disc pl-5">{memberImportResult.errors.map(error => <li key={error}>{error}</li>)}</ul></details>}</div>}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <div className="rounded-2xl p-5 bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10">
               <div className="flex items-center gap-2"><ScanLine className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" /><h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">ID verification & attendance</h3></div>
               <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">Scan the QR code on an EPA Digital ID or paste a membership number. Only active members can be checked in.</p>
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2"><input value={attendanceEvent} onChange={event => setAttendanceEvent(event.target.value)} placeholder="Event name" className="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-xs text-gray-900 dark:text-white" /><button onClick={isCameraScanning ? stopAttendanceCamera : startAttendanceCamera} className={`px-3 py-2.5 rounded-xl text-xs font-black uppercase ${isCameraScanning ? 'bg-red-500 text-white' : 'bg-black/5 dark:bg-white/10 text-gray-900 dark:text-white'}`}>{isCameraScanning ? 'Stop camera' : 'Scan QR'}</button></div>
               {isCameraScanning && <video ref={attendanceVideoRef} muted playsInline className="mt-3 w-full aspect-video rounded-xl object-cover bg-black border border-[#d4ff00]/30" />}
-              <div className="mt-3 flex gap-2"><input value={scanValue} onChange={event => setScanValue(event.target.value)} onKeyDown={event => event.key === 'Enter' && void recordAttendance()} placeholder="Paste QR link, token, or membership number" className="min-w-0 flex-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-xs text-gray-900 dark:text-white" /><button onClick={() => void recordAttendance()} disabled={isRecordingAttendance} className="px-3 py-2.5 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase disabled:opacity-50">{isRecordingAttendance ? 'Checking…' : 'Verify'}</button></div>
+              <div className="mt-3 flex gap-2"><input value={scanValue} onChange={event => setScanValue(event.target.value)} onKeyDown={event => event.key === 'Enter' && void recordAttendance()} placeholder="Paste QR link, token, or membership number" className="min-w-0 flex-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-xs text-gray-900 dark:text-white" /><button onClick={() => void recordAttendance()} disabled={isRecordingAttendance} className="px-3 py-2.5 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase disabled:opacity-50">{isRecordingAttendance ? 'Checkingâ€¦' : 'Verify'}</button></div>
               {scanResult && <div className={`mt-3 p-3 rounded-xl text-xs ${scanResult.success ? 'bg-green-500/10 text-green-800 dark:text-green-300 border border-green-500/25' : 'bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/25'}`}><b>{scanResult.success ? 'Verified & checked in' : 'Not verified'}</b><p className="mt-1">{scanResult.message}</p></div>}
             </div>
             <div className="rounded-2xl p-5 bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10">
@@ -737,12 +785,12 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       )}
 
-      {/* ════════ TAB: CPD MANAGER ════════ */}
+      {/* â•â•â•â•â•â•â•â• TAB: CPD MANAGER â•â•â•â•â•â•â•â• */}
       {activeAdminTab === 'cpd' && (
         <div className="space-y-6">
           <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-6">
             <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Create New CPD Course' : 'አዲስ CPD ኮርስ ፍጠር'}
+              <BookOpen className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Create New CPD Course' : 'áŠ á‹²áˆµ CPD áŠ®áˆ­áˆµ ááŒ áˆ­'}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[{label:'Course Title', ph:'e.g. Trauma-Informed CBT Workshop'},{label:'Instructor Name', ph:'Dr. Firstname Lastname'}].map((f,i) => (
@@ -758,45 +806,45 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 </div>
               ))}
             </div>
-            <button onClick={() => onToast(lang === 'EN' ? 'CPD Course created and published!' : 'CPD ኮርስ ተፈጥሯል!', 'success')}
+            <button onClick={() => onToast(lang === 'EN' ? 'CPD Course created and published!' : 'CPD áŠ®áˆ­áˆµ á‰°áˆáŒ¥áˆ¯áˆ!', 'success')}
               className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase cursor-pointer active:scale-95">
-              <Plus className="w-4 h-4" />{lang === 'EN' ? 'Create & Publish Course' : 'ኮርስ ፍጠርና አሳትም'}
+              <Plus className="w-4 h-4" />{lang === 'EN' ? 'Create & Publish Course' : 'áŠ®áˆ­áˆµ ááŒ áˆ­áŠ“ áŠ áˆ³á‰µáˆ'}
             </button>
           </div>
           <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-4">
-            <h4 className="text-xs font-black uppercase text-neutral-600 dark:text-neutral-400 mb-3">{lang === 'EN' ? 'Existing Courses' : 'ያሉ ኮርሶች'}</h4>
-            <p className="text-xs text-neutral-500 italic">{lang === 'EN' ? 'CPD courses from mock data will appear here.' : 'ኮርሶች ዝርዝር ይታያሉ።'}</p>
+            <h4 className="text-xs font-black uppercase text-neutral-600 dark:text-neutral-400 mb-3">{lang === 'EN' ? 'Existing Courses' : 'á‹«áˆ‰ áŠ®áˆ­áˆ¶á‰½'}</h4>
+            <p className="text-xs text-neutral-500 italic">{lang === 'EN' ? 'CPD courses from mock data will appear here.' : 'áŠ®áˆ­áˆ¶á‰½ á‹áˆ­á‹áˆ­ á‹­á‰³á‹«áˆ‰á¢'}</p>
           </div>
         </div>
       )}
 
-      {/* ════════ TAB: ELECTIONS ════════ */}
+      {/* â•â•â•â•â•â•â•â• TAB: ELECTIONS â•â•â•â•â•â•â•â• */}
       {activeAdminTab === 'elections' && (
         <div className="space-y-6">
           <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white flex items-center gap-2">
-                <Vote className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Election Control' : 'ምርጫ ቁጥጥር'}
+                <Vote className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Election Control' : 'áˆáˆ­áŒ« á‰áŒ¥áŒ¥áˆ­'}
               </h3>
               <button onClick={() => { setElectionOpen(!electionOpen); onToast(electionOpen ? 'Election closed.' : 'Election is now LIVE!', electionOpen ? 'info' : 'success'); }}
                 className={`px-4 py-2 rounded-xl text-xs font-black uppercase cursor-pointer transition-all ${
                   electionOpen ? 'bg-red-500 text-white' : 'bg-[#d4ff00] text-black'
                 }`}>
-                {electionOpen ? (lang === 'EN' ? 'Close Election' : 'ምርጫ ዝጋ') : (lang === 'EN' ? 'Open Election' : 'ምርጫ ክፈት')}
+                {electionOpen ? (lang === 'EN' ? 'Close Election' : 'áˆáˆ­áŒ« á‹áŒ‹') : (lang === 'EN' ? 'Open Election' : 'áˆáˆ­áŒ« áŠ­áˆá‰µ')}
               </button>
             </div>
             <div className={`flex items-center gap-2 p-3 rounded-xl mb-4 ${electionOpen ? 'bg-green-500/10 border border-green-500/20' : 'bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10'}`}>
               <div className={`w-2 h-2 rounded-full ${electionOpen ? 'bg-green-500 animate-pulse' : 'bg-neutral-400'}`} />
               <span className={`text-xs font-mono font-bold ${electionOpen ? 'text-green-600 dark:text-green-400' : 'text-neutral-500'}`}>
-                {electionOpen ? 'ELECTION LIVE — Accepting votes' : 'Election is closed'}
+                {electionOpen ? 'ELECTION LIVE â€” Accepting votes' : 'Election is closed'}
               </span>
             </div>
           </div>
           <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-6 space-y-4">
             <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Real-time Tally' : 'ቅጽበታዊ ድምጽ ቆጠራ'}
+              <TrendingUp className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Real-time Tally' : 'á‰…áŒ½á‰ á‰³á‹Š á‹µáˆáŒ½ á‰†áŒ áˆ«'}
             </h3>
-            <p className="text-xs text-neutral-500 font-mono">{lang === 'EN' ? 'Presidential Candidates — Total votes:' : 'ጠቅላላ ድምጾች:'} {totalVotes}</p>
+            <p className="text-xs text-neutral-500 font-mono">{lang === 'EN' ? 'Presidential Candidates â€” Total votes:' : 'áŒ á‰…áˆ‹áˆ‹ á‹µáˆáŒ¾á‰½:'} {totalVotes}</p>
             {[
               { name: 'Dr. Yonas Alemu', votes: electionVotes.yonas, color: '#3b82f6' },
               { name: 'Dr. Selamawit Bekele', votes: electionVotes.selamawit, color: '#d4ff00' },
@@ -822,15 +870,24 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       )}
 
-      {/* ════════ TAB: ANNOUNCEMENTS & DRAFTS ════════ */}
+      {/* â•â•â•â•â•â•â•â• TAB: ANNOUNCEMENTS & DRAFTS â•â•â•â•â•â•â•â• */}
       {activeAdminTab === 'announcements' && (
         <div className="space-y-5">
           <div className="flex items-center justify-between">
             <h3 className="font-black text-base text-gray-900 dark:text-white font-syne uppercase flex items-center gap-2">
               <FileText className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />
-              {lang === 'EN' ? 'Published Announcements & Drafts' : 'ማስታወቂያዎች እና ረቂቆች'}
+              {lang === 'EN' ? 'Published Announcements & Drafts' : 'áˆ›áˆµá‰³á‹ˆá‰‚á‹«á‹Žá‰½ áŠ¥áŠ“ áˆ¨á‰‚á‰†á‰½'}
             </h3>
             <div className="flex items-center gap-3">
+              {deliveryReport && (
+                <button
+                  onClick={() => setShowDeliveryReportModal(true)}
+                  className="px-3.5 py-2 bg-emerald-500/10 text-emerald-800 dark:text-[#d4ff00] border border-emerald-500/20 font-bold text-xs rounded-xl hover:bg-emerald-500/15 transition-colors flex items-center gap-1.5"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Delivery Checklist ({deliveryReport.sent}/{deliveryReport.total})</span>
+                </button>
+              )}
               <button onClick={openDatabaseSetup} className="px-4 py-2 bg-gray-100 dark:bg-white/5 text-neutral-600 dark:text-neutral-300 font-bold text-xs rounded-lg hover:bg-gray-200 dark:hover:bg-white/10 transition-colors flex items-center gap-2">
                 Database setup guide
               </button>
@@ -839,7 +896,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                {lang === 'EN' ? 'New' : 'አዲስ'}
+                {lang === 'EN' ? 'New' : 'áŠ á‹²áˆµ'}
               </button>
             </div>
           </div>
@@ -867,7 +924,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                           <span className="text-[10px] font-mono font-bold uppercase text-green-700 dark:text-[#d4ff00] bg-[#d4ff00]/10 px-2 py-0.5 rounded-full border border-[#d4ff00]/30">{ann.category}</span>
                           <h4 className="font-black text-gray-900 dark:text-white font-syne mt-2 mb-1">{ann.title}</h4>
                           <p className="text-xs text-neutral-500 line-clamp-2">{ann.content}</p>
-                          <p className="text-[10px] font-mono text-neutral-400 mt-1">{ann.author} · {new Date(ann.published_at).toLocaleDateString()}</p>
+                          <p className="text-[10px] font-mono text-neutral-400 mt-1">{ann.author} Â· {new Date(ann.published_at).toLocaleDateString()}</p>
                         </div>
                         <div className="text-right shrink-0 flex flex-col items-end gap-2">
                           {onDeleteAnnouncement && (
@@ -925,7 +982,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       )}
 
-      {/* ════════ TAB: RESEARCH REVIEW DESK ════════ */}
+      {/* â•â•â•â•â•â•â•â• TAB: RESEARCH REVIEW DESK â•â•â•â•â•â•â•â• */}
       {activeAdminTab === 'research' && (
         <div className="space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
@@ -942,14 +999,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                   <div className="flex items-start justify-between gap-3"><span className="px-2.5 py-1 rounded-full bg-black/5 dark:bg-white/5 text-[10px] font-mono font-black uppercase text-neutral-600 dark:text-neutral-300">{submission.publication_type}</span><span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-black uppercase border ${submission.status === 'ACCEPTED' ? 'bg-green-500/10 text-green-700 dark:text-[#d4ff00] border-green-500/20' : submission.status === 'DECLINED' ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'}`}>{submission.status.replace('_', ' ')}</span></div>
                   <h4 className="mt-3 font-black text-sm text-gray-900 dark:text-white leading-snug">{submission.title}</h4>
                   <p className="mt-2 text-xs text-neutral-500 line-clamp-2 leading-relaxed">{submission.abstract}</p>
-                  <div className="mt-4 pt-3 border-t border-gray-200 dark:border-white/10 flex items-center justify-between text-[10px] font-mono text-neutral-500"><span>{submission.author_name} · {submission.author_membership_number}</span><span>{new Date(submission.submitted_at).toLocaleDateString()}</span></div>
+                  <div className="mt-4 pt-3 border-t border-gray-200 dark:border-white/10 flex items-center justify-between text-[10px] font-mono text-neutral-500"><span>{submission.author_name} Â· {submission.author_membership_number}</span><span>{new Date(submission.submitted_at).toLocaleDateString()}</span></div>
                 </button>
               ))}
             </div>}
         </div>
       )}
 
-      {/* ════════ TAB: AUDIT LOGS ════════ */}
+      {/* â•â•â•â•â•â•â•â• TAB: AUDIT LOGS â•â•â•â•â•â•â•â• */}
       {activeAdminTab === 'audit' && (
         <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl border border-gray-200 dark:border-white/10 shadow-md p-6 space-y-4">
           <h3 className="font-black text-base text-gray-900 dark:text-white font-syne uppercase flex items-center gap-2">
@@ -961,7 +1018,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               <div key={log.id} className="py-3.5 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-bold text-gray-900 dark:text-white">{log.action}</span>
-                  <div className="text-[11px] text-neutral-500 mt-0.5">Entity: {log.entity_id} • Admin: {log.admin_username}</div>
+                  <div className="text-[11px] text-neutral-500 mt-0.5">Entity: {log.entity_id} â€¢ Admin: {log.admin_username}</div>
                 </div>
                 <div className="text-[11px] text-neutral-500">{new Date(log.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</div>
               </div>
@@ -970,7 +1027,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       )}
 
-      {/* ════════ APPLICATION REVIEW MODAL ════════ */}
+      {/* â•â•â•â•â•â•â•â• APPLICATION REVIEW MODAL â•â•â•â•â•â•â•â• */}
       {reviewingApp && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
           <div className="relative bg-white dark:bg-[#121214] rounded-3xl w-full max-w-2xl shadow-2xl border border-gray-200 dark:border-white/20 overflow-hidden flex flex-col max-h-[90vh] text-gray-900 dark:text-white">
@@ -1011,7 +1068,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     </div>
                   )}
                   <div className="text-neutral-600 dark:text-neutral-400 font-mono text-[11px] mt-1">
-                    {reviewingApp.email} • {reviewingApp.phone}
+                    {reviewingApp.email} â€¢ {reviewingApp.phone}
                   </div>
                   {reviewingApp.telegram_id && (
                     <div className="text-neutral-500 dark:text-neutral-400 font-mono text-[11px] mt-0.5 flex items-center gap-1">
@@ -1021,14 +1078,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                   )}
                   {!reviewingApp.telegram_id && (
                     <div className="text-orange-500 dark:text-orange-400 font-mono text-[10px] mt-0.5 font-bold">
-                      ⚠ No Telegram ID captured — user may use phone/password login
+                      âš  No Telegram ID captured â€” user may use phone/password login
                     </div>
                   )}
                   <div className="mt-1 flex items-center gap-2 font-mono">
                     <span className="px-2.5 py-0.5 rounded bg-[#d4ff00]/10 text-green-700 dark:text-[#d4ff00] border border-[#d4ff00]/30 font-bold text-[10px]">
                       {reviewingApp.membership_type}
                     </span>
-                    <span className="text-neutral-600">•</span>
+                    <span className="text-neutral-600">â€¢</span>
                     <span className="text-neutral-600 dark:text-neutral-400">City: {reviewingApp.city}</span>
                   </div>
                 </div>
@@ -1099,7 +1156,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.corporate_profile.organization_name || 'N/A'}</div>
                       <div className="text-neutral-700 dark:text-neutral-300 mt-0.5">Type: {reviewingApp.corporate_profile.org_type || 'N/A'}</div>
                       <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px] mt-1">TIN: {reviewingApp.corporate_profile.tin_number || 'N/A'} | HQ: {reviewingApp.corporate_profile.headquarters_city || 'N/A'}</div>
-                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-neutral-600 dark:text-neutral-300"><span><b>Contact:</b> {reviewingApp.corporate_profile.contact_person || 'N/A'} · {reviewingApp.corporate_profile.contact_title || 'N/A'}</span><span><b>Direct:</b> {reviewingApp.corporate_profile.contact_phone || 'N/A'} · {reviewingApp.corporate_profile.contact_email || 'N/A'}</span><span><b>Staff:</b> {reviewingApp.corporate_profile.staff_count ?? 'N/A'}</span>{reviewingApp.corporate_profile.services_description && <span className="sm:col-span-2"><b>Services:</b> {reviewingApp.corporate_profile.services_description}</span>}</div>
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-neutral-600 dark:text-neutral-300"><span><b>Contact:</b> {reviewingApp.corporate_profile.contact_person || 'N/A'} Â· {reviewingApp.corporate_profile.contact_title || 'N/A'}</span><span><b>Direct:</b> {reviewingApp.corporate_profile.contact_phone || 'N/A'} Â· {reviewingApp.corporate_profile.contact_email || 'N/A'}</span><span><b>Staff:</b> {reviewingApp.corporate_profile.staff_count ?? 'N/A'}</span>{reviewingApp.corporate_profile.services_description && <span className="sm:col-span-2"><b>Services:</b> {reviewingApp.corporate_profile.services_description}</span>}</div>
                       {reviewingApp.corporate_profile.website && (
                         <div className="text-blue-500 text-[10px] mt-1 break-all">{reviewingApp.corporate_profile.website}</div>
                       )}
@@ -1109,7 +1166,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       <div className="font-black text-gray-900 dark:text-white uppercase font-syne">{reviewingApp.student_profile.university_name || 'N/A'}</div>
                       <div className="text-neutral-700 dark:text-neutral-300">
                         {reviewingApp.student_profile.field_of_study || 'N/A'}
-                        {reviewingApp.student_profile.academic_year ? ` — Year ${reviewingApp.student_profile.academic_year}` : ''}
+                        {reviewingApp.student_profile.academic_year ? ` â€” Year ${reviewingApp.student_profile.academic_year}` : ''}
                         {reviewingApp.student_profile.expected_graduation_year ? ` (Graduating ${reviewingApp.student_profile.expected_graduation_year})` : ''}
                       </div>
                       <div className="text-neutral-600 dark:text-neutral-500 font-mono text-[10px]">Student ID: {reviewingApp.student_profile.student_id_number || 'N/A'}</div>
@@ -1195,7 +1252,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     </div>
                     {reviewingApp.payment.status === 'VERIFIED' ? (
                       <span className="px-3 py-1 rounded-lg bg-[#d4ff00] text-black font-mono font-black text-[10px] uppercase">
-                        ✓ Payment Verified
+                        âœ“ Payment Verified
                       </span>
                     ) : (
                       <button
@@ -1302,12 +1359,12 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       )}
 
-      {/* ════════ RESEARCH REVIEW MODAL ════════ */}
+      {/* â•â•â•â•â•â•â•â• RESEARCH REVIEW MODAL â•â•â•â•â•â•â•â• */}
       {selectedResearch && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
           <div className="w-full max-w-3xl rounded-3xl bg-gray-50 dark:bg-[#121214] border border-white/20 shadow-2xl overflow-hidden">
             <div className="px-6 py-5 flex items-start justify-between border-b border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0c]">
-              <div><span className="text-[10px] font-mono font-black uppercase text-green-700 dark:text-[#d4ff00]">{selectedResearch.publication_type} · {selectedResearch.status.replace('_', ' ')}</span><h3 className="mt-1 text-lg font-black font-syne uppercase tracking-tight text-gray-900 dark:text-white">Research dossier</h3></div>
+              <div><span className="text-[10px] font-mono font-black uppercase text-green-700 dark:text-[#d4ff00]">{selectedResearch.publication_type} Â· {selectedResearch.status.replace('_', ' ')}</span><h3 className="mt-1 text-lg font-black font-syne uppercase tracking-tight text-gray-900 dark:text-white">Research dossier</h3></div>
               <button onClick={() => setSelectedResearch(null)} className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/10"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
@@ -1317,20 +1374,20 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 <div className="rounded-2xl p-4 bg-white dark:bg-black/20 border border-gray-200 dark:border-white/10"><p className="text-[10px] font-mono uppercase text-neutral-500">Contact author</p><div className="mt-2 space-y-1.5 text-xs">{selectedResearch.author_email && <a href={`mailto:${selectedResearch.author_email}?subject=${encodeURIComponent(`EPA Research Review: ${selectedResearch.title}`)}`} className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"><Mail className="w-3.5 h-3.5" />{selectedResearch.author_email}</a>}{selectedResearch.author_phone && <a href={`tel:${selectedResearch.author_phone}`} className="flex items-center gap-2 text-neutral-600 dark:text-neutral-300 hover:underline"><Phone className="w-3.5 h-3.5" />{selectedResearch.author_phone}</a>}</div></div>
               </div>
               <a href={selectedResearch.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-blue-500/10 hover:bg-blue-500/15 border border-blue-500/20 text-blue-700 dark:text-blue-300"><span className="flex min-w-0 items-center gap-3"><FileText className="w-5 h-5 shrink-0" /><span className="min-w-0"><span className="block text-xs font-black truncate">{selectedResearch.file_name}</span><span className="block mt-0.5 text-[10px] opacity-70">Open submitted publication</span></span></span><ExternalLink className="w-4 h-4 shrink-0" /></a>
-              <div><label className="block text-[10px] font-mono font-black uppercase text-neutral-500 mb-2">Editorial note visible in the review record</label><textarea rows={4} value={researchNotes} onChange={event => setResearchNotes(event.target.value)} placeholder="Add review feedback or revision instructions…" className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00] resize-none" /></div>
+              <div><label className="block text-[10px] font-mono font-black uppercase text-neutral-500 mb-2">Editorial note visible in the review record</label><textarea rows={4} value={researchNotes} onChange={event => setResearchNotes(event.target.value)} placeholder="Add review feedback or revision instructionsâ€¦" className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00] resize-none" /></div>
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0c] flex flex-wrap justify-end gap-2"><button disabled={isSavingResearch} onClick={() => saveResearchReview('REVISION_REQUESTED')} className="px-3.5 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase disabled:opacity-50">Request revision</button><button disabled={isSavingResearch} onClick={() => saveResearchReview('DECLINED')} className="px-3.5 py-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-black uppercase disabled:opacity-50">Decline</button><button disabled={isSavingResearch} onClick={() => saveResearchReview('ACCEPTED')} className="px-4 py-2 rounded-xl bg-[#d4ff00] text-black text-[10px] font-black uppercase disabled:opacity-50">{isSavingResearch ? 'Saving…' : 'Accept submission'}</button></div>
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-white dark:bg-[#0a0a0c] flex flex-wrap justify-end gap-2"><button disabled={isSavingResearch} onClick={() => saveResearchReview('REVISION_REQUESTED')} className="px-3.5 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase disabled:opacity-50">Request revision</button><button disabled={isSavingResearch} onClick={() => saveResearchReview('DECLINED')} className="px-3.5 py-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 text-[10px] font-black uppercase disabled:opacity-50">Decline</button><button disabled={isSavingResearch} onClick={() => saveResearchReview('ACCEPTED')} className="px-4 py-2 rounded-xl bg-[#d4ff00] text-black text-[10px] font-black uppercase disabled:opacity-50">{isSavingResearch ? 'Savingâ€¦' : 'Accept submission'}</button></div>
           </div>
         </div>
       )}
 
-      {/* ════════ NEW ANNOUNCEMENT MODAL ════════ */}
+      {/* â•â•â•â•â•â•â•â• NEW ANNOUNCEMENT MODAL â•â•â•â•â•â•â•â• */}
       {showAnnModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-start sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-gray-50 dark:bg-[#121214] rounded-none sm:rounded-3xl w-full max-w-2xl h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[calc(100dvh-2rem)] shadow-2xl border border-white/20 overflow-hidden flex flex-col text-gray-900 dark:text-white">
             <div className="flex shrink-0 items-center justify-between px-5 sm:px-6 py-4 border-b border-gray-200 dark:border-white/10 bg-white/70 dark:bg-[#0a0a0c]/70">
               <h3 className="text-base font-black text-gray-900 dark:text-white font-syne uppercase">
-                {lang === 'EN' ? 'Publish Association Announcement' : 'አዲስ ማስታወቂያ ያውጡ'}
+                {lang === 'EN' ? 'Publish Association Announcement' : 'áŠ á‹²áˆµ áˆ›áˆµá‰³á‹ˆá‰‚á‹« á‹«á‹áŒ¡'}
               </h3>
               <button onClick={() => setShowAnnModal(false)} className="text-neutral-600 dark:text-neutral-400 hover:text-gray-900 dark:text-white">
                 <X className="w-5 h-5" />
@@ -1346,7 +1403,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             </div>
             <div>
               <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Amharic Title (Optional)</label>
-              <input type="text" placeholder="ለምሳሌ፡ የጥናት ጥሪ 2026..."
+              <input type="text" placeholder="áˆˆáˆáˆ³áˆŒá¡ á‹¨áŒ¥áŠ“á‰µ áŒ¥áˆª 2026..."
                 value={newAnn.amharic_title} onChange={(e) => setNewAnn({ ...newAnn, amharic_title: e.target.value })}
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
             </div>
@@ -1439,13 +1496,13 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       event.currentTarget.value = '';
                     }
                   }} />
-                  <button type="button" onClick={() => annTelegramMediaInputRef.current?.click()} disabled={isUploadingTelegramMedia} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs font-bold text-sky-950 disabled:opacity-60 dark:border-white/10 dark:bg-black dark:text-white"><UploadCloud className="h-4 w-4" />{isUploadingTelegramMedia ? 'Preparing media…' : newAnn.telegram_media_url ? 'Replace image/video' : 'Add image or video'}</button>
+                  <button type="button" onClick={() => annTelegramMediaInputRef.current?.click()} disabled={isUploadingTelegramMedia} className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs font-bold text-sky-950 disabled:opacity-60 dark:border-white/10 dark:bg-black dark:text-white"><UploadCloud className="h-4 w-4" />{isUploadingTelegramMedia ? 'Preparing mediaâ€¦' : newAnn.telegram_media_url ? 'Replace image/video' : 'Add image or video'}</button>
                   <span className="text-[10px] text-sky-800/70 dark:text-sky-200/60">Direct site upload: 2.5 MB max</span>
                   {newAnn.telegram_media_url && <button type="button" onClick={() => setNewAnn(current => ({ ...current, telegram_media_url: '' }))} className="text-[11px] font-bold text-red-600">Remove</button>}
                 </div>
                 <div className="grid gap-2 sm:grid-cols-[9rem_1fr]">
                   <select value={newAnn.telegram_media_type} onChange={event => setNewAnn(current => ({ ...current, telegram_media_type: event.target.value as 'image' | 'video' }))} className="rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs font-bold text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white"><option value="image">Telegram photo</option><option value="video">Telegram video</option></select>
-                  <input value={newAnn.telegram_media_file_id || ''} onChange={event => setNewAnn(current => ({ ...current, telegram_media_file_id: event.target.value.trim(), telegram_media_url: '' }))} placeholder="Telegram File ID — up to 50 MB" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" />
+                  <input value={newAnn.telegram_media_file_id || ''} onChange={event => setNewAnn(current => ({ ...current, telegram_media_file_id: event.target.value.trim(), telegram_media_url: '' }))} placeholder="Telegram File ID â€” up to 50 MB" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" />
                 </div>
                 <p className="text-[10px] leading-relaxed text-sky-800/70 dark:text-sky-200/60">For a 50 MB video, send it to the EPA bot as a video in Telegram. The bot replies with its File ID; paste it here and select Telegram video. The post reuses Telegram-hosted media, so it does not consume Vercel transfer.</p>
                 {newAnn.telegram_media_file_id && <p className="rounded-lg bg-green-500/10 px-3 py-2 text-[10px] font-bold text-green-700 dark:text-[#d4ff00]">Telegram-hosted {newAnn.telegram_media_type} selected (up to 50 MB).</p>}
@@ -1454,7 +1511,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             </div>
 
             {/* File Attachment */}
-              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Attach File (PDF / DOCX) — Optional</label>
+              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Attach File (PDF / DOCX) â€” Optional</label>
               <div 
                 className="border-2 border-dashed border-gray-300 dark:border-white/20 bg-black/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-4 flex flex-col items-center justify-center text-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer" 
                 onClick={() => !isUploadingFile && annFileInputRef.current?.click()}
@@ -1509,6 +1566,134 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </div>
             </div>
 
+                        {/* Email Broadcast & Recipient Checklist */}
+            <div className="rounded-2xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/70 dark:bg-emerald-500/5 p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-emerald-700 dark:text-[#d4ff00]" />
+                  <div>
+                    <p className="text-xs font-black uppercase text-emerald-950 dark:text-emerald-100">Send Email to Members</p>
+                    <p className="text-[11px] text-emerald-800/80 dark:text-emerald-200/70">
+                      Deliver official notification to members' inboxes in safe batches.
+                    </p>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={emailNotify}
+                  onChange={e => setEmailNotify(e.target.checked)}
+                  className="mt-1 h-4 w-4 accent-[#d4ff00]"
+                  aria-label="Send Email"
+                />
+              </div>
+
+              {emailNotify && (
+                <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-500/10 space-y-3">
+                  <div className="flex items-center gap-4 text-xs flex-wrap">
+                    <label className="flex items-center gap-1.5 cursor-pointer font-bold text-gray-800 dark:text-gray-200">
+                      <input
+                        type="radio"
+                        name="recipientMode"
+                        checked={recipientMode === 'all'}
+                        onChange={() => setRecipientMode('all')}
+                        className="accent-[#d4ff00]"
+                      />
+                      <span>All active members ({emailableMembers.length})</span>
+                    </label>
+
+                    <label className="flex items-center gap-1.5 cursor-pointer font-bold text-gray-800 dark:text-gray-200">
+                      <input
+                        type="radio"
+                        name="recipientMode"
+                        checked={recipientMode === 'selected'}
+                        onChange={() => {
+                          setRecipientMode('selected');
+                          if (selectedRecipientIds.length === 0) {
+                            setSelectedRecipientIds(emailableMembers.map(m => m.id));
+                          }
+                        }}
+                        className="accent-[#d4ff00]"
+                      />
+                      <span>Choose specific members ({selectedRecipientIds.length} selected)</span>
+                    </label>
+                  </div>
+
+                  {recipientMode === 'selected' && (
+                    <div className="bg-white dark:bg-black/40 rounded-xl p-3 border border-emerald-200 dark:border-white/10 space-y-2.5">
+                      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center justify-between">
+                        <div className="relative flex-1">
+                          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+                          <input
+                            type="text"
+                            placeholder="Search recipient by name or email..."
+                            value={recipientSearch}
+                            onChange={e => setRecipientSearch(e.target.value)}
+                            className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-gray-200 dark:border-white/10 text-xs bg-gray-50 dark:bg-black text-gray-900 dark:text-white"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRecipientIds(emailableMembers.map(m => m.id))}
+                            className="px-2 py-1 rounded bg-black/5 dark:bg-white/10 text-[10px] font-bold text-gray-700 dark:text-gray-300 hover:bg-black/10"
+                          >
+                            Select All ({emailableMembers.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRecipientIds([])}
+                            className="px-2 py-1 rounded bg-black/5 dark:bg-white/10 text-[10px] font-bold text-gray-700 dark:text-gray-300 hover:bg-black/10"
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Recipient Checklist */}
+                      <div className="max-h-48 overflow-y-auto divide-y divide-gray-100 dark:divide-white/5 border border-gray-100 dark:border-white/5 rounded-lg">
+                        {filteredEmailMembers.length === 0 ? (
+                          <div className="p-3 text-center text-xs text-neutral-500">No members match your search.</div>
+                        ) : (
+                          filteredEmailMembers.map(m => {
+                            const isChecked = selectedRecipientIds.includes(m.id);
+                            return (
+                              <label
+                                key={m.id}
+                                className="flex items-center justify-between gap-3 p-2 hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer text-xs"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      setSelectedRecipientIds(prev =>
+                                        isChecked ? prev.filter(id => id !== m.id) : [...prev, m.id]
+                                      );
+                                    }}
+                                    className="accent-[#d4ff00] rounded"
+                                  />
+                                  <div className="min-w-0">
+                                    <div className="font-bold text-gray-900 dark:text-white truncate">
+                                      {m.first_name} {m.father_name}
+                                    </div>
+                                    <div className="text-[10px] font-mono text-neutral-500 truncate">{m.email}</div>
+                                  </div>
+                                </div>
+                                <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/5 text-neutral-600 dark:text-neutral-400">
+                                  {m.membership_type}
+                                </span>
+                              </label>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Draft/Vote Toggle */}
             <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
               <input
@@ -1519,7 +1704,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 className="w-4 h-4 accent-[#d4ff00]"
               />
               <label htmlFor="draft-toggle" className="text-xs font-bold cursor-pointer text-amber-700 dark:text-amber-400">
-                Publish as a Draft — Allow members to vote (Approve / Needs Adjustment) before finalizing
+                Publish as a Draft â€” Allow members to vote (Approve / Needs Adjustment) before finalizing
               </label>
             </div>
 
@@ -1533,10 +1718,121 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </button>
               <button
                 onClick={handlePublishAnnouncement}
-                className="px-5 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider shadow-sm cursor-pointer flex items-center gap-1.5"
+                disabled={isPublishingAnn}
+                className="px-5 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider shadow-sm cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
               >
-                <Send className="w-4 h-4 text-black" />
-                <span>{newAnn.is_draft ? 'Publish as Draft for Voting' : 'Publish Announcement'}</span>
+                {isPublishingAnn ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                    <span>Broadcasting & Sending Emails...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 text-black" />
+                    <span>{newAnn.is_draft ? 'Publish as Draft for Voting' : 'Publish Announcement'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* â•â•â•â•â•â•â•â• EMAIL DELIVERY REPORT MODAL â•â•â•â•â•â•â•â• */}
+      {showDeliveryReportModal && deliveryReport && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#121214] rounded-3xl border border-gray-200 dark:border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-white/10 flex items-center justify-between bg-gray-50 dark:bg-black">
+              <div>
+                <span className="text-[10px] font-mono font-black uppercase text-green-700 dark:text-[#d4ff00]">
+                  Broadcast Delivery Report
+                </span>
+                <h3 className="text-base font-black text-gray-900 dark:text-white font-syne uppercase truncate max-w-md">
+                  {deliveryReport.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowDeliveryReportModal(false)}
+                className="p-1.5 rounded-xl text-neutral-500 hover:text-gray-900 dark:hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 overflow-y-auto">
+              {/* Stat counters */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 bg-gray-50 dark:bg-white/5 rounded-2xl border border-gray-200 dark:border-white/10 text-center">
+                  <div className="text-[10px] font-mono font-bold text-neutral-500 uppercase">Attempted</div>
+                  <div className="text-xl font-black text-gray-900 dark:text-white font-syne mt-0.5">{deliveryReport.total}</div>
+                </div>
+                <div className="p-3 bg-green-500/10 rounded-2xl border border-green-500/20 text-center">
+                  <div className="text-[10px] font-mono font-bold text-green-700 dark:text-[#d4ff00] uppercase">Delivered</div>
+                  <div className="text-xl font-black text-green-700 dark:text-[#d4ff00] font-syne mt-0.5">{deliveryReport.sent}</div>
+                </div>
+                <div className="p-3 bg-red-500/10 rounded-2xl border border-red-500/20 text-center">
+                  <div className="text-[10px] font-mono font-bold text-red-600 dark:text-red-400 uppercase">Failed</div>
+                  <div className="text-xl font-black text-red-600 dark:text-red-400 font-syne mt-0.5">{deliveryReport.failed}</div>
+                </div>
+              </div>
+
+              {/* Search within report */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                <input
+                  type="text"
+                  placeholder="Search recipient name or email..."
+                  value={reportSearch}
+                  onChange={e => setReportSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 text-xs bg-gray-50 dark:bg-black text-gray-900 dark:text-white font-mono"
+                />
+              </div>
+
+              {/* List of members with status indicator */}
+              <div className="border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden divide-y divide-gray-100 dark:divide-white/5 max-h-72 overflow-y-auto">
+                {deliveryReport.records
+                  .filter(r => !reportSearch || r.name.toLowerCase().includes(reportSearch.toLowerCase()) || r.email.toLowerCase().includes(reportSearch.toLowerCase()))
+                  .map((r, idx) => (
+                    <div key={idx} className="p-3 flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {r.status === 'sent' ? (
+                          <div className="w-7 h-7 rounded-full bg-green-500/15 text-green-700 dark:text-[#d4ff00] flex items-center justify-center shrink-0">
+                            <CheckCircle2 className="w-4 h-4" />
+                          </div>
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-red-500/15 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
+                            <XCircle className="w-4 h-4" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="font-bold text-gray-900 dark:text-white truncate">{r.name}</div>
+                          <div className="text-[11px] font-mono text-neutral-500 truncate">{r.email}</div>
+                          {r.error && (
+                            <div className="text-[10px] text-red-500 dark:text-red-400 font-mono mt-0.5">{r.error}</div>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase shrink-0 border ${
+                        r.status === 'sent'
+                          ? 'bg-green-500/10 text-green-700 dark:text-[#d4ff00] border-green-500/20'
+                          : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
+                      }`}>
+                        {r.status === 'sent' ? 'Sent' : 'Failed'}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-black flex items-center justify-between">
+              <span className="text-xs text-neutral-500 font-mono">
+                {deliveryReport.sent} of {deliveryReport.total} emails delivered successfully
+              </span>
+              <button
+                onClick={() => setShowDeliveryReportModal(false)}
+                className="px-5 py-2 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase cursor-pointer"
+              >
+                Close Report
               </button>
             </div>
           </div>

@@ -104,20 +104,74 @@ export default async function handler(req, res) {
       }
       let emailed = 0;
       let emailError = null;
+      let emailReport = [];
       if (isEmailConfigured()) {
         try {
-          const members = await dbSelect('members', 'status=eq.ACTIVE&email=not.is.null&select=first_name,father_name,email');
-          const results = await Promise.allSettled(members.map(member => {
-            const message = announcementEmail(`${member.first_name} ${member.father_name}`, { title: row.title, content: row.content, category: row.type });
-            return sendEmail({ to: member.email, ...message });
-          }));
-          emailed = results.filter(result => result.status === 'fulfilled').length;
+          // If the admin chose specific recipients, only email those members.
+          // Otherwise fall back to all active members with an email address.
+          const recipientIds = Array.isArray(a.recipient_member_ids) && a.recipient_member_ids.length > 0
+            ? a.recipient_member_ids
+            : null;
+
+          let members;
+          if (recipientIds) {
+            const allMembers = await dbSelect('members', 'status=eq.ACTIVE&email=not.is.null&select=id,first_name,father_name,email');
+            members = allMembers.filter(m => recipientIds.includes(m.id));
+          } else {
+            members = await dbSelect('members', 'status=eq.ACTIVE&email=not.is.null&select=id,first_name,father_name,email');
+          }
+
+          // BCC-all mode: send a single email with every member in BCC.
+          // Set ANNOUNCEMENT_BCC_ALL=true in Vercel to enable this path.
+          // All recipients get the same generic greeting; no personal names.
+          if (process.env.ANNOUNCEMENT_BCC_ALL === 'true' && members.length > 0) {
+            const bccAddresses = members.map(m => m.email).join(', ');
+            const message = announcementEmail('EPA Member', { title: row.title, content: row.content, category: row.type });
+            await sendEmail({ to: process.env.GMAIL_USER || process.env.EMAIL_FROM, bcc: bccAddresses, ...message });
+            emailed = members.length;
+            emailReport = members.map(m => ({ name: `${m.first_name} ${m.father_name}`, email: m.email, status: 'sent' }));
+          } else {
+            // Batched sequential sends to avoid Gmail SMTP rate-limits.
+            // Gmail caps concurrent SMTP connections and throttles burst sends;
+            // firing all emails in parallel causes it to silently drop the
+            // excess, which is why only ~10 of 29 were delivered.
+            // Sending in small batches of 5 with a 1-second pause between
+            // batches keeps well under the per-connection limit.
+            const BATCH_SIZE = 5;
+            const BATCH_DELAY_MS = 1000;
+            for (let i = 0; i < members.length; i += BATCH_SIZE) {
+              const batch = members.slice(i, i + BATCH_SIZE);
+              const batchResults = await Promise.allSettled(batch.map(member => {
+                const message = announcementEmail(`${member.first_name} ${member.father_name}`, { title: row.title, content: row.content, category: row.type });
+                return sendEmail({ to: member.email, ...message });
+              }));
+              for (let j = 0; j < batchResults.length; j++) {
+                const member = batch[j];
+                if (batchResults[j].status === 'fulfilled') {
+                  emailed++;
+                  emailReport.push({ name: `${member.first_name} ${member.father_name}`, email: member.email, status: 'sent' });
+                } else {
+                  const reason = batchResults[j].reason?.message || 'unknown error';
+                  emailReport.push({ name: `${member.first_name} ${member.father_name}`, email: member.email, status: 'failed', error: reason });
+                  console.error(`[announcements] email failed for ${member.email}: ${reason}`);
+                }
+              }
+              // Pause between batches (skip after the last batch)
+              if (i + BATCH_SIZE < members.length) {
+                await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+              }
+            }
+            const failedCount = emailReport.filter(r => r.status === 'failed').length;
+            if (failedCount > 0) {
+              emailError = `${failedCount} email(s) failed. See function logs for details.`;
+            }
+          }
         } catch (error) {
           emailError = error.message;
           console.error('[announcements] email broadcast failed:', error.message);
         }
       }
-      return res.status(201).json({ success: true, emailed, emailError, telegram });
+      return res.status(201).json({ success: true, emailed, emailError, emailReport, telegram });
     }
 
     if (req.method === 'DELETE') {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, X, LogIn, Eye, EyeOff, Mail, UploadCloud, CheckCircle2, Phone, MapPin, Building2, GraduationCap, CalendarDays, UserRound } from 'lucide-react';
+import { Lock, X, LogIn, Eye, EyeOff, Mail, UploadCloud, CheckCircle2, Phone, MapPin, Building2, GraduationCap, CalendarDays, UserRound, KeyRound, ArrowLeft, RefreshCw } from 'lucide-react';
 import { Member } from '../types';
 import { uploadFile, MemberSession } from '../lib/api';
 
@@ -18,7 +18,11 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [mode, setMode] = useState<'login' | 'password' | 'profile'>('login');
+  const [mode, setMode] = useState<'login' | 'password' | 'profile' | 'forgot-request' | 'forgot-verify'>('login');
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
   const [pendingMember, setPendingMember] = useState<Member | null>(null);
   const [memberSession, setMemberSession] = useState<MemberSession | null>(null);
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
@@ -187,6 +191,84 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
     } finally { setIsLoading(false); }
   };
 
+  const handleForgotPasswordRequest = async () => {
+    setError('');
+    if (!identifier.trim()) {
+      setError(lang === 'EN' ? 'Please enter your registered email address or phone number.' : 'እባክዎ የተመዘገቡበትን ኢሜይል ወይም ስልክ ቁጥር ያስገቡ።');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: identifier.trim(), action: 'forgot-password-request' })
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error || 'Could not find an account with those details.');
+        return;
+      }
+      setMaskedEmail(data.maskedEmail || '');
+      setForgotCode('');
+      setForgotNewPassword('');
+      setForgotConfirmPassword('');
+      setMode('forgot-verify');
+      onToast(lang === 'EN' ? `Reset code sent to ${data.maskedEmail}` : `የይለፍ ቃል መቀየሪያ ኮድ ወደ ${data.maskedEmail} ተልኳል`, 'info');
+    } catch {
+      setError('Connection error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPasswordReset = async () => {
+    setError('');
+    if (!/^\d{6}$/.test(forgotCode.trim())) {
+      setError(lang === 'EN' ? 'Please enter the 6-digit confirmation code.' : 'እባክዎ ባለ 6-አሃዝ ኮዱን ያስገቡ።');
+      return;
+    }
+    if (forgotNewPassword.length < 8) {
+      setError(lang === 'EN' ? 'New password must be at least 8 characters.' : 'አዲሱ የይለፍ ቃል ቢያንስ 8 ፊደላት ወይም አሃዞች መሆን አለበት።');
+      return;
+    }
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setError(lang === 'EN' ? 'Passwords do not match.' : 'የይለፍ ቃሎቹ አይዛመዱም።');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: identifier.trim(),
+          code: forgotCode.trim(),
+          newPassword: forgotNewPassword,
+          action: 'forgot-password-reset'
+        })
+      });
+      const data = await res.json();
+      if (!data.success || !data.member) {
+        setError(data.error || 'Password reset failed. Please check the code.');
+        return;
+      }
+      const member = data.member as Member;
+      const session = (data.session || null) as MemberSession | null;
+      setMemberSession(session);
+      onToast(lang === 'EN' ? 'Password reset successfully!' : 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል!', 'success');
+      if (member.onboarding_completed === false) {
+        beginProfileCompletion(member);
+      } else {
+        await completeLogin(member, session);
+      }
+    } catch {
+      setError('Connection error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
       <div className="w-full max-w-2xl max-h-[92vh] bg-white dark:bg-[#121214] rounded-3xl border border-gray-200 dark:border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 flex flex-col">
@@ -200,14 +282,34 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
           </button>
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 bg-[#d4ff00]/10 border border-[#d4ff00]/30 rounded-2xl flex items-center justify-center">
-              <LogIn className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
+              {mode === 'forgot-request' || mode === 'forgot-verify' ? (
+                <KeyRound className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
+              ) : (
+                <LogIn className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" />
+              )}
             </div>
             <div>
               <h2 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tight font-syne">
-                {lang === 'EN' ? 'Member Login' : 'አባል መግቢያ'}
+                {mode === 'forgot-request'
+                  ? (lang === 'EN' ? 'Reset Password' : 'የይለፍ ቃል መቀየር')
+                  : mode === 'forgot-verify'
+                  ? (lang === 'EN' ? 'Confirm Code & Set Password' : 'ኮድ አረጋግጥ እና አዲስ የይለፍ ቃል ፍጠር')
+                  : mode === 'password'
+                  ? (lang === 'EN' ? 'Update Password' : 'የይለፍ ቃል ይቀይሩ')
+                  : mode === 'profile'
+                  ? (lang === 'EN' ? 'Complete Profile' : 'መረጃዎን ያሟሉ')
+                  : (lang === 'EN' ? 'Member Login' : 'አባል መግቢያ')}
               </h2>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                {mode === 'login' ? (lang === 'EN' ? 'Use your email or phone number & password' : 'ኢሜይልዎን ወይም ስልክ ቁጥርዎን ይጠቀሙ') : mode === 'password' ? 'Choose a secure new password' : 'Complete your membership profile'}
+                {mode === 'login'
+                  ? (lang === 'EN' ? 'Use your email or phone number & password' : 'ኢሜይልዎን ወይም ስልክ ቁጥርዎን ይጠቀሙ')
+                  : mode === 'forgot-request'
+                  ? (lang === 'EN' ? 'We will send a 6-digit verification code to your email' : 'ባለ 6-አሃዝ ማረጋገጫ ኮድ ወደ ኢሜይልዎ እንልካለን')
+                  : mode === 'forgot-verify'
+                  ? (lang === 'EN' ? `Code sent to ${maskedEmail || 'your email'}` : `ኮድ ወደ ${maskedEmail || 'ኢሜይልዎ'} ተልኳል`)
+                  : mode === 'password'
+                  ? 'Choose a secure new password'
+                  : 'Complete your membership profile'}
               </p>
             </div>
           </div>
@@ -233,9 +335,18 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
-              {lang === 'EN' ? 'Password' : 'የይለፍ ቃል'}
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                {lang === 'EN' ? 'Password' : 'የይለፍ ቃል'}
+              </label>
+              <button
+                type="button"
+                onClick={() => { setMode('forgot-request'); setError(''); }}
+                className="text-[11px] font-bold text-green-700 dark:text-[#d4ff00] hover:underline"
+              >
+                {lang === 'EN' ? 'Forgot password?' : 'የይለፍ ቃል ረሱ?'}
+              </button>
+            </div>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
               <input
@@ -255,6 +366,101 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
               </button>
             </div>
           </div>
+          </>}
+
+          {mode === 'forgot-request' && <>
+            <div className="rounded-xl border border-sky-200 dark:border-sky-500/20 bg-sky-50 dark:bg-sky-500/5 p-4 text-xs text-sky-900 dark:text-sky-200 leading-relaxed">
+              {lang === 'EN'
+                ? 'Enter the email address or phone number linked with your EPA membership. We will send a 6-digit confirmation code to your email so you can set a new password.'
+                : 'የተመዘገቡበትን ኢሜይል ወይም ስልክ ቁጥር ያስገቡ። አዲስ የይለፍ ቃል እንዲፈጥሩ ባለ 6-አሃዝ ማረጋገጫ ኮድ በኢሜይል እንልክልዎታለን።'}
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                {lang === 'EN' ? 'Email or Phone Number' : 'ኢሜይል ወይም ስልክ ቁጥር'}
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                <input
+                  type="text"
+                  placeholder="name@email.com or 0911223344"
+                  value={identifier}
+                  onChange={e => setIdentifier(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleForgotPasswordRequest()}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] transition-all font-medium"
+                />
+              </div>
+            </div>
+          </>}
+
+          {mode === 'forgot-verify' && <>
+            <div className="rounded-xl border border-[#d4ff00]/40 bg-[#d4ff00]/10 p-4 text-xs text-green-950 dark:text-[#d4ff00] leading-relaxed flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-green-700 dark:text-[#d4ff00]" />
+              <div>
+                <b>{lang === 'EN' ? 'Reset code sent!' : 'ኮዱ ተልኳል!'}</b>
+                <p className="mt-0.5 text-neutral-700 dark:text-neutral-300">
+                  {lang === 'EN'
+                    ? `We sent a 6-digit code to ${maskedEmail || 'your email'}. Enter it below along with your new password.`
+                    : `ባለ 6-አሃዝ ኮድ ወደ ${maskedEmail || 'ኢሜይልዎ'} ልከናል፤ ከታች አስገብተው አዲሱን የይለፍ ቃል ያዘጋጁ።`}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                {lang === 'EN' ? '6-Digit Verification Code' : 'ባለ 6-አሃዝ ማረጋገጫ ኮድ'}
+              </label>
+              <div className="relative">
+                <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="123456"
+                  value={forgotCode}
+                  onChange={e => setForgotCode(e.target.value.replace(/\D/g, ''))}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-base tracking-widest font-mono font-bold text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                {lang === 'EN' ? 'New Password (min 8 chars)' : 'አዲስ የይለፍ ቃል (ቢያንስ 8 ፊደላት)'}
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={forgotNewPassword}
+                  onChange={e => setForgotNewPassword(e.target.value)}
+                  className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] transition-all font-medium"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-neutral-500 mb-1.5">
+                {lang === 'EN' ? 'Confirm New Password' : 'አዲሱን የይለፍ ቃል ደግመው ያስገቡ'}
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={forgotConfirmPassword}
+                  onChange={e => setForgotConfirmPassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleForgotPasswordReset()}
+                  className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:border-green-700 dark:focus:border-[#d4ff00] transition-all font-medium"
+                />
+              </div>
+            </div>
           </>}
 
           {mode === 'password' && <>
@@ -309,30 +515,108 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
             </div>
           )}
 
-          {mode !== 'profile' && <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 hover:text-neutral-700 dark:hover:text-white">{showPassword ? 'Hide passwords' : 'Show passwords'}</button>}
+          {mode !== 'profile' && mode !== 'forgot-request' && (
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 hover:text-neutral-700 dark:hover:text-white"
+            >
+              {showPassword ? 'Hide passwords' : 'Show passwords'}
+            </button>
+          )}
+
           <button
-            onClick={mode === 'login' ? handleLogin : mode === 'password' ? handlePasswordChange : handleProfileComplete}
+            onClick={
+              mode === 'login'
+                ? handleLogin
+                : mode === 'password'
+                ? handlePasswordChange
+                : mode === 'forgot-request'
+                ? handleForgotPasswordRequest
+                : mode === 'forgot-verify'
+                ? handleForgotPasswordReset
+                : handleProfileComplete
+            }
             disabled={isLoading}
             className="w-full py-3.5 bg-[#d4ff00] text-black font-black uppercase text-xs rounded-xl shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:shadow-[0_0_30px_rgba(212,255,0,0.5)] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isLoading ? (
               <>
                 <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                {mode === 'profile' ? 'Saving profile…' : mode === 'password' ? 'Updating password…' : (lang === 'EN' ? 'Logging in...' : 'እየተገባ ነው...')}
+                {mode === 'profile'
+                  ? 'Saving profile…'
+                  : mode === 'password'
+                  ? 'Updating password…'
+                  : mode === 'forgot-request'
+                  ? 'Sending reset code…'
+                  : mode === 'forgot-verify'
+                  ? 'Verifying & resetting…'
+                  : (lang === 'EN' ? 'Logging in...' : 'እየተገባ ነው...')}
               </>
             ) : (
               <>
-                <LogIn className="w-4 h-4" />
-                {mode === 'profile' ? 'Complete profile & enter portal' : mode === 'password' ? 'Save new password' : (lang === 'EN' ? 'Login to Portal' : 'ወደ ፖርታሉ ግባ')}
+                {mode === 'forgot-request' ? (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    <span>{lang === 'EN' ? 'Send Reset Code to Email' : 'የማረጋገጫ ኮድ ላክ'}</span>
+                  </>
+                ) : mode === 'forgot-verify' ? (
+                  <>
+                    <KeyRound className="w-4 h-4" />
+                    <span>{lang === 'EN' ? 'Reset Password & Log In' : 'የይለፍ ቃል ቀይር እና ግባ'}</span>
+                  </>
+                ) : mode === 'profile' ? (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>Complete profile & enter portal</span>
+                  </>
+                ) : mode === 'password' ? (
+                  <>
+                    <Lock className="w-4 h-4" />
+                    <span>Save new password</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>{lang === 'EN' ? 'Login to Portal' : 'ወደ ፖርታሉ ግባ'}</span>
+                  </>
+                )}
               </>
             )}
           </button>
 
-          {mode === 'login' && <p className="text-center text-xs text-neutral-400 dark:text-neutral-500">
-            {lang === 'EN'
-              ? 'Password was set during registration. Contact EPA if you forgot it.'
-              : 'የይለፍ ቃሉ በምዝገባ ጊዜ ተቀናጅቷል። ካልዘከሩ EPA ን ያናግሩ።'}
-          </p>}
+          {(mode === 'forgot-request' || mode === 'forgot-verify') && (
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(''); }}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-neutral-500 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>{lang === 'EN' ? 'Back to Login' : 'ወደ መግቢያ ተመለስ'}</span>
+              </button>
+
+              {mode === 'forgot-verify' && (
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={handleForgotPasswordRequest}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-green-700 dark:text-[#d4ff00] hover:underline"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>{lang === 'EN' ? 'Resend code' : 'ኮድ በድጋሚ ላክ'}</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {mode === 'login' && (
+            <p className="text-center text-xs text-neutral-400 dark:text-neutral-500">
+              {lang === 'EN'
+                ? 'Use your email or phone number with your EPA password.'
+                : 'የተመዘገቡበትን ኢሜይል ወይም ስልክ ቁጥር ከይለፍ ቃልዎ ጋር ይጠቀሙ።'}
+            </p>
+          )}
         </div>
       </div>
     </div>

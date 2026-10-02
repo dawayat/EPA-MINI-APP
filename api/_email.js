@@ -27,7 +27,7 @@ export function isEmailConfigured() {
   );
 }
 
-export async function sendEmail({ to, subject, html, text }) {
+export async function sendEmail({ to, bcc, subject, html, text }) {
   if (!isEmailConfigured()) throw new Error('Email delivery is not configured. Add GMAIL_USER and GMAIL_APP_PASSWORD to Vercel, or configure Resend.');
 
   // Gmail SMTP is the primary no-domain option. Use a Google App Password,
@@ -44,22 +44,26 @@ export async function sendEmail({ to, subject, html, text }) {
     const from = configuredAddress.toLowerCase() === gmailAddress
       ? process.env.EMAIL_FROM
       : `EPA Membership <${process.env.GMAIL_USER}>`;
-    const result = await transporter.sendMail({
+    const mailOptions = {
       from,
       to,
       replyTo: process.env.GMAIL_USER,
       subject,
       html,
-      text: text || 'This is an official email from the Ethiopian Psychologists’ Association.',
+      text: text || 'This is an official email from the Ethiopian Psychologists\' Association.',
       headers: { 'X-Entity-Ref-ID': `epa-${Date.now()}-${Math.random().toString(36).slice(2, 10)}` }
-    });
+    };
+    if (bcc) mailOptions.bcc = bcc;
+    const result = await transporter.sendMail(mailOptions);
     return { provider: 'gmail', messageId: result.messageId };
   }
 
+  const body = { from: process.env.EMAIL_FROM, to: [to], reply_to: process.env.GMAIL_USER || undefined, subject, html, text: text || undefined };
+  if (bcc) body.bcc = bcc.split(',').map(e => e.trim()).filter(Boolean);
   const response = await fetch(RESEND_API_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM, to: [to], reply_to: process.env.GMAIL_USER || undefined, subject, html, text: text || undefined })
+    body: JSON.stringify(body)
   });
   if (!response.ok) throw new Error(`Email provider failed: ${await response.text()}`);
   return response.json();
@@ -131,5 +135,17 @@ export function memberInviteEmail(name, membershipNumber, temporaryPassword) {
       actionUrl: appUrl() || undefined
     }),
     text: `Ethiopian Psychologists’ Association\n\nHello ${name},\n\nYour existing membership is now in the EPA digital registry.\nMembership number: ${membershipNumber}\nTemporary password: ${temporaryPassword}\n\nSign in with this email address and temporary password, then choose a new password and complete your profile.`
+  };
+}
+
+export function passwordResetEmail(name, code) {
+  return {
+    subject: 'Reset your EPA member portal password',
+    html: emailShell({
+      eyebrow: 'EPA Account Security',
+      title: 'Reset your password',
+      body: `<p>Hello ${escapeHtml(name || 'EPA Member')},</p><p>We received a request to reset your EPA member portal password. Enter the verification code below to set a new password:</p><div style="background:#f3f8ef;border:1px solid #cddfc7;border-radius:12px;color:#173719;font-family:Arial,Helvetica,sans-serif;font-size:27px;font-weight:700;letter-spacing:6px;margin:22px 0;padding:18px;text-align:center">${escapeHtml(code)}</div><p>This code will expire in <b>15 minutes</b>. If you did not request this password reset, please ignore this email or notify the EPA Secretariat.</p>`
+    }),
+    text: `Ethiopian Psychologists’ Association\n\nHello ${name || 'EPA Member'},\n\nEnter this 6-digit confirmation code to reset your EPA password: ${code}\n\nThis code expires in 15 minutes. If you did not request this, you can ignore this message.`
   };
 }
