@@ -78,3 +78,36 @@
     background: white !important;
   }
 }
+
+/* Calm, locally rendered fallback for members without a profile photograph. */
+.member-avatar {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  overflow: hidden;
+  isolation: isolate;
+  vertical-align: middle;
+  background: radial-gradient(ellipse at 25% 15%, #477662 0%, #204d40 42%, #102c26 100%);
+}
+.member-avatar__halo {
+  position: absolute;
+  inset: 12%;
+  border: 1px solid #d4ef9c40;
+  border-radius: 50%;
+  box-shadow: 0 0 0 9px #d4ef9c08, inset 0 0 18px #d4ef9c12;
+  animation: member-avatar-breathe 5s ease-in-out infinite;
+}
+.member-avatar__figure { position: absolute; inset: 10% 10% -8%; animation: member-avatar-float 6s ease-in-out infinite; }
+.member-avatar__figure svg { width: 100%; height: 100%; }
+.member-avatar__spark { position: absolute; color: #d4ff9a; line-height: 1; font-size: 12px; animation: member-avatar-glow 4s ease-in-out infinite; }
+.member-avatar__spark--one { top: 19%; right: 16%; }
+.member-avatar__spark--two { bottom: 26%; left: 13%; font-size: 8px; animation-delay: -2s; }
+@keyframes member-avatar-float { 0%, 100% { transform: translateY(2%); } 50% { transform: translateY(-3%); } }
+@keyframes member-avatar-breathe { 0%, 100% { transform: scale(.94); opacity: .55; } 50% { transform: scale(1.05); opacity: 1; } }
+@keyframes member-avatar-glow { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.1); } }
+@media (prefers-reduced-motion: reduce) {
+  .member-avatar__halo, .member-avatar__figure, .member-avatar__spark { animation: none; }
+}
+@media print {
+  .member-avatar__halo, .member-avatar__figure, .member-avatar__spark { animation: none; }
+}

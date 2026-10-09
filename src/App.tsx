@@ -354,7 +354,7 @@ export default function App() {
       father_name: app.father_name,
       grandfather_name: app.grandfather_name,
       amharic_full_name: app.amharic_full_name,
-      photo_url: app.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
+      photo_url: app.photo_url,
       email: app.email,
       phone: app.phone,
       city: app.city,

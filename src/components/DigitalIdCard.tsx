@@ -1,3 +1,4 @@
+import { MemberAvatar } from './MemberAvatar';
 import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { 
@@ -200,8 +201,8 @@ export const DigitalIdCard: React.FC<DigitalIdCardProps> = ({
             {/* Middle row: Member Avatar & Credentials */}
             <div className="relative z-10 flex items-center gap-4 my-auto">
               <div className="relative">
-                <img 
-                  src={member.photo_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200'} 
+                <MemberAvatar 
+                  src={member.photo_url} 
                   alt={member.first_name}
                   className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-[#d4ff00] shadow-lg bg-black"
                 />

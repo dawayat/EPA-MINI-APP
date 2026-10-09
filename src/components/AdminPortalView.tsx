@@ -1,3 +1,4 @@
+import { MemberAvatar } from './MemberAvatar';
 ﻿import React, { useState } from 'react';
 import { 
   Users, Clock, CreditCard, CheckCircle2, XCircle, AlertTriangle,
@@ -563,8 +564,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     <tr key={app.id} className="hover:bg-black/5 dark:bg-white/5 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={app.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100'}
+                          <MemberAvatar
+                            src={app.photo_url}
                             alt=""
                             className="w-9 h-9 rounded-xl object-cover border border-white/20"
                           />
@@ -1053,8 +1054,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             <div className="p-6 overflow-y-auto space-y-6 text-xs text-gray-900 dark:text-white">
               {/* Applicant Header summary */}
               <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-black/60 rounded-2xl border border-gray-200 dark:border-white/10">
-                <img
-                  src={reviewingApp.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
+                <MemberAvatar
+                  src={reviewingApp.photo_url}
                   alt=""
                   className="w-16 h-16 rounded-xl object-cover border border-[#d4ff00] shadow-xs"
                 />

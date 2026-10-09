@@ -1,3 +1,4 @@
+import { MemberAvatar } from './MemberAvatar';
 import React, { useState } from 'react';
 import { 
   Vote, 
@@ -192,8 +193,8 @@ export const ElectionsBooth: React.FC<ElectionsBoothProps> = ({
                 >
                   <div>
                     <div className="flex items-center gap-3.5 mb-4">
-                      <img
-                        src={candidate.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
+                      <MemberAvatar
+                        src={candidate.avatar_url}
                         alt=""
                         className="w-14 h-14 rounded-2xl object-cover border border-gray-200 dark:border-white/15 bg-stone-100 dark:bg-stone-900"
                       />

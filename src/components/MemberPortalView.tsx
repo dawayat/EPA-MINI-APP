@@ -1,3 +1,4 @@
+import { MemberAvatar } from './MemberAvatar';
 import React, { useState, useEffect } from 'react';
 import {
   Award, CreditCard, FileText, CheckCircle2, Calendar, Users, Vote,
@@ -256,7 +257,7 @@ const AnnouncementCard: React.FC<AnnCardProps> = ({ member, ann, lang, onToast, 
               </div>
             ) : <p className="text-[11px] text-neutral-500">{lang === 'EN' ? 'No comments yet. Start the discussion.' : 'ገና አስተያየት የለም።'}</p>}
             <div className="flex gap-2 items-start mt-2">
-              {member.photo_url ? <img src={member.photo_url} alt={member.first_name} className="w-7 h-7 rounded-full object-cover border border-[#d4ff00] shrink-0" /> : <div className="w-7 h-7 rounded-full bg-[#d4ff00] flex items-center justify-center text-[9px] font-black text-black shrink-0">{member.first_name.charAt(0)}</div>}
+              <MemberAvatar src={member.photo_url} alt={member.first_name} className="w-7 h-7 rounded-full object-cover border border-[#d4ff00] shrink-0" />
               <div className="flex-1">
                 <textarea rows={2} value={commentText} onChange={e => setCommentText(e.target.value)} placeholder={lang === 'EN' ? 'Add a comment...' : 'አስተያየትዎን ይጻፉ...'} className="w-full p-2.5 rounded-xl text-xs border border-gray-200 dark:border-white/10 bg-white dark:bg-black text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#d4ff00] resize-none" />
                 <button onClick={handleComment} disabled={!commentText.trim() || isSaving} className="mt-2 px-4 py-1.5 rounded-lg bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-[10px] font-black uppercase cursor-pointer active:scale-95 disabled:opacity-50">
@@ -513,7 +514,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 82% 12%, #d4ff00 0%, transparent 30%), radial-gradient(circle at 5% 105%, #49a85a 0%, transparent 35%)' }} />
         <div className="absolute right-[-32px] top-[-32px] w-40 h-40 rounded-full border-[18px] border-[#d4ff00]/[0.07]" />
         <div className="relative z-10 flex items-start gap-4">
-          <div className="relative shrink-0"><img src={member.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'} alt={member.first_name} className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl object-cover border-2 border-[#d4ff00]/70 shadow-lg" /><span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#d4ff00] border-2 border-[#0b1c0e] flex items-center justify-center"><Check className="w-3 h-3 text-black" /></span><ProfilePhotoEditor lang={lang} onUpdate={onUpdateProfilePhoto} onToast={onToast} /></div>
+          <div className="relative shrink-0"><MemberAvatar src={member.photo_url} alt={member.first_name} className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl object-cover border-2 border-[#d4ff00]/70 shadow-lg" /><span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#d4ff00] border-2 border-[#0b1c0e] flex items-center justify-center"><Check className="w-3 h-3 text-black" /></span><ProfilePhotoEditor lang={lang} onUpdate={onUpdateProfilePhoto} onToast={onToast} /></div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#d4ff00] bg-[#d4ff00]/10 px-2 py-0.5 rounded-full border border-[#d4ff00]/20">
@@ -750,7 +751,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
             <div className="relative">
-              <img src={member.photo_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300'}
+              <MemberAvatar src={member.photo_url}
                 alt={member.first_name} className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border-2 border-[#d4ff00] shadow-lg bg-black" />
               <div className="absolute -bottom-1 -right-1 bg-[#d4ff00] text-black p-1 rounded-full border-2 border-black">
                 <CheckCircle2 className="w-3.5 h-3.5" />

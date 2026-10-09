@@ -1,3 +1,4 @@
+import { MemberAvatar } from '../MemberAvatar';
 import React, { useState } from 'react';
 import {
   GraduationCap, BookOpen, Award, Users, Calendar, FileText,
@@ -51,8 +52,8 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
           style={{ backgroundImage: 'radial-gradient(circle at 80% 20%, #d4ff00 0%, transparent 50%)' }} />
         
         <div className="relative z-10 flex items-start gap-4">
-          <img
-            src={member.photo_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
+          <MemberAvatar
+            src={member.photo_url}
             alt={member.first_name}
             className="w-16 h-16 rounded-2xl object-cover border-2 border-[#d4ff00]/40"
           />

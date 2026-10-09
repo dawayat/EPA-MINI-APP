@@ -1,3 +1,4 @@
+import { MemberAvatar } from '../MemberAvatar';
 import React, { useState } from 'react';
 import {
   UserCheck, Award, FileText, Vote, MapPin, Building2, ExternalLink, ShieldCheck, Mail, Phone, Calendar, Download, BookOpen, Clock, Heart, Plus, Search, ChevronRight, Briefcase, Bell, MessageSquare, Sparkles, Shield, Edit3, CheckCircle2, CreditCard, Users
@@ -50,8 +51,8 @@ export const FullMemberPortal: React.FC<FullMemberPortalProps> = ({
           style={{ backgroundImage: 'radial-gradient(circle at 70% 10%, #3b82f6 0%, transparent 50%)' }} />
         
         <div className="relative z-10 flex items-start gap-4">
-          <img
-            src={member.photo_url || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=200'}
+          <MemberAvatar
+            src={member.photo_url}
             alt={member.first_name}
             className="w-16 h-16 rounded-2xl object-cover border-2 border-blue-500/40"
           />
