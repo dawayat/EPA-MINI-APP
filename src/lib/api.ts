@@ -288,6 +288,22 @@ export async function updateOwnProfilePhoto(memberId: string, file: File, sessio
   return result.member as Member;
 }
 
+/** Administrators may update a member photo without a member session. */
+export async function updateMemberPhotoAsAdmin(memberId: string, file: File): Promise<Member> {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Choose a JPEG, PNG, or WebP profile photo.');
+  if (file.size > 10 * 1024 * 1024) throw new Error('Choose an image smaller than 10 MB.');
+  const photo_url = await uploadFile(file);
+  if (!photo_url.startsWith('data:image/')) throw new Error('This image could not be read. Please choose another photo.');
+  const response = await fetch(API_BASE + '/api/members', {
+    method: 'PATCH',
+    headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'admin-update-profile-photo', id: memberId, photo_url }),
+  });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.success || !result.member) throw new Error(result.error || 'Could not update the member photo.');
+  return result.member as Member;
+}
+
 export async function deleteMember(id: string) {
   return apiDelete('/api/members', { id }, true);
 }

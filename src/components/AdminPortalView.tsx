@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { uploadFile } from '../lib/api';
 import { adminHeaders } from '../lib/admin';
-import { memberPhotoUrl, useFallbackMemberPhoto } from '../lib/media';
+import { memberPhotoUrl } from '../lib/media';
 import { Application, Member, University, Announcement, AuditLog, ApplicationStatus, ResearchSubmission } from '../types';
 
 interface AdminPortalViewProps {
@@ -30,6 +30,7 @@ interface AdminPortalViewProps {
   onAddUniversity: (uni: Partial<University>) => void;
   onUpdateResearchSubmission: (id: string, status: ResearchSubmission['status'], reviewNotes?: string) => Promise<void>;
   onOpenApplication: (applicationId: string) => Promise<Application>;
+  onUpdateMemberPhoto: (memberId: string, file: File) => Promise<void>;
   onMembersImported: () => Promise<void>;
   onSignOut: () => void;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
@@ -99,9 +100,25 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   onUpdateResearchSubmission,
   onOpenApplication,
   onMembersImported,
+  onUpdateMemberPhoto,
   onSignOut,
   onToast,
 }) => {
+  const [uploadingMemberId, setUploadingMemberId] = useState<string | null>(null);
+  const uploadMemberPhoto = async (member: Member, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    setUploadingMemberId(member.id);
+    try {
+      await onUpdateMemberPhoto(member.id, file);
+      onToast('Profile photo updated for ' + member.first_name + '.', 'success');
+    } catch (error) {
+      onToast(error instanceof Error ? error.message : 'Could not update the member photo.', 'error');
+    } finally {
+      setUploadingMemberId(null);
+    }
+  };
   const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'members' | 'cpd' | 'elections' | 'universities' | 'audit' | 'announcements' | 'research'>('applications');
   const [selectedAppFilter, setSelectedAppFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -751,7 +768,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <img src={memberPhotoUrl(m.id)} alt="" loading="lazy" onError={useFallbackMemberPhoto}
+                        <MemberAvatar src={m.photo_url || memberPhotoUrl(m.id)} alt={m.first_name + " " + m.father_name}
                           className="w-8 h-8 rounded-xl object-cover border border-gray-200 dark:border-white/10" />
                         <div>
                           <div className="font-black text-gray-900 dark:text-white">{m.first_name} {m.father_name}</div>
@@ -771,6 +788,15 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       <span className={`text-[10px] font-mono font-bold ${m.status === 'ACTIVE' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>{m.status}</span>
                     </td>
                     <td className="p-4">
+                      <label className="inline-flex relative items-center gap-1.5 mr-2 px-2 py-1.5 rounded-lg bg-green-700/10 text-green-700 dark:text-[#d4ff00] text-xs font-bold focus-within:ring-2 focus-within:ring-green-500">
+                        <UploadCloud className="w-4 h-4" aria-hidden="true" />
+                        <span>{uploadingMemberId === m.id ? 'Saving…' : (lang === 'EN' ? 'Upload photo' : 'ፎቶ ጫን')}</span>
+                        <input type="file" accept="image/jpeg,image/png,image/webp"
+                          aria-label={'Upload profile photo for ' + m.first_name + ' ' + m.father_name}
+                          disabled={uploadingMemberId !== null}
+                          onChange={event => void uploadMemberPhoto(m, event)}
+                          className="absolute inset-0 opacity-0 w-full cursor-pointer disabled:cursor-wait" />
+                      </label>
                       {onDeleteMember && (
                         <button onClick={() => { if(window.confirm('Delete member? This will force them to re-register.')) onDeleteMember(m.id); }}
                           className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 cursor-pointer" title="Delete Member">

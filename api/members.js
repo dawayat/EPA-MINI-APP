@@ -298,16 +298,17 @@ export default async function handler(req, res) {
 
     if (req.method === 'PATCH') {
       const { id, action, photo_url, phone, city, workplace, specialty, gender, date_of_birth, bio, student_profile, corporate_profile } = req.body || {};
-      if (!id || !['complete-onboarding', 'update-profile-photo'].includes(action)) return res.status(400).json({ error: 'A valid member profile update is required.' });
-      requireMemberSession(req, id);
+      if (!id || !['complete-onboarding', 'update-profile-photo', 'admin-update-profile-photo'].includes(action)) return res.status(400).json({ error: 'A valid member profile update is required.' });
+      if (action === 'admin-update-profile-photo') requireAdmin(req);
+      else requireMemberSession(req, id);
       const existing = (await dbSelect('members', `id=eq.${encodeURIComponent(id)}&limit=1`))[0];
       if (!existing) return res.status(404).json({ success: false, error: 'Member account was not found.' });
 
-      if (action === 'update-profile-photo') {
+      if (action === 'update-profile-photo' || action === 'admin-update-profile-photo') {
         if (typeof photo_url !== 'string' || !PROFILE_PHOTO_DATA_URL.test(photo_url) || photo_url.length > MAX_PROFILE_PHOTO_LENGTH) {
           return res.status(400).json({ success: false, error: 'Upload a JPEG, PNG, or WebP profile photo under 2 MB.' });
         }
-        await dbUpdate('members', { photo_url }, 'id', id);
+        await dbUpdate('members', { photo_url }, 'id', encodeURIComponent(id));
         return res.status(200).json({ success: true, member: safeMember({ ...existing, photo_url }) });
       }
 

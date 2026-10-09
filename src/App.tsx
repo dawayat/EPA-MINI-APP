@@ -3,7 +3,7 @@ import { isSupabaseConfigured } from './lib/supabase';
 import { 
   fetchMembers, fetchMemberStats, fetchDirectoryMembers, fetchApplications, fetchApplicationDetail, fetchAnnouncements,
   fetchUniversities, fetchAuditLogs, fetchResearchSubmissions,
-  submitApplication, updateApplicationStatus, publishAnnouncement, createMember, deleteMember, deleteAnnouncement, submitResearchSubmission, updateResearchSubmission, updateOwnProfilePhoto, MemberSession
+  submitApplication, updateApplicationStatus, publishAnnouncement, createMember, deleteMember, deleteAnnouncement, submitResearchSubmission, updateResearchSubmission, updateOwnProfilePhoto, updateMemberPhotoAsAdmin, MemberSession
 } from './lib/api';
 import { 
   Member, 
@@ -777,6 +777,10 @@ export default function App() {
             onAddUniversity={handleAddUniversity}
             onUpdateResearchSubmission={handleResearchStatusChange}
             onOpenApplication={loadApplicationDossier}
+            onUpdateMemberPhoto={async (memberId, file) => {
+              const updated = await updateMemberPhotoAsAdmin(memberId, file);
+              setMembers(previous => previous.map(member => member.id === memberId ? { ...member, photo_url: updated.photo_url } : member));
+            }}
             onMembersImported={async () => setMembers(await fetchMembers())}
             onSignOut={signOutAdmin}
             onToast={showToast}
