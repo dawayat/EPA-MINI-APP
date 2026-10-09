@@ -15,8 +15,9 @@ import {
   Send,
   X
 } from 'lucide-react';
+import { MemberAvatar } from './MemberAvatar';
 import { Member, MemberMessage } from '../types';
-import { memberPhotoUrl, useFallbackMemberPhoto } from '../lib/media';
+import { memberPhotoUrl } from '../lib/media';
 import { fetchMemberMessages, notifyCommunityUpdate, onCommunityUpdate, sendMemberMessage } from '../lib/community';
 
 interface PsychologistDirectoryProps {
@@ -198,11 +199,8 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
             <div>
               <div className="flex items-start gap-4 mb-4">
                 <div className="relative">
-                  <img
-                    src={memberPhotoUrl(member.id)}
-                    alt=""
-                    loading="lazy"
-                    onError={useFallbackMemberPhoto}
+                  <MemberAvatar src={member.photo_url || memberPhotoUrl(member.id)}
+                    loading="lazy" alt={member.first_name}
                     className="w-16 h-16 rounded-2xl object-cover border border-gray-200 dark:border-white/15 shadow-md bg-stone-100 dark:bg-stone-900"
                   />
                   <div className="absolute -bottom-1 -right-1 bg-[#d4ff00] text-black p-0.5 rounded-full shadow-xs">
@@ -278,10 +276,8 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl border border-gray-200 dark:border-white/10">
             <div className="flex items-start gap-4">
-              <img
-                src={memberPhotoUrl(selectedMemberModal.id)}
-                alt=""
-                onError={useFallbackMemberPhoto}
+              <MemberAvatar src={selectedMemberModal.photo_url || memberPhotoUrl(selectedMemberModal.id)}
+                alt={selectedMemberModal.first_name}
                 className="w-18 h-18 rounded-2xl object-cover border-2 border-[#d4ff00] shadow-md bg-stone-100 dark:bg-stone-900"
               />
               <div className="flex-1">
@@ -342,7 +338,7 @@ export const PsychologistDirectory: React.FC<PsychologistDirectoryProps> = ({
         <div className="fixed inset-0 z-[55] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-lg max-h-[80dvh] rounded-3xl bg-gray-50 dark:bg-[#121214] border border-white/20 shadow-2xl overflow-hidden flex flex-col">
             <div className="shrink-0 flex items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-white/10">
-              <div className="flex items-center gap-3 min-w-0"><img src={memberPhotoUrl(chatMember.id)} onError={useFallbackMemberPhoto} alt="" className="w-10 h-10 rounded-xl object-cover" /><div className="min-w-0"><h3 className="font-black text-sm text-gray-900 dark:text-white truncate">{chatMember.first_name} {chatMember.father_name}</h3><p className="text-[10px] font-mono text-green-700 dark:text-[#d4ff00] uppercase">EPA member chat</p></div></div>
+              <div className="flex items-center gap-3 min-w-0"><MemberAvatar src={chatMember.photo_url || memberPhotoUrl(chatMember.id)} alt={chatMember.first_name} className="w-10 h-10 rounded-xl object-cover" /><div className="min-w-0"><h3 className="font-black text-sm text-gray-900 dark:text-white truncate">{chatMember.first_name} {chatMember.father_name}</h3><p className="text-[10px] font-mono text-green-700 dark:text-[#d4ff00] uppercase">EPA member chat</p></div></div>
               <button onClick={() => setChatMember(null)} className="p-2 rounded-xl text-neutral-500 hover:bg-black/5 dark:hover:bg-white/10" aria-label="Close chat"><X className="w-5 h-5" /></button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-3 bg-white/50 dark:bg-black/10">

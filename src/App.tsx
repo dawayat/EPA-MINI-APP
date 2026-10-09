@@ -87,6 +87,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
   const [memberSession, setMemberSession] = useState<MemberSession | null>(null);
+  const photoMutationRef = useRef(0);
   const [directoryLoaded, setDirectoryLoaded] = useState(false);
   const [adminLoaded, setAdminLoaded] = useState(false);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
@@ -228,9 +229,44 @@ export default function App() {
     }, 4000);
   };
 
+  // Refresh an already signed-in member after an admin changes their photo.
+  // Ignore responses that overlap a local upload so old reads cannot undo it.
+  useEffect(() => {
+    if (!activeMemberId || !memberSession || currentTab !== 'portal') return;
+    let disposed = false;
+    let pending = false;
+    const refresh = async () => {
+      if (pending || document.visibilityState === 'hidden') return;
+      pending = true;
+      const mutation = photoMutationRef.current;
+      try {
+        const response = await fetch('/api/members?view=profile-photo&id=' + encodeURIComponent(activeMemberId), {
+          headers: { Authorization: 'Bearer ' + memberSession.token }, cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!disposed && mutation === photoMutationRef.current) {
+          setMembers(current => current.map(member => member.id === activeMemberId
+            ? { ...member, photo_url: data.photo_url || undefined } : member));
+        }
+      } catch { /* Preserve the current photo when offline; retry on focus. */ }
+      finally { pending = false; }
+    };
+    void refresh();
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      disposed = true;
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [activeMemberId, memberSession, currentTab]);
+
   const handleMemberPhotoUpdate = async (file: File) => {
     if (!activeMember || !memberSession) throw new Error('Your member session has expired. Please log in again.');
+    photoMutationRef.current++;
     const updated = await updateOwnProfilePhoto(activeMember.id, file, memberSession);
+    photoMutationRef.current++;
     setMembers(current => current.map(member => member.id === updated.id ? { ...member, ...updated } : member));
   };
 
@@ -778,7 +814,9 @@ export default function App() {
             onUpdateResearchSubmission={handleResearchStatusChange}
             onOpenApplication={loadApplicationDossier}
             onUpdateMemberPhoto={async (memberId, file) => {
+              photoMutationRef.current++;
               const updated = await updateMemberPhotoAsAdmin(memberId, file);
+              photoMutationRef.current++;
               setMembers(previous => previous.map(member => member.id === memberId ? { ...member, photo_url: updated.photo_url } : member));
             }}
             onMembersImported={async () => setMembers(await fetchMembers())}

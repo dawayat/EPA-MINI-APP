@@ -85,6 +85,14 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const view = String(req.query.view || '').trim();
+      if (view === 'profile-photo') {
+        noStore(res);
+        const id = String(req.query.id || '');
+        requireMemberSession(req, id);
+        const row = (await dbSelect('members', 'id=eq.' + encodeURIComponent(id) + '&select=id,photo_url&limit=1'))[0];
+        if (!row) return res.status(404).json({ error: 'Member account was not found.' });
+        return res.status(200).json({ photo_url: row.photo_url || null });
+      }
       if (view === 'stats') {
         // Keep hero figures truthful without downloading a single profile,
         // contact field, document, or photo.
@@ -297,6 +305,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'PATCH') {
+      noStore(res);
       const { id, action, photo_url, phone, city, workplace, specialty, gender, date_of_birth, bio, student_profile, corporate_profile } = req.body || {};
       if (!id || !['complete-onboarding', 'update-profile-photo', 'admin-update-profile-photo'].includes(action)) return res.status(400).json({ error: 'A valid member profile update is required.' });
       if (action === 'admin-update-profile-photo') requireAdmin(req);
@@ -309,7 +318,11 @@ export default async function handler(req, res) {
           return res.status(400).json({ success: false, error: 'Upload a JPEG, PNG, or WebP profile photo under 2 MB.' });
         }
         await dbUpdate('members', { photo_url }, 'id', encodeURIComponent(id));
-        return res.status(200).json({ success: true, member: safeMember({ ...existing, photo_url }) });
+        const saved = (await dbSelect('members', 'id=eq.' + encodeURIComponent(id) + '&limit=1'))[0];
+        if (!saved || saved.photo_url !== photo_url) {
+          return res.status(500).json({ success: false, error: 'The photo could not be confirmed as saved. Please try again.' });
+        }
+        return res.status(200).json({ success: true, member: safeMember(saved) });
       }
 
       const memberType = existing.membership_type;

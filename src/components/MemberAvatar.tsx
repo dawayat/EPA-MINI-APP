@@ -4,14 +4,15 @@ interface MemberAvatarProps {
   src?: string;
   alt: string;
   className?: string;
+  loading?: 'eager' | 'lazy';
 }
 
 /** Shared photo treatment; missing or unavailable photos show an animated illustration. */
-export function MemberAvatar({ src, alt, className = '' }: MemberAvatarProps) {
+export function MemberAvatar({ src, alt, className = '', loading }: MemberAvatarProps) {
   const [failedSrc, setFailedSrc] = useState<string>();
   const photo = src?.trim();
   if (photo && photo !== failedSrc) {
-    return <img src={photo} alt={alt} className={className} onError={() => setFailedSrc(photo)} />;
+    return <img src={photo} alt={alt} loading={loading} className={className} onError={() => setFailedSrc(photo)} />;
   }
   return (
     <span role="img" aria-label={`${alt} — profile placeholder`} className={`member-avatar ${className}`}>

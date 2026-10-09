@@ -330,7 +330,7 @@ export async function createCPDCourse(courseData: Partial<CPDCourse>) {
 export async function uploadFile(file: File): Promise<string> {
   // Images: compress + convert to base64 data URL (stored in DB as text)
   if (file.type.startsWith('image/')) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const img = new window.Image();
       const objectUrl = URL.createObjectURL(file);
       img.onload = () => {
@@ -344,14 +344,20 @@ export async function uploadFile(file: File): Promise<string> {
         const canvas = document.createElement('canvas');
         canvas.width = w;
         canvas.height = h;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(objectUrl);
-        resolve(canvas.toDataURL('image/jpeg', 0.75));
+        try {
+          const ctx = canvas.getContext('2d');
+          if (!ctx || !w || !h) throw new Error('Could not process this image.');
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.75));
+        } catch {
+          reject(new Error('Could not process this image. Please choose another photo.'));
+        } finally {
+          URL.revokeObjectURL(objectUrl);
+        }
       };
       img.onerror = () => {
         URL.revokeObjectURL(objectUrl);
-        resolve(objectUrl);
+        reject(new Error('This image could not be read. Please choose another photo.'));
       };
       img.src = objectUrl;
     });
