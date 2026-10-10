@@ -11,3 +11,23 @@
 .report-member{padding:18px 20px}.report-details{gap:11px 16px;padding-top:12px;margin-top:12px}.report-details dt{font-size:8px}.report-details dd{font-size:11px}.report-identity h2{font-size:17px}.report-id{font-size:11px}.report-records{gap:16px}
 .report-sheet{line-height:normal}img.report-photo{display:block}
 
+/* Quiet editorial styling, with explicit raster-safe colors for PDF rendering. */
+.member-report-overlay{background:#e6ebe9;color:#153b32}
+.report-toolbar{box-shadow:0 3px 18px #143c3210}
+.report-download{background:#143c32;box-shadow:0 4px 12px #143c3220}
+.report-sheet{padding:36px 42px 26px;border-top:6px solid #173f35;box-shadow:0 16px 48px #183d3520}
+.report-brand{padding-bottom:19px}.report-brand img{width:49px;height:49px}.report-brand span{letter-spacing:1px;font-size:10px}
+.report-heading{position:relative;padding:23px 0 21px}
+.report-heading h1{font-family:Georgia,'Times New Roman',serif;font-size:39px;font-weight:400;letter-spacing:-1.2px;margin:10px 0 16px;line-height:1.15}
+.report-heading h1 span{color:#b49b61}.report-eyebrow{color:#927a43;font-size:8px;letter-spacing:2.2px}
+.report-heading p{font-size:11px;letter-spacing:.3px}.report-edition{position:absolute;right:0;top:24px;font-size:8px;letter-spacing:1px;color:#8b998f}
+.report-summary{border-left:3px solid #b49b61;background:#f0f4f1;padding:14px 19px;margin-bottom:18px;justify-content:space-between;gap:20px}
+.report-summary strong{font-size:18px;font-weight:700}.report-summary span{font-size:8px;letter-spacing:.2px}
+.report-section-label{display:flex;justify-content:space-between;font-size:8px;font-weight:700;letter-spacing:1.5px;color:#708177;margin-bottom:11px}
+.report-records{gap:14px}.report-member{border-radius:9px;padding:15px 19px;border-color:#dbe3dd;border-left:3px solid #cfdbd1}
+.report-photo{width:61px;height:70px;border-radius:6px}.report-initials{color:#345d49;background:#edf1e9;font-family:Georgia,serif;font-size:22px}.report-initials small{font-family:Arial,sans-serif;font-size:7px}
+.report-identity h2{font-size:16px;line-height:1.25;margin:5px 0}.report-record-number{font-size:7px;color:#8a7850;letter-spacing:1.5px}.report-id{font-family:'Courier New',monospace;font-size:10px;color:#4a6b5d}
+.report-badges span{font-size:7px;line-height:2;padding:3px 8px;letter-spacing:.7px;border:1px solid #e0e6e1;background:#f5f6f4}.report-badges .report-active{background:#eef5ec;color:#35614c;border-color:#d7e5d4}
+.report-details{gap:10px 17px;padding-top:11px;margin-top:12px}.report-details dt{font-size:7px;line-height:1.4;letter-spacing:.8px;color:#798a80}.report-details dd{font-size:10px;line-height:1.4;color:#27463a}
+.report-footer{left:42px;right:42px;bottom:26px;font-size:8px;border-color:#d6dfd8;padding-top:13px}
+

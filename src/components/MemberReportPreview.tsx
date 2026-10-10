@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Download, FileText, Loader2 } from 'lucide-react';
 import type { Member } from '../types';
 import { memberPhotoUrl } from '../lib/media';
+import { reportImageDataUrl } from '../lib/reportImages';
 import './member-report.css';
 
 const fullName = (m: Member) => [m.first_name, m.father_name, m.grandfather_name].filter(Boolean).join(' ');
@@ -9,8 +10,16 @@ const date = (value?: string) => value && !Number.isNaN(Date.parse(value)) ? new
 const value = (text?: string | number) => text === undefined || text === '' ? 'Not recorded' : text;
 
 function ReportPhoto({ member }: { member: Member }) {
-  const [failed, setFailed] = useState(false);
-  return failed ? <div className="report-photo report-initials">{[member.first_name, member.father_name].map(n => n?.[0] || '').join('')}<small>No photo</small></div> : <img className="report-photo" src={member.photo_url || memberPhotoUrl(member.id)} crossOrigin="anonymous" alt={fullName(member)} onError={() => setFailed(true)} />;
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const source = member.photo_url || memberPhotoUrl(member.id);
+  useEffect(() => {
+    let active = true;
+    setLoading(true); setPhoto(null);
+    void reportImageDataUrl(source).then(result => { if (active) { setPhoto(result); setLoading(false); } });
+    return () => { active = false; };
+  }, [source]);
+  return photo ? <img className="report-photo" src={photo} alt={fullName(member)} onError={() => setPhoto(null)} /> : <div className="report-photo report-initials" data-photo-loading={loading || undefined}>{[member.first_name, member.father_name].map(n => n?.[0] || '').join('')}<small>{loading ? 'Loading' : 'No photo'}</small></div>;
 }
 
 export function MemberReportPreview({ members, onClose }: { members: Member[]; onClose: () => void }) {
@@ -37,6 +46,10 @@ export function MemberReportPreview({ members, onClose }: { members: Member[]; o
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
       await document.fonts.ready;
+      // Photo fetches have a bounded timeout; wait for the same images shown in preview.
+      while ((root.current as HTMLDivElement).querySelector('[data-photo-loading]')) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       await Promise.all(Array.from((root.current as HTMLDivElement).querySelectorAll('img')).map(img => img.decode().catch(() => undefined)));
       // Let unavailable photos render their initials before capturing.
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -45,7 +58,20 @@ export function MemberReportPreview({ members, onClose }: { members: Member[]; o
       pdf.setProperties({ title: 'EPA Membership Directory', author: "Ethiopian Psychologists’ Association", subject: 'Current member report' });
       for (let i = 0; i < sheets.length; i++) {
         setProgress(`Creating page ${i + 1} of ${sheets.length}…`);
-        const canvas = await html2canvas(sheets[i], { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 1200, onclone: doc => { doc.querySelectorAll<HTMLElement>('.report-sheet').forEach(sheet => { sheet.style.transform = 'none'; }); } });
+        const canvas = await html2canvas(sheets[i], {
+          scale: 2, useCORS: true, allowTaint: false, backgroundColor: '#ffffff', windowWidth: 1200,
+          onclone: async doc => {
+            doc.querySelectorAll<HTMLElement>('.report-sheet').forEach(sheet => { sheet.style.transform = 'none'; });
+            // Also embed branding assets. Only data URLs reach the renderer, including
+            // when a same-origin media endpoint redirects to external storage.
+            await Promise.all(Array.from(doc.querySelectorAll<HTMLImageElement>(`[data-report-page="${i}"] img`)).map(async img => {
+              const embedded = await reportImageDataUrl(img.src);
+              if (!embedded) { img.remove(); return; }
+              img.removeAttribute('srcset'); img.src = embedded;
+              await img.decode().catch(() => { img.remove(); });
+            }));
+          },
+        });
         if (i) pdf.addPage();
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
         canvas.width = 0; canvas.height = 0;
@@ -75,10 +101,11 @@ export function MemberReportPreview({ members, onClose }: { members: Member[]; o
       {error && <p className="report-error" role="alert">{error}</p>}
       <div ref={root} className="report-pages">
         {!pages.length && <div className="report-empty">No member records are available yet.</div>}
-        {pages.map((page, index) => <article className="report-sheet" key={index}>
+        {pages.map((page, index) => <article className="report-sheet" data-report-page={index} key={index}>
           <header className="report-brand"><img src="/epa-logo.png" alt="EPA logo" /><div><span>ETHIOPIAN PSYCHOLOGISTS’ ASSOCIATION</span><p>Connecting professionals. Advancing psychology.</p></div><b>EPA<br /><small>MEMBER REGISTER</small></b></header>
-          <div className="report-heading"><div className="report-eyebrow">MEMBERSHIP DIRECTORY / {snapshot.generated.getFullYear()}</div><h1>Our professional community<span>.</span></h1><p>A complete snapshot of the association’s current member records.</p></div>
+          <div className="report-heading"><div className="report-eyebrow">OFFICIAL REGISTER / {snapshot.generated.getFullYear()}</div><h1>Membership directory<span>.</span></h1><p>Professional profiles & membership records</p><span className="report-edition">EPA / {String(index + 1).padStart(2, '0')}</span></div>
           <div className="report-summary"><div><strong>{snapshot.members.length}</strong><span>Total members</span></div><div><strong>{snapshot.members.filter(m => m.status === 'ACTIVE').length}</strong><span>Active status</span></div><div><strong>{date(snapshot.generated.toISOString())}</strong><span>Report generated · Addis Ababa</span></div></div>
+          <div className="report-section-label"><span>REGISTERED MEMBERS</span><span>{String(index * 3 + 1).padStart(3, '0')} — {String(index * 3 + page.length).padStart(3, '0')}</span></div>
           <section className="report-records">{page.map((m, row) => <div className="report-member" key={m.id}>
             <div className="report-member-top"><ReportPhoto member={m} /><div className="report-identity"><span className="report-record-number">MEMBER {String(index * 3 + row + 1).padStart(3, '0')}</span><h2>{fullName(m)}</h2>{m.amharic_full_name && <p>{m.amharic_full_name}</p>}<div className="report-id">{value(m.membership_number)}</div></div><div className="report-badges"><span className={m.status === 'ACTIVE' ? 'report-active' : ''}>{m.status}</span><span>{m.membership_type}</span></div></div>
             <dl className="report-details">{[
