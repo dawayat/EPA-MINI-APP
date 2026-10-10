@@ -1,4 +1,5 @@
 import { MemberAvatar } from './MemberAvatar';
+import { MemberReportPreview } from './MemberReportPreview';
 ﻿import React, { useState } from 'react';
 import { 
   Users, Clock, CreditCard, CheckCircle2, XCircle, AlertTriangle,
@@ -123,6 +124,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   const [selectedAppFilter, setSelectedAppFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [showMemberReport, setShowMemberReport] = useState(false);
   const [bulkAction, setBulkAction] = useState<string>('Send Reminder');
   const [electionOpen, setElectionOpen] = useState<boolean>(false);
   const [electionVotes, setElectionVotes] = useState({ yonas: 34, selamawit: 51, dawit: 22 });
@@ -706,6 +708,10 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       {/* â•â•â•â•â•â•â•â• TAB: MEMBERS â•â•â•â•â•â•â•â• */}
       {activeAdminTab === 'members' && (
         <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-800/15 bg-gradient-to-r from-emerald-950 to-emerald-800 p-6 text-white">
+            <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-200">Member directory report</p><h3 className="mt-1 text-xl font-bold">Your community, beautifully documented.</h3><p className="mt-2 text-xs text-emerald-100">All {members.length} members, with full names, portraits, membership IDs and professional details.</p></div>
+            <button onClick={() => setShowMemberReport(true)} disabled={!members.length} className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-emerald-950 shadow-sm hover:bg-emerald-50 disabled:opacity-50"><FileText className="h-4 w-4" /> Preview & download PDF</button>
+          </div>
           <div className="rounded-2xl p-5 bg-gradient-to-br from-[#d4ff00]/10 to-transparent dark:from-[#d4ff00]/[0.08] border border-[#d4ff00]/25 flex flex-col lg:flex-row lg:items-center gap-4">
             <div className="flex-1"><div className="flex items-center gap-2"><UploadCloud className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" /><h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">Import existing members</h3></div><p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">Create active member accounts without payment or re-registration. The membership start date in the CSV becomes the ID issue dateâ€”not the upload date. Imported members receive a temporary password and must set a new password and profile photo at first sign-in.</p></div>
             <div className="flex flex-wrap gap-2"><input ref={csvImportRef} type="file" accept=".csv,text/csv" className="hidden" onChange={event => importMemberCsv(event.target.files?.[0])} /><button onClick={downloadMemberCsvSample} className="px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-white/15 bg-white dark:bg-white/5 text-xs font-black uppercase text-gray-900 dark:text-white">Download CSV sample</button><button onClick={() => csvImportRef.current?.click()} disabled={isImportingMembers} className="px-3.5 py-2.5 rounded-xl bg-[#d4ff00] text-black text-xs font-black uppercase disabled:opacity-50">{isImportingMembers ? 'Importingâ€¦' : 'Upload member CSV'}</button></div>
@@ -1866,6 +1872,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         </div>
       )}
 
+      {showMemberReport && <MemberReportPreview members={members} onClose={() => setShowMemberReport(false)} />}
     </div>
   );
 };
