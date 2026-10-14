@@ -7,7 +7,7 @@ import {
   X, ExternalLink, History, GraduationCap, Vote, BookOpen, BarChart2,
   Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud, Settings, Mail, Phone, ClipboardCheck, ScanLine, RefreshCw, LogOut
 } from 'lucide-react';
-import { uploadFile } from '../lib/api';
+import { uploadFile, previewAnnouncementEmail } from '../lib/api';
 import { adminHeaders } from '../lib/admin';
 import { memberPhotoUrl } from '../lib/media';
 import { Application, Member, University, Announcement, AuditLog, ApplicationStatus, ResearchSubmission } from '../types';
@@ -153,6 +153,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     category: 'General' as Announcement['category'],
     content: '',
     author: 'EPA Executive Directorate',
+    location_url: '', location_name: '', location_address: '', map_image_url: '',
     cover_photo_url: '',
     is_draft: false,              // If true, opens voting before publishing
     file_attachment_url: '',      // Optional PDF/doc attachment
@@ -165,6 +166,10 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     telegram_button_url: ''
   });
   
+  const [emailPreview, setEmailPreview] = useState('');
+  const [testEmail, setTestEmail] = useState('dawitaynalem92@gmail.com');
+  const [preparingPreview, setPreparingPreview] = useState(false);
+  const [uploadingMap, setUploadingMap] = useState(false);
   const [emailNotify, setEmailNotify] = useState<boolean>(true);
   const [recipientMode, setRecipientMode] = useState<'all' | 'selected'>('all');
   const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]);
@@ -327,11 +332,14 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       onToast(lang === 'EN' ? 'Title and content are required' : 'ርዕስ እና ይዘት ያስፈልጋል', 'error');
       return;
     }
+    if (uploadingMap || isUploadingCover) { onToast('Wait for the images to finish uploading.', 'error'); return; }
+    if (emailNotify && recipientMode === 'selected' && !selectedRecipientIds.length) { onToast('Select at least one email recipient.', 'error'); return; }
     setIsPublishingAnn(true);
     try {
       const recipientIds = emailNotify && recipientMode === 'selected' ? selectedRecipientIds : undefined;
       const res: any = await onAddAnnouncement({
         ...newAnn,
+        email_notify: emailNotify,
         recipient_member_ids: recipientIds
       });
 
@@ -352,7 +360,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       }
 
       setShowAnnModal(false);
-      setNewAnn({ title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '', is_draft: false, file_attachment_url: '', target_audience: [], publish_to_telegram: true, telegram_media_url: '', telegram_media_file_id: '', telegram_media_type: 'image', telegram_button_label: 'Open EPA Mini App', telegram_button_url: '' });
+      setEmailPreview('');
+      setNewAnn({ location_url: '', location_name: '', location_address: '', map_image_url: '', title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '', is_draft: false, file_attachment_url: '', target_audience: [], publish_to_telegram: true, telegram_media_url: '', telegram_media_file_id: '', telegram_media_type: 'image', telegram_button_label: 'Open EPA Mini App', telegram_button_url: '' });
       setSelectedRecipientIds([]);
       setRecipientMode('all');
     } finally {
@@ -1543,6 +1552,20 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </div>}
             </div>
 
+            <div className="rounded-2xl border border-green-200 p-4 space-y-3">
+              <p className="text-sm font-bold">Event location &amp; email preview</p>
+              <label className="block text-xs">Google Maps share link<input type="url" value={newAnn.location_url} onChange={e => setNewAnn(p => ({ ...p, location_url: e.target.value }))} placeholder="https://maps.app.goo.gl/..." className="mt-1 w-full rounded-xl border p-3 text-gray-900" /></label>
+              <label className="block text-xs">Venue name<input value={newAnn.location_name} onChange={e => setNewAnn(p => ({ ...p, location_name: e.target.value }))} className="mt-1 w-full rounded-xl border p-3 text-gray-900" /></label>
+              <label className="block text-xs">Written address<input value={newAnn.location_address} onChange={e => setNewAnn(p => ({ ...p, location_address: e.target.value }))} className="mt-1 w-full rounded-xl border p-3 text-gray-900" /></label>
+              <label className="block text-xs">Upload actual map screenshot (required with a location link)<input type="file" accept="image/png,image/jpeg" disabled={uploadingMap} className="mt-2 block w-full" onChange={async e => { const file = e.target.files?.[0]; if (!file) return; setUploadingMap(true); try { const url = await uploadFile(file); setNewAnn(p => ({ ...p, map_image_url: url })); } catch { onToast('Could not prepare map image.', 'error'); } finally { setUploadingMap(false); } }} /></label>
+              <p className="text-xs text-neutral-500">Use the Cover Photo above for the venue. Photos keep their proportions. The map and separate button both open your exact link; email maps are image previews.</p>
+              {newAnn.map_image_url && <><img src={newAnn.map_image_url} alt="Uploaded venue map" className="w-full h-auto rounded-xl" /><button type="button" onClick={() => setNewAnn(p => ({ ...p, map_image_url: '' }))} className="text-xs text-red-600">Remove map</button></>}
+              <button type="button" disabled={preparingPreview || uploadingMap || isUploadingCover} className="rounded-xl bg-green-800 px-4 py-3 text-white text-xs disabled:opacity-50" onClick={async () => { setPreparingPreview(true); try { setEmailPreview(await previewAnnouncementEmail(newAnn)); } catch (e: any) { onToast(e.message, 'error'); } finally { setPreparingPreview(false); } }}>{preparingPreview ? 'Preparing…' : 'Preview actual email'}</button>
+              <label className="block text-xs">Test recipient<input type="email" value={testEmail} onChange={e => setTestEmail(e.target.value)} className="mt-1 w-full rounded-xl border p-3 text-gray-900" /></label>
+              <button type="button" disabled={preparingPreview || uploadingMap || isUploadingCover || !testEmail.trim()} className="rounded-xl border border-green-700 px-4 py-3 text-green-700 dark:text-green-300 text-xs disabled:opacity-50" onClick={async () => { setPreparingPreview(true); try { const recipient = await previewAnnouncementEmail(newAnn, testEmail); onToast('Test email accepted for delivery to ' + recipient + '. Check your inbox and spam folder.', 'success'); } catch (e: any) { onToast(e.message, 'error'); } finally { setPreparingPreview(false); } }}>Send test email only</button>
+              <p className="text-xs text-neutral-500">A test sends only to the address above. It does not publish an announcement or contact members.</p>
+              {emailPreview && <><p className="text-xs text-neutral-500">Preview snapshot. Refresh after editing. Image display depends on recipient settings.</p><iframe title="Announcement email preview" sandbox="allow-popups allow-popups-to-escape-sandbox" srcDoc={emailPreview} className="h-[650px] w-full rounded-xl border bg-white" /></>}
+            </div>
             {/* File Attachment */}
               <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Attach File (PDF / DOCX) â€” Optional</label>
               <div 

@@ -1,5 +1,5 @@
 import { dbSelect, dbInsert, dbUpdate, cachePublic, cors } from './_db.js';
-import { announcementEmail, isEmailConfigured, sendEmail } from './_email.js';
+import { announcementEmail, validateAnnouncementLocation, isEmailConfigured, sendEmail } from './_email.js';
 import { requireAdmin } from './_admin.js';
 
 const escapeHtml = (value = '') => String(value).replace(/[&<>]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[char]));
@@ -83,6 +83,16 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       requireAdmin(req);
       const a = req.body;
+      validateAnnouncementLocation(a);
+      const prepared = announcementEmail('EPA Member', a);
+      if (a.preview_email) return res.status(200).json({ html: announcementEmail('EPA Member', a, { preview: true }).html });
+      // Test delivery returns before persistence, Telegram, or member lookup.
+      if (a.test_email) {
+        const address = String(a.test_email).trim().toLowerCase();
+        if (!/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(address)) return res.status(400).json({ error: 'Enter one valid test email address.' });
+        const delivery = await sendEmail({ to: address, ...prepared, subject: `[TEST — not sent to members] ${prepared.subject}` });
+        return res.status(200).json({ success: true, recipient: address, delivery });
+      }
       const row = {};
       const fields = [
         'id','title','content','type','status','published_at','author_name',
@@ -105,7 +115,7 @@ export default async function handler(req, res) {
       let emailed = 0;
       let emailError = null;
       let emailReport = [];
-      if (isEmailConfigured()) {
+      if (a.email_notify !== false && isEmailConfigured()) {
         try {
           // If the admin chose specific recipients, only email those members.
           // Otherwise fall back to all active members with an email address.
@@ -126,7 +136,7 @@ export default async function handler(req, res) {
           // All recipients get the same generic greeting; no personal names.
           if (process.env.ANNOUNCEMENT_BCC_ALL === 'true' && members.length > 0) {
             const bccAddresses = members.map(m => m.email).join(', ');
-            const message = announcementEmail('EPA Member', { title: row.title, content: row.content, category: row.type });
+            const message = prepared;
             await sendEmail({ to: process.env.GMAIL_USER || process.env.EMAIL_FROM, bcc: bccAddresses, ...message });
             emailed = members.length;
             emailReport = members.map(m => ({ name: `${m.first_name} ${m.father_name}`, email: m.email, status: 'sent' }));
@@ -142,7 +152,7 @@ export default async function handler(req, res) {
             for (let i = 0; i < members.length; i += BATCH_SIZE) {
               const batch = members.slice(i, i + BATCH_SIZE);
               const batchResults = await Promise.allSettled(batch.map(member => {
-                const message = announcementEmail(`${member.first_name} ${member.father_name}`, { title: row.title, content: row.content, category: row.type });
+                const message = announcementEmail(`${member.first_name} ${member.father_name}`, row);
                 return sendEmail({ to: member.email, ...message });
               }));
               for (let j = 0; j < batchResults.length; j++) {

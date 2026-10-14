@@ -147,6 +147,10 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
   // Map DB column names to frontend type fields
   return rows.map((r: any) => ({
     ...r,
+    location_url: r.attachments?.find((a: any) => a.type === 'location')?.url || '',
+    location_name: r.attachments?.find((a: any) => a.type === 'location')?.name || '',
+    location_address: r.attachments?.find((a: any) => a.type === 'location')?.address || '',
+    map_image_url: r.attachments?.find((a: any) => a.type === 'location')?.map_image_url || '',
     category: r.type,
     author: r.author_name,
     is_draft: Boolean(r.is_draft),
@@ -215,6 +219,7 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
   };
 
   const attachments: any[] = [];
+  if (announcementData.location_url) attachments.push({ type: 'location', url: announcementData.location_url, name: announcementData.location_name, address: announcementData.location_address, map_image_url: announcementData.map_image_url });
   if ((announcementData as any).cover_photo_url) {
     attachments.push({ type: 'cover', url: (announcementData as any).cover_photo_url });
   }
@@ -234,6 +239,7 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
       headers: { 'Content-Type': 'application/json', ...adminHeaders() },
       body: JSON.stringify({
         ...dbRow,
+        email_notify: announcementData.email_notify,
         publish_to_telegram: Boolean(announcementData.publish_to_telegram),
         telegram_media_url: announcementData.telegram_media_url,
         telegram_media_file_id: announcementData.telegram_media_file_id,
@@ -423,4 +429,14 @@ export async function uploadVerifiedApplicationAttachment(dataUrl: string, email
     throw new Error(`Secure document upload failed${detail ? `: ${detail}` : '.'}`);
   }
   return prepared.storageRef;
+}
+
+export async function previewAnnouncementEmail(a: Partial<Announcement>, testEmail?: string): Promise<string> {
+  const attachments = [];
+  if (a.cover_photo_url) attachments.push({ type: 'cover', url: a.cover_photo_url });
+  if (a.location_url) attachments.push({ type: 'location', url: a.location_url, name: a.location_name, address: a.location_address, map_image_url: a.map_image_url });
+  const response = await fetch('/api/announcements', { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify({ title: a.title || 'General Assembly', content: a.content, type: a.category, attachments, preview_email: !testEmail, test_email: testEmail }) });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || 'Could not preview email');
+  return testEmail ? result.recipient : result.html;
 }

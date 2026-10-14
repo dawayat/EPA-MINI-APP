@@ -175,6 +175,11 @@ export interface Announcement {
   amharic_title?: string;
   category: 'General' | 'Event' | 'Research' | 'Policy' | 'Training' | 'Election' | 'CPD' | 'News';
   content: string;
+  location_url?: string;
+  location_name?: string;
+  location_address?: string;
+  map_image_url?: string;
+  email_notify?: boolean;
   cover_image_url?: string;
   cover_photo_url?: string; // alias used in admin form
   published_at: string;
