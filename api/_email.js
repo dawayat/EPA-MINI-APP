@@ -57,7 +57,9 @@ export async function sendEmail({ to, bcc, subject, html, text, attachments = []
     };
     if (bcc) mailOptions.bcc = bcc;
     const result = await transporter.sendMail(mailOptions);
-    return { provider: 'gmail', messageId: result.messageId };
+    const rejected = (result.rejected || []).map(address => String(address).trim().toLowerCase());
+    if (rejected.includes(String(to).trim().toLowerCase()) && !bcc) throw new Error('The email provider rejected this recipient.');
+    return { provider: 'gmail', messageId: result.messageId, rejected };
   }
 
   const body = { from: process.env.EMAIL_FROM, to: [to], reply_to: process.env.GMAIL_USER || undefined, subject, html, text: text || undefined };

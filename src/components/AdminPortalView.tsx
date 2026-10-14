@@ -1,3 +1,5 @@
+import { validRecipientEmail } from '../../shared/announcement-recipients.js';
+import { AnnouncementContactsManager } from './AnnouncementContactsManager';
 import { AnnouncementEmailComposer } from './AnnouncementEmailComposer';
 import { assemblyAnnouncement, assemblyMapsUrl } from '../lib/assemblyAnnouncement';
 import { validateAnnouncementLocation } from '../../shared/announcement-email.js';
@@ -319,7 +321,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     }
   };
 
-  const emailableMembers = members.filter(m => m.email && m.email.trim());
+  const emailableMembers = members.filter(m => m.status === 'ACTIVE' && validRecipientEmail(m.email));
   const filteredEmailMembers = emailableMembers.filter(m => {
     const q = recipientSearch.toLowerCase();
     const name = `${m.first_name} ${m.father_name} ${m.email}`.toLowerCase();
@@ -346,7 +348,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
         recipient_member_ids: recipientIds
       });
 
-      if (!res) return;
+      if (!res || res.success === false) return;
 
       const reportRecords = res?.emailReport || [];
       if (reportRecords.length > 0) {
@@ -1608,7 +1610,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                         onChange={() => setRecipientMode('all')}
                         className="accent-[#d4ff00]"
                       />
-                      <span>All active members ({emailableMembers.length})</span>
+                      <span>All active members ({emailableMembers.length}) + contacts</span>
                     </label>
 
                     <label className="flex items-center gap-1.5 cursor-pointer font-bold text-gray-800 dark:text-gray-200">
@@ -1627,6 +1629,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                       <span>Choose specific members ({selectedRecipientIds.length} selected)</span>
                     </label>
                   </div>
+
+                  {recipientMode === 'all' && <AnnouncementContactsManager />}
 
                   {recipientMode === 'selected' && (
                     <div className="bg-white dark:bg-black/40 rounded-xl p-3 border border-emerald-200 dark:border-white/10 space-y-2.5">

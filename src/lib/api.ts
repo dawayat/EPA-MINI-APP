@@ -1,3 +1,4 @@
+import { announcementAttachments } from '../../shared/announcement-payload.js';
 /**
  * API client - calls Vercel API routes which use POSTGRES_URL server-side.
  * The frontend never needs to know database credentials.
@@ -208,7 +209,7 @@ export async function submitApplication(appData: Partial<Application>): Promise<
 
 export type EmailDeliveryRecord = { name: string; email: string; status: 'sent' | 'failed'; error?: string };
 
-export async function publishAnnouncement(announcementData: Partial<Announcement> & { recipient_member_ids?: string[] }): Promise<{ success: boolean; error?: string; telegram?: TelegramPublishStatus; emailed?: number; emailReport?: EmailDeliveryRecord[] }> {
+export async function publishAnnouncement(announcementData: Partial<Announcement> & { recipient_member_ids?: string[] }): Promise<{ success: boolean; error?: string; telegram?: TelegramPublishStatus; emailed?: number; emailError?: string; emailReport?: EmailDeliveryRecord[] }> {
   const dbRow: Record<string, any> = {
     id: announcementData.id,
     title: announcementData.title,
@@ -220,14 +221,7 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
     is_draft: Boolean((announcementData as any).is_draft),
   };
 
-  const attachments: any[] = [];
-  if (announcementData.location_url) attachments.push({ type: 'location', url: announcementData.location_url, name: announcementData.location_name, address: announcementData.location_address, map_image_url: announcementData.map_image_url });
-  if ((announcementData as any).cover_photo_url) {
-    attachments.push({ type: 'cover', url: announcementData.cover_photo_url, layout: announcementData.venue_photo_layout, right_url: announcementData.venue_photo_crop_url });
-  }
-  if ((announcementData as any).file_attachment_url) {
-    attachments.push({ type: 'file', url: (announcementData as any).file_attachment_url });
-  }
+  const attachments = announcementAttachments(announcementData);
   // Telegram media is sent separately in the POST body and deliberately is
   // not persisted in attachments, so it cannot inflate future list responses.
   if (attachments.length > 0) dbRow.attachments = attachments;
@@ -252,7 +246,7 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { success: false, error: data.error || `HTTP ${res.status}` };
-    return { success: true, telegram: data.telegram, emailed: data.emailed, emailReport: data.emailReport };
+    return { success: true, telegram: data.telegram, emailed: data.emailed, emailError: data.emailError, emailReport: data.emailReport };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
@@ -434,9 +428,7 @@ export async function uploadVerifiedApplicationAttachment(dataUrl: string, email
 }
 
 export async function previewAnnouncementEmail(a: Partial<Announcement>, testEmail?: string): Promise<string> {
-  const attachments = [];
-  if (a.cover_photo_url) attachments.push({ type: 'cover', url: a.cover_photo_url, layout: a.venue_photo_layout, right_url: a.venue_photo_crop_url });
-  if (a.location_url) attachments.push({ type: 'location', url: a.location_url, name: a.location_name, address: a.location_address, map_image_url: a.map_image_url });
+  const attachments = announcementAttachments(a);
   const response = await fetch('/api/announcements', { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify({ title: a.title || 'General Assembly', content: a.content, type: a.category, attachments, preview_email: !testEmail, test_email: testEmail }) });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Could not preview email');

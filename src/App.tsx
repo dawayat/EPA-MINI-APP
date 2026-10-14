@@ -1,3 +1,4 @@
+import { buildAnnouncement } from '../shared/announcement-payload.js';
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { isSupabaseConfigured } from './lib/supabase';
 import { 
@@ -575,27 +576,7 @@ export default function App() {
   };
 
   const handleAddAnnouncement = async (ann: Partial<Announcement> & { recipient_member_ids?: string[] }) => {
-    const fullAnn: Announcement = {
-      id: 'ann-' + Date.now(),
-      title: ann.title || 'Untitled Announcement',
-      amharic_title: ann.amharic_title,
-      category: ann.category || 'General',
-      content: ann.content || '',
-      published_at: new Date().toISOString(),
-      author: ann.author || 'EPA Executive Directorate',
-      cover_photo_url: ann.cover_photo_url,
-      file_attachment_url: ann.file_attachment_url,
-      target_audience: ann.target_audience,
-      is_draft: ann.is_draft,
-      telegram_media_url: ann.telegram_media_url,
-      telegram_media_file_id: ann.telegram_media_file_id,
-      telegram_media_type: ann.telegram_media_type,
-      publish_to_telegram: ann.publish_to_telegram,
-      telegram_button_label: ann.telegram_button_label,
-      telegram_button_url: ann.telegram_button_url,
-      likes_count: 0,
-      views_count: 1
-    };
+    const fullAnn: Announcement = buildAnnouncement(ann);
     if (isSupabaseConfigured) {
       const result = await publishAnnouncement({ ...fullAnn, recipient_member_ids: ann.recipient_member_ids });
       if (!result.success) {
@@ -603,9 +584,9 @@ export default function App() {
         showToast(`Database error: ${result.error}`, 'error');
         return { success: false as const, emailReport: [] };
       } else {
-        if (ann.publish_to_telegram) {
-          showToast(result.telegram?.posted ? 'Announcement published to the portal, email list, and Telegram channel.' : `Announcement published to the portal. Telegram was not posted: ${result.telegram?.error || 'Telegram is not configured.'}`, result.telegram?.posted ? 'success' : 'error');
-        } else showToast('Announcement published to the member portal and email list.', 'success');
+        const deliverySummary = ann.email_notify === false ? 'Email notifications are turned off.' : `${result.emailed || 0} emails accepted for delivery.`;
+        const problems = [result.emailError, ann.publish_to_telegram && !result.telegram?.posted ? `Telegram was not posted: ${result.telegram?.error || 'Telegram is not configured.'}` : ''].filter(Boolean);
+        showToast(`Announcement published. ${deliverySummary}${problems.length ? ' ' + problems.join(' ') : ann.publish_to_telegram ? ' Telegram posted.' : ''}`, problems.length ? 'error' : 'success');
       }
       setAnnouncements(prev => [fullAnn, ...prev]);
       return { success: true as const, emailReport: result.emailReport || [] };

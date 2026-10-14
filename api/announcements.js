@@ -1,3 +1,4 @@
+import { announcementRecipients } from '../shared/announcement-recipients.js';
 import { dbSelect, dbInsert, dbUpdate, cachePublic, cors } from './_db.js';
 import { announcementEmail, validateAnnouncementLocation, isEmailConfigured, sendEmail } from './_email.js';
 import { requireAdmin } from './_admin.js';
@@ -93,6 +94,25 @@ export default async function handler(req, res) {
         const delivery = await sendEmail({ to: address, ...prepared, subject: `[TEST — not sent to members] ${prepared.subject}` });
         return res.status(200).json({ success: true, recipient: address, delivery });
       }
+      let members = [];
+      let contactsWarning = null;
+      if (a.email_notify !== false) {
+        if (!isEmailConfigured()) return res.status(503).json({ error: 'Email delivery is not configured. The announcement was not published.' });
+        if (Array.isArray(a.recipient_member_ids) && a.recipient_member_ids.length === 0) return res.status(400).json({ error: 'Select at least one recipient. The announcement was not published.' });
+        if (a.recipient_member_ids != null && !Array.isArray(a.recipient_member_ids)) return res.status(400).json({ error: 'Recipient selection must be a list of member IDs.' });
+        const allMembers = await dbSelect('members', 'status=eq.ACTIVE&email=not.is.null&select=id,first_name,father_name,email');
+        let contacts = [];
+        if (!Array.isArray(a.recipient_member_ids)) {
+          try { contacts = await dbSelect('announcement_email_contacts', 'is_active=eq.true&select=email,display_name,is_active'); }
+          catch (error) {
+            // Keep existing member delivery working while the additive contact migration is installed.
+            if (/PGRST205|42P01|does not exist|schema cache/i.test(error.message)) contactsWarning = 'Additional announcement contacts are not enabled yet. Only existing members were included.';
+            else throw error;
+          }
+        }
+        members = announcementRecipients(allMembers, contacts, a.recipient_member_ids);
+        if (!members.length) return res.status(400).json({ error: 'No valid email recipients were found. The announcement was not published.' });
+      }
       const row = {};
       const fields = [
         'id','title','content','type','status','published_at','author_name',
@@ -113,33 +133,28 @@ export default async function handler(req, res) {
         console.error('[announcements] Telegram post failed:', error.message);
       }
       let emailed = 0;
-      let emailError = null;
+      let emailError = contactsWarning;
       let emailReport = [];
       if (a.email_notify !== false && isEmailConfigured()) {
         try {
-          // If the admin chose specific recipients, only email those members.
-          // Otherwise fall back to all active members with an email address.
-          const recipientIds = Array.isArray(a.recipient_member_ids) && a.recipient_member_ids.length > 0
-            ? a.recipient_member_ids
-            : null;
-
-          let members;
-          if (recipientIds) {
-            const allMembers = await dbSelect('members', 'status=eq.ACTIVE&email=not.is.null&select=id,first_name,father_name,email');
-            members = allMembers.filter(m => recipientIds.includes(m.id));
-          } else {
-            members = await dbSelect('members', 'status=eq.ACTIVE&email=not.is.null&select=id,first_name,father_name,email');
-          }
-
-          // BCC-all mode: send a single email with every member in BCC.
+          // BCC mode: use up to 49 recipients plus the sender per provider request.
           // Set ANNOUNCEMENT_BCC_ALL=true in Vercel to enable this path.
           // All recipients get the same generic greeting; no personal names.
           if (process.env.ANNOUNCEMENT_BCC_ALL === 'true' && members.length > 0) {
-            const bccAddresses = members.map(m => m.email).join(', ');
-            const message = prepared;
-            await sendEmail({ to: process.env.GMAIL_USER || process.env.EMAIL_FROM, bcc: bccAddresses, ...message });
-            emailed = members.length;
-            emailReport = members.map(m => ({ name: `${m.first_name} ${m.father_name}`, email: m.email, status: 'sent' }));
+            for (let offset = 0; offset < members.length; offset += 49) {
+              const group = members.slice(offset, offset + 49);
+              try {
+                const delivery = await sendEmail({ to: process.env.GMAIL_USER || process.env.EMAIL_FROM, bcc: group.map(m => m.email).join(', '), ...prepared });
+                const rejected = new Set((delivery.rejected || []).map(email => String(email).toLowerCase()));
+                for (const member of group) {
+                  const failed = rejected.has(member.email);
+                  if (!failed) emailed++;
+                  emailReport.push({ name: member.name, email: member.email, status: failed ? 'failed' : 'sent', ...(failed ? { error: 'The email provider rejected this recipient.' } : {}) });
+                }
+              } catch (error) {
+                emailReport.push(...group.map(member => ({ name: member.name, email: member.email, status: 'failed', error: error.message })));
+              }
+            }
           } else {
             // Batched sequential sends to avoid Gmail SMTP rate-limits.
             // Gmail caps concurrent SMTP connections and throttles burst sends;
@@ -152,17 +167,17 @@ export default async function handler(req, res) {
             for (let i = 0; i < members.length; i += BATCH_SIZE) {
               const batch = members.slice(i, i + BATCH_SIZE);
               const batchResults = await Promise.allSettled(batch.map(member => {
-                const message = announcementEmail(`${member.first_name} ${member.father_name}`, row);
+                const message = announcementEmail(member.name, row);
                 return sendEmail({ to: member.email, ...message });
               }));
               for (let j = 0; j < batchResults.length; j++) {
                 const member = batch[j];
                 if (batchResults[j].status === 'fulfilled') {
                   emailed++;
-                  emailReport.push({ name: `${member.first_name} ${member.father_name}`, email: member.email, status: 'sent' });
+                  emailReport.push({ name: member.name, email: member.email, status: 'sent' });
                 } else {
                   const reason = batchResults[j].reason?.message || 'unknown error';
-                  emailReport.push({ name: `${member.first_name} ${member.father_name}`, email: member.email, status: 'failed', error: reason });
+                  emailReport.push({ name: member.name, email: member.email, status: 'failed', error: reason });
                   console.error(`[announcements] email failed for ${member.email}: ${reason}`);
                 }
               }
@@ -171,11 +186,9 @@ export default async function handler(req, res) {
                 await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
               }
             }
-            const failedCount = emailReport.filter(r => r.status === 'failed').length;
-            if (failedCount > 0) {
-              emailError = `${failedCount} email(s) failed. See function logs for details.`;
-            }
           }
+          const failedCount = emailReport.filter(record => record.status === 'failed').length;
+          if (failedCount) emailError = [emailError, `${failedCount} email(s) failed. See the delivery report.`].filter(Boolean).join(' ');
         } catch (error) {
           emailError = error.message;
           console.error('[announcements] email broadcast failed:', error.message);
