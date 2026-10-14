@@ -60,7 +60,7 @@ function directoryMember(row) {
 const adminMemberSelect = [
   'id', 'membership_number', 'verification_token', 'telegram_id',
   'first_name', 'father_name', 'grandfather_name', 'amharic_full_name',
-  'email', 'city', 'membership_type', 'status', 'specialty', 'workplace',
+  'email', 'phone', 'city', 'membership_type', 'status', 'specialty', 'workplace',
   'cpd_points', 'issued_at', 'expires_at', 'is_verified', 'license_number',
   'email_verified', 'must_change_password', 'onboarding_completed',
   'renewal_status:renewal_request->>status',
