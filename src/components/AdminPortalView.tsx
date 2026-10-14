@@ -1,3 +1,6 @@
+import { AnnouncementEmailComposer } from './AnnouncementEmailComposer';
+import { assemblyAnnouncement, assemblyMapsUrl } from '../lib/assemblyAnnouncement';
+import { validateAnnouncementLocation } from '../../shared/announcement-email.js';
 import { MemberAvatar } from './MemberAvatar';
 import { MemberReportPreview } from './MemberReportPreview';
 ﻿import React, { useState } from 'react';
@@ -7,7 +10,7 @@ import {
   X, ExternalLink, History, GraduationCap, Vote, BookOpen, BarChart2,
   Award, ChevronDown, Trash2, Image, TrendingUp, UploadCloud, Settings, Mail, Phone, ClipboardCheck, ScanLine, RefreshCw, LogOut
 } from 'lucide-react';
-import { uploadFile, previewAnnouncementEmail } from '../lib/api';
+import { uploadFile } from '../lib/api';
 import { adminHeaders } from '../lib/admin';
 import { memberPhotoUrl } from '../lib/media';
 import { Application, Member, University, Announcement, AuditLog, ApplicationStatus, ResearchSubmission } from '../types';
@@ -166,10 +169,6 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     telegram_button_url: ''
   });
   
-  const [emailPreview, setEmailPreview] = useState('');
-  const [testEmail, setTestEmail] = useState('dawitaynalem92@gmail.com');
-  const [preparingPreview, setPreparingPreview] = useState(false);
-  const [uploadingMap, setUploadingMap] = useState(false);
   const [emailNotify, setEmailNotify] = useState<boolean>(true);
   const [recipientMode, setRecipientMode] = useState<'all' | 'selected'>('all');
   const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]);
@@ -187,7 +186,6 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const annFileInputRef = React.useRef<HTMLInputElement>(null);
-  const annCoverInputRef = React.useRef<HTMLInputElement>(null);
   const annTelegramMediaInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploadingTelegramMedia, setIsUploadingTelegramMedia] = useState(false);
   const [attendanceEvent, setAttendanceEvent] = useState('EPA Member Event');
@@ -328,12 +326,16 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   });
 
   const handlePublishAnnouncement = async () => {
-    if (!newAnn.title || !newAnn.content) {
+    if (!newAnn.title.trim() || !newAnn.content.trim()) {
       onToast(lang === 'EN' ? 'Title and content are required' : 'ርዕስ እና ይዘት ያስፈልጋል', 'error');
       return;
     }
-    if (uploadingMap || isUploadingCover) { onToast('Wait for the images to finish uploading.', 'error'); return; }
+    if (isUploadingCover) { onToast('Wait for the images to finish uploading.', 'error'); return; }
     if (emailNotify && recipientMode === 'selected' && !selectedRecipientIds.length) { onToast('Select at least one email recipient.', 'error'); return; }
+    if (newAnn.location_url || newAnn.location_name || newAnn.map_image_url || newAnn.location_address) {
+      try { validateAnnouncementLocation({ attachments: [{ type: 'location', url: newAnn.location_url, map_image_url: newAnn.map_image_url }] }); }
+      catch (error) { onToast((error as Error).message, 'error'); return; }
+    }
     setIsPublishingAnn(true);
     try {
       const recipientIds = emailNotify && recipientMode === 'selected' ? selectedRecipientIds : undefined;
@@ -360,7 +362,6 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       }
 
       setShowAnnModal(false);
-      setEmailPreview('');
       setNewAnn({ location_url: '', location_name: '', location_address: '', map_image_url: '', title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '', is_draft: false, file_attachment_url: '', target_audience: [], publish_to_telegram: true, telegram_media_url: '', telegram_media_file_id: '', telegram_media_type: 'image', telegram_button_label: 'Open EPA Mini App', telegram_button_url: '' });
       setSelectedRecipientIds([]);
       setRecipientMode('all');
@@ -1437,6 +1438,13 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-4">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-800 dark:bg-emerald-950/30">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Step 1 · Write your announcement</span>
+              <h4 className="mt-1 text-lg font-bold">Start with your message</h4>
+              <p className="mt-2 text-xs leading-5 text-neutral-600 dark:text-neutral-400">Add your title and text, upload the venue photo and map in Step 2, then review the live email in Step 3.</p>
+              <button type="button" onClick={() => setNewAnn(current => ({ ...current, title: 'EPA Annual Conference & General Assembly 2026', content: assemblyAnnouncement, category: 'Event', location_name: 'Sapphire Addis Hotel', location_address: 'Namibia Avenue · Bole, Addis Ababa', location_url: assemblyMapsUrl }))} className="mt-3 rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">Use the October 17 General Assembly text</button>
+              <p className="mt-2 text-[11px] text-neutral-500">Loads the announcement you supplied and the venue link. You can edit every detail.</p>
+            </div>
             <div>
               <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Announcement Title (English) *</label>
               <input type="text" required placeholder="e.g. Call for Papers 2026..."
@@ -1448,49 +1456,6 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               <input type="text" placeholder="áˆˆáˆáˆ³áˆŒá¡ á‹¨áŒ¥áŠ“á‰µ áŒ¥áˆª 2026..."
                 value={newAnn.amharic_title} onChange={(e) => setNewAnn({ ...newAnn, amharic_title: e.target.value })}
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
-            </div>
-            <div>
-              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Cover Photo (Optional)</label>
-              <div 
-                className="border-2 border-dashed border-gray-300 dark:border-white/20 bg-black/5 dark:bg-white/5 backdrop-blur-sm rounded-xl p-4 flex flex-col items-center justify-center text-center hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer" 
-                onClick={() => !isUploadingCover && annCoverInputRef.current?.click()}
-              >
-                <input 
-                  type="file" 
-                  accept="image/*"
-                  ref={annCoverInputRef}
-                  className="hidden" 
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setIsUploadingCover(true);
-                      try {
-                        const url = await uploadFile(file);
-                        setNewAnn({ ...newAnn, cover_photo_url: url });
-                      } catch (err) {
-                        onToast('Failed to upload cover photo', 'error');
-                      } finally {
-                        setIsUploadingCover(false);
-                      }
-                    }
-                  }} 
-                />
-                <UploadCloud className={`w-6 h-6 ${isUploadingCover ? 'animate-bounce text-green-700 dark:text-[#d4ff00]' : 'text-neutral-400'} mb-2`} />
-                <span className="text-xs text-gray-900 dark:text-white font-bold">
-                  {isUploadingCover ? 'Uploading Cover...' : 'Click to upload Cover Photo'}
-                </span>
-              </div>
-              {newAnn.cover_photo_url && (
-                <div className="relative mt-2">
-                  <img src={newAnn.cover_photo_url} alt="cover preview" className="w-full h-32 object-cover rounded-xl" onError={e => (e.currentTarget.style.display = 'none')} />
-                  <button 
-                    onClick={() => setNewAnn({ ...newAnn, cover_photo_url: undefined })}
-                    className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/80 rounded-lg text-white"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
             </div>
             <div>
               <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Category</label>
@@ -1505,11 +1470,13 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Content Body *</label>
-              <textarea rows={4} required placeholder="Detailed announcement text..."
+              <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1" htmlFor="announcement-message">Announcement message *</label>
+              <textarea id="announcement-message" rows={9} required placeholder="Write or paste the message members should receive. Or use the General Assembly text above."
                 value={newAnn.content} onChange={(e) => setNewAnn({ ...newAnn, content: e.target.value })}
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
             </div>
+
+            <AnnouncementEmailComposer value={newAnn} onChange={patch => setNewAnn(current => ({ ...current, ...patch }))} onBusyChange={setIsUploadingCover} />
 
             <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 dark:border-sky-400/20 dark:bg-sky-500/5">
               <div className="flex items-start justify-between gap-3">
@@ -1552,20 +1519,6 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </div>}
             </div>
 
-            <div className="rounded-2xl border border-green-200 p-4 space-y-3">
-              <p className="text-sm font-bold">Event location &amp; email preview</p>
-              <label className="block text-xs">Google Maps share link<input type="url" value={newAnn.location_url} onChange={e => setNewAnn(p => ({ ...p, location_url: e.target.value }))} placeholder="https://maps.app.goo.gl/..." className="mt-1 w-full rounded-xl border p-3 text-gray-900" /></label>
-              <label className="block text-xs">Venue name<input value={newAnn.location_name} onChange={e => setNewAnn(p => ({ ...p, location_name: e.target.value }))} className="mt-1 w-full rounded-xl border p-3 text-gray-900" /></label>
-              <label className="block text-xs">Written address<input value={newAnn.location_address} onChange={e => setNewAnn(p => ({ ...p, location_address: e.target.value }))} className="mt-1 w-full rounded-xl border p-3 text-gray-900" /></label>
-              <label className="block text-xs">Upload actual map screenshot (required with a location link)<input type="file" accept="image/png,image/jpeg" disabled={uploadingMap} className="mt-2 block w-full" onChange={async e => { const file = e.target.files?.[0]; if (!file) return; setUploadingMap(true); try { const url = await uploadFile(file); setNewAnn(p => ({ ...p, map_image_url: url })); } catch { onToast('Could not prepare map image.', 'error'); } finally { setUploadingMap(false); } }} /></label>
-              <p className="text-xs text-neutral-500">Use the Cover Photo above for the venue. Photos keep their proportions. The map and separate button both open your exact link; email maps are image previews.</p>
-              {newAnn.map_image_url && <><img src={newAnn.map_image_url} alt="Uploaded venue map" className="w-full h-auto rounded-xl" /><button type="button" onClick={() => setNewAnn(p => ({ ...p, map_image_url: '' }))} className="text-xs text-red-600">Remove map</button></>}
-              <button type="button" disabled={preparingPreview || uploadingMap || isUploadingCover} className="rounded-xl bg-green-800 px-4 py-3 text-white text-xs disabled:opacity-50" onClick={async () => { setPreparingPreview(true); try { setEmailPreview(await previewAnnouncementEmail(newAnn)); } catch (e: any) { onToast(e.message, 'error'); } finally { setPreparingPreview(false); } }}>{preparingPreview ? 'Preparing…' : 'Preview actual email'}</button>
-              <label className="block text-xs">Test recipient<input type="email" value={testEmail} onChange={e => setTestEmail(e.target.value)} className="mt-1 w-full rounded-xl border p-3 text-gray-900" /></label>
-              <button type="button" disabled={preparingPreview || uploadingMap || isUploadingCover || !testEmail.trim()} className="rounded-xl border border-green-700 px-4 py-3 text-green-700 dark:text-green-300 text-xs disabled:opacity-50" onClick={async () => { setPreparingPreview(true); try { const recipient = await previewAnnouncementEmail(newAnn, testEmail); onToast('Test email accepted for delivery to ' + recipient + '. Check your inbox and spam folder.', 'success'); } catch (e: any) { onToast(e.message, 'error'); } finally { setPreparingPreview(false); } }}>Send test email only</button>
-              <p className="text-xs text-neutral-500">A test sends only to the address above. It does not publish an announcement or contact members.</p>
-              {emailPreview && <><p className="text-xs text-neutral-500">Preview snapshot. Refresh after editing. Image display depends on recipient settings.</p><iframe title="Announcement email preview" sandbox="allow-popups allow-popups-to-escape-sandbox" srcDoc={emailPreview} className="h-[650px] w-full rounded-xl border bg-white" /></>}
-            </div>
             {/* File Attachment */}
               <label className="block text-xs font-mono font-bold text-neutral-700 dark:text-neutral-300 mb-1">Attach File (PDF / DOCX) â€” Optional</label>
               <div 
@@ -1774,7 +1727,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
               </button>
               <button
                 onClick={handlePublishAnnouncement}
-                disabled={isPublishingAnn}
+                disabled={isPublishingAnn || isUploadingCover}
                 className="px-5 py-2.5 rounded-xl bg-[#d4ff00] hover:bg-[#c3eb00] text-black text-xs font-black uppercase tracking-wider shadow-sm cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
               >
                 {isPublishingAnn ? (

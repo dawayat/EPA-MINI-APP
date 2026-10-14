@@ -4,6 +4,7 @@ import nodemailer from 'nodemailer';
 import { announcementEmail } from '../api/_email.js';
 import handler from '../api/announcements.js';
 import { createAdminSession } from '../api/_admin.js';
+import { renderAnnouncementEmail } from '../shared/announcement-email.js';
 
 const pixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=';
 const venueUrl = 'https://maps.app.goo.gl/test-venue';
@@ -38,6 +39,20 @@ test('invalid links and missing map images fail before sending', () => {
   }
   assert.throws(() => announcementEmail('Member', { ...announcement, attachments: [{ type: 'location', url: venueUrl }] }));
   assert.ok(announcementEmail('Member', announcement, { preview: true }).html.includes(pixel));
+});
+
+test('live preview shows message while location is incomplete and refuses empty outgoing emails', () => {
+  const draft = { ...announcement, attachments: [{ type: 'location', name: 'Sapphire Addis Hotel', url: '', map_image_url: '' }] };
+  const preview = renderAnnouncementEmail('Member', draft, { preview: true });
+  assert.ok(preview.html.includes('<strong>Event Details</strong>'));
+  assert.ok(preview.html.includes('Upload the map screenshot'));
+  assert.equal(preview.attachments.length, 0);
+  assert.throws(() => announcementEmail('Member', { title: '', content: '' }), /title and message/);
+  assert.throws(() => announcementEmail('Member', { title: 'Event', content: '  ' }), /title and message/);
+  const empty = renderAnnouncementEmail('Member', { title: 'Event', content: '' }, { preview: true });
+  assert.ok(empty.html.includes('Write your announcement message above'));
+  const complete = renderAnnouncementEmail('Member', announcement, { preview: true });
+  assert.ok(complete.html.indexOf('<strong>Event Details</strong>') < complete.html.indexOf('alt="Venue &amp; Hall photo"'));
 });
 
 test('test email contacts only its one recipient and never persists or broadcasts', async () => {
