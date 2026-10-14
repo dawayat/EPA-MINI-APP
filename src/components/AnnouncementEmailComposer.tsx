@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { CheckCircle2, ImagePlus, MapPin, Mail, UploadCloud } from 'lucide-react';
+import { cropRightHalf } from '../lib/venuePhoto';
 import { Announcement } from '../types';
 import { uploadFile, previewAnnouncementEmail } from '../lib/api';
 import { renderAnnouncementEmail, validateAnnouncementLocation } from '../../shared/announcement-email.js';
@@ -23,7 +24,7 @@ export function AnnouncementEmailComposer({ value, onChange, onBusyChange }: Pro
 
   const { html, locationError } = useMemo(() => {
     const attachments = [];
-    if (value.cover_photo_url) attachments.push({ type: 'cover', url: value.cover_photo_url });
+    if (value.cover_photo_url) attachments.push({ type: 'cover', url: value.cover_photo_url, layout: value.venue_photo_layout, right_url: value.venue_photo_crop_url });
     const hasLocation = Boolean(value.location_url || value.location_name || value.map_image_url || value.location_address);
     const location = { type: 'location', url: value.location_url || '', name: value.location_name, address: value.location_address, map_image_url: value.map_image_url };
     if (hasLocation) attachments.push(location);
@@ -36,7 +37,7 @@ export function AnnouncementEmailComposer({ value, onChange, onBusyChange }: Pro
       html: renderAnnouncementEmail('EPA Member', { title: value.title || 'Your announcement title', content: value.content || '', category: value.category, attachments }, { preview: true, baseUrl: window.location.origin }).html,
       locationError
     };
-  }, [value.title, value.content, value.category, value.cover_photo_url, value.location_url, value.location_name, value.location_address, value.map_image_url]);
+  }, [value.title, value.content, value.category, value.cover_photo_url, value.location_url, value.location_name, value.location_address, value.map_image_url, value.venue_photo_layout, value.venue_photo_crop_url]);
 
   const messageReady = Boolean(value.title?.trim() && value.content?.trim());
   const emailValid = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(testEmail.trim());
@@ -50,7 +51,8 @@ export function AnnouncementEmailComposer({ value, onChange, onBusyChange }: Pro
     onBusyChange(true);
     try {
       const url = await uploadFile(file);
-      onChange(kind === 'photo' ? { cover_photo_url: url } : { map_image_url: url });
+      const cropped = kind === 'photo' ? await cropRightHalf(url) : '';
+      onChange(kind === 'photo' ? { cover_photo_url: url, venue_photo_crop_url: cropped } : { map_image_url: url });
       setTestResult(null);
     } catch {
       setUploadError(`Could not prepare the ${kind === 'photo' ? 'venue photo' : 'map screenshot'}. Please choose another image.`);
@@ -82,14 +84,20 @@ export function AnnouncementEmailComposer({ value, onChange, onBusyChange }: Pro
         <p className="mt-1 text-xs leading-5 text-neutral-600 dark:text-neutral-400">The venue photo shows the place. The map screenshot shows how to find it. Upload them separately below.</p>
       </div>
       <div className="space-y-5 p-5">
+        <fieldset><legend className="mb-2 text-xs font-bold">Choose your email layout</legend><div className="grid grid-cols-2 gap-3">
+          {(['above', 'right'] as const).map(layout => <label key={layout} className={`cursor-pointer rounded-xl border p-3 text-xs leading-5 ${(value.venue_photo_layout || 'above') === layout ? 'border-emerald-600 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200' : 'border-gray-200 dark:border-white/15'}`}>
+            <input type="radio" name="venue-photo-layout" value={layout} checked={(value.venue_photo_layout || 'above') === layout} disabled={Boolean(uploading)} onChange={() => onChange({ venue_photo_layout: layout })} className="mr-2 accent-emerald-700" />
+            <span className="font-bold">{layout === 'above' ? 'Photo above message' : 'Photo on the right'}</span><span className="mt-1 block text-[11px] opacity-75">{layout === 'above' ? 'Full-width photo, then your message.' : 'Message left · cropped right half of photo on the right.'}</span>
+          </label>)}
+        </div><p className="mt-2 text-[11px] text-neutral-500">Right-side layout stacks on small screens to keep the message readable.</p></fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
           <fieldset className="min-w-0 rounded-xl border border-gray-200 p-3 dark:border-white/15">
             <legend className="px-1 text-sm font-bold">Venue photo</legend>
             <p className="mb-3 text-xs leading-5 text-neutral-500">A photo of the hotel, entrance, or meeting hall. Optional.</p>
             <input ref={photoInput} type="file" accept="image/*" aria-label="Upload venue photo" className="hidden" disabled={Boolean(uploading)} onChange={e => { void prepareImage(e.target.files?.[0], 'photo'); e.target.value = ''; }} />
-            {value.cover_photo_url ? <img src={value.cover_photo_url} alt="Your uploaded venue photo" className="mb-3 h-auto w-full rounded-lg" /> : <div className="mb-3 flex h-28 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/30"><ImagePlus className="h-8 w-8 text-emerald-600" /></div>}
+            {value.cover_photo_url ? <img src={value.venue_photo_layout === 'right' ? value.venue_photo_crop_url || value.cover_photo_url : value.cover_photo_url} alt="Your uploaded venue photo" className="mb-3 h-auto w-full rounded-lg" /> : <div className="mb-3 flex h-28 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/30"><ImagePlus className="h-8 w-8 text-emerald-600" /></div>}
             <button type="button" disabled={Boolean(uploading)} onClick={() => photoInput.current?.click()} className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-800 px-3 py-3 text-xs font-bold text-white disabled:opacity-50"><UploadCloud className="h-4 w-4" />{uploading === 'photo' ? 'Preparing photo…' : value.cover_photo_url ? 'Replace venue photo' : 'Upload venue photo'}</button>
-            {value.cover_photo_url && <button type="button" disabled={Boolean(uploading)} onClick={() => onChange({ cover_photo_url: '' })} className="mt-2 text-xs text-red-600">Remove venue photo</button>}
+            {value.cover_photo_url && <button type="button" disabled={Boolean(uploading)} onClick={() => onChange({ cover_photo_url: '', venue_photo_crop_url: '' })} className="mt-2 text-xs text-red-600">Remove venue photo</button>}
           </fieldset>
           <fieldset className="min-w-0 rounded-xl border border-gray-200 p-3 dark:border-white/15">
             <legend className="px-1 text-sm font-bold">Map screenshot</legend>
@@ -112,7 +120,7 @@ export function AnnouncementEmailComposer({ value, onChange, onBusyChange }: Pro
       <div className="p-5">
         <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Step 3 · Review before sending</span>
         <div className="mt-1 flex items-center justify-between gap-3"><h4 id="email-preview-title" className="text-lg font-bold">Your email preview</h4><span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">● Updates as you type</span></div>
-        <p className="mt-2 text-xs leading-5 text-neutral-500">This is the same layout used in the sent email. Your message appears first, followed by the venue photo and map.</p>
+        <p className="mt-2 text-xs leading-5 text-neutral-500">This is the same layout used in the sent email. The preview shows your chosen photo layout. The map and location button appear below the message.</p>
         {!messageReady && <p role="status" className="mt-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Add a title and announcement message in Step 1 before sending a test.</p>}
       </div>
       <iframe title="Live announcement email preview" sandbox="allow-popups allow-popups-to-escape-sandbox" srcDoc={html} className="h-[760px] w-full border-y border-gray-200 bg-white dark:border-white/15" />

@@ -157,6 +157,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     content: '',
     author: 'EPA Executive Directorate',
     location_url: '', location_name: '', location_address: '', map_image_url: '',
+    venue_photo_layout: 'above' as 'above' | 'right', venue_photo_crop_url: '',
     cover_photo_url: '',
     is_draft: false,              // If true, opens voting before publishing
     file_attachment_url: '',      // Optional PDF/doc attachment
@@ -362,7 +363,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       }
 
       setShowAnnModal(false);
-      setNewAnn({ location_url: '', location_name: '', location_address: '', map_image_url: '', title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '', is_draft: false, file_attachment_url: '', target_audience: [], publish_to_telegram: true, telegram_media_url: '', telegram_media_file_id: '', telegram_media_type: 'image', telegram_button_label: 'Open EPA Mini App', telegram_button_url: '' });
+      setNewAnn({ venue_photo_layout: 'above', venue_photo_crop_url: '', location_url: '', location_name: '', location_address: '', map_image_url: '', title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '', is_draft: false, file_attachment_url: '', target_audience: [], publish_to_telegram: true, telegram_media_url: '', telegram_media_file_id: '', telegram_media_type: 'image', telegram_button_label: 'Open EPA Mini App', telegram_button_url: '' });
       setSelectedRecipientIds([]);
       setRecipientMode('all');
     } finally {

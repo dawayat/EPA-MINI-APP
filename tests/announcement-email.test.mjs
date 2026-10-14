@@ -52,7 +52,21 @@ test('live preview shows message while location is incomplete and refuses empty 
   const empty = renderAnnouncementEmail('Member', { title: 'Event', content: '' }, { preview: true });
   assert.ok(empty.html.includes('Write your announcement message above'));
   const complete = renderAnnouncementEmail('Member', announcement, { preview: true });
-  assert.ok(complete.html.indexOf('<strong>Event Details</strong>') < complete.html.indexOf('alt="Venue &amp; Hall photo"'));
+  assert.ok(complete.html.indexOf('alt="Venue &amp; Hall photo"') < complete.html.indexOf('<strong>Event Details</strong>'));
+});
+
+test('right-side layout embeds its prepared crop and uses two responsive columns', () => {
+  const cropped = 'data:image/png;base64,' + Buffer.from('prepared-right-half-image').toString('base64');
+  const side = { ...announcement, attachments: [{ type: 'cover', url: pixel, right_url: cropped, layout: 'right' }, announcement.attachments[1]] };
+  const email = announcementEmail('Member', side);
+  assert.ok(email.html.includes('class="epa-email-copy" width="50%"'));
+  assert.ok(email.html.includes('class="epa-email-photo" width="50%"'));
+  assert.ok(email.html.includes('@media screen and (max-width:600px)'));
+  assert.ok(email.html.includes('right-half crop'));
+  assert.equal(email.attachments.find(image => image.cid === 'venue@epa').content.toString(), 'prepared-right-half-image');
+  const preview = renderAnnouncementEmail('Member', side, { preview: true });
+  assert.ok(preview.html.includes(cropped));
+  assert.ok(preview.html.indexOf('<strong>Event Details</strong>') < preview.html.indexOf('right-half crop'));
 });
 
 test('test email contacts only its one recipient and never persists or broadcasts', async () => {

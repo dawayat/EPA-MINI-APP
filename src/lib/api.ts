@@ -154,6 +154,8 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
     category: r.type,
     author: r.author_name,
     is_draft: Boolean(r.is_draft),
+    venue_photo_layout: r.attachments?.find((a: any) => a.type === 'cover')?.layout || 'above',
+    venue_photo_crop_url: r.attachments?.find((a: any) => a.type === 'cover')?.right_url || '',
     cover_photo_url: r.attachments?.find((a: any) => a.type === 'cover')?.url || null,
     file_attachment_url: r.attachments?.find((a: any) => a.type === 'file')?.url || null,
     telegram_media_url: r.attachments?.find((a: any) => a.type === 'telegram_media')?.url || null,
@@ -221,7 +223,7 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
   const attachments: any[] = [];
   if (announcementData.location_url) attachments.push({ type: 'location', url: announcementData.location_url, name: announcementData.location_name, address: announcementData.location_address, map_image_url: announcementData.map_image_url });
   if ((announcementData as any).cover_photo_url) {
-    attachments.push({ type: 'cover', url: (announcementData as any).cover_photo_url });
+    attachments.push({ type: 'cover', url: announcementData.cover_photo_url, layout: announcementData.venue_photo_layout, right_url: announcementData.venue_photo_crop_url });
   }
   if ((announcementData as any).file_attachment_url) {
     attachments.push({ type: 'file', url: (announcementData as any).file_attachment_url });
@@ -433,7 +435,7 @@ export async function uploadVerifiedApplicationAttachment(dataUrl: string, email
 
 export async function previewAnnouncementEmail(a: Partial<Announcement>, testEmail?: string): Promise<string> {
   const attachments = [];
-  if (a.cover_photo_url) attachments.push({ type: 'cover', url: a.cover_photo_url });
+  if (a.cover_photo_url) attachments.push({ type: 'cover', url: a.cover_photo_url, layout: a.venue_photo_layout, right_url: a.venue_photo_crop_url });
   if (a.location_url) attachments.push({ type: 'location', url: a.location_url, name: a.location_name, address: a.location_address, map_image_url: a.map_image_url });
   const response = await fetch('/api/announcements', { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify({ title: a.title || 'General Assembly', content: a.content, type: a.category, attachments, preview_email: !testEmail, test_email: testEmail }) });
   const result = await response.json();

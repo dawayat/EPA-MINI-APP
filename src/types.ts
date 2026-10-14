@@ -181,6 +181,8 @@ export interface Announcement {
   map_image_url?: string;
   email_notify?: boolean;
   cover_image_url?: string;
+  venue_photo_layout?: 'above' | 'right';
+  venue_photo_crop_url?: string;
   cover_photo_url?: string; // alias used in admin form
   published_at: string;
   author: string;
