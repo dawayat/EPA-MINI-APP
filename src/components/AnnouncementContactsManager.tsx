@@ -9,7 +9,7 @@ export function AnnouncementContactsManager() {
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/announcement-contacts', { headers: adminHeaders(), signal: controller.signal }).then(async response => {
+    fetch('/api/announcements?action=contacts', { headers: adminHeaders(), signal: controller.signal }).then(async response => {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Could not load contacts.');
       setContacts(data.contacts);
@@ -22,10 +22,10 @@ export function AnnouncementContactsManager() {
     if (!parsed.length) return;
     setSaving(true);
     try {
-      const response = await fetch('/api/announcement-contacts', { method: 'POST', headers: { ...adminHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ contacts: parsed }) });
+      const response = await fetch('/api/announcements?action=contacts', { method: 'POST', headers: { ...adminHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ contacts: parsed }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not add contacts.');
-      const refreshed = await fetch('/api/announcement-contacts', { headers: adminHeaders() });
+      const refreshed = await fetch('/api/announcements?action=contacts', { headers: adminHeaders() });
       const data = await refreshed.json();
       if (refreshed.ok) setContacts(data.contacts);
       setText('');

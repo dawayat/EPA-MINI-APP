@@ -1,3 +1,4 @@
+import handleAnnouncementContacts from './_announcement_contacts.js';
 import { announcementRecipients } from '../shared/announcement-recipients.js';
 import { dbSelect, dbInsert, dbUpdate, cachePublic, cors } from './_db.js';
 import { announcementEmail, validateAnnouncementLocation, isEmailConfigured, sendEmail } from './_email.js';
@@ -59,6 +60,7 @@ async function postToTelegram(a) {
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.query?.action === 'contacts') return handleAnnouncementContacts(req, res);
 
   try {
     if (req.method === 'GET') {

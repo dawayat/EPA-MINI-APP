@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import nodemailer from 'nodemailer';
 import handler from '../api/announcements.js';
-import contactsHandler from '../api/announcement-contacts.js';
 import { createAdminSession } from '../api/_admin.js';
 import { buildAnnouncement, announcementAttachments } from '../shared/announcement-payload.js';
 import { announcementRecipients, parseEmailContacts } from '../shared/announcement-recipients.js';
@@ -83,7 +82,7 @@ test('real publish handler sends the current design in both modes, reports rejec
     process.env.GMAIL_APP_PASSWORD='test-password';
     sent=[];saved=[];queried=[];
     const res=response();
-    await contactsHandler({method:'POST',headers:{authorization:'Bearer '+token},body:{contacts:[{email:'member@example.org'},{email:'fresh@example.org',display_name:'New Contact'}]}},res).catch(error=>{throw error;});
+    await handler({method:'POST',query:{action:'contacts'},headers:{authorization:'Bearer '+token},body:{contacts:[{email:'member@example.org'},{email:'fresh@example.org',display_name:'New Contact'}]}},res).catch(error=>{throw error;});
     assert.equal(res.statusCode,201);
     assert.deepEqual(res.body.added,['fresh@example.org']);
     assert.deepEqual(res.body.skipped,['member@example.org']);
@@ -92,7 +91,7 @@ test('real publish handler sends the current design in both modes, reports rejec
     assert.equal(sent.length,0);
     assert.ok(!queried.some(x=>x.table==='members'&&x.method==='POST'));
     const unauthorized=response();
-    await contactsHandler({method:'POST',headers:{},body:{contacts:[{email:'unauthorized@example.org'}]}},unauthorized);
+    await handler({method:'POST',query:{action:'contacts'},headers:{},body:{contacts:[{email:'unauthorized@example.org'}]}},unauthorized);
     assert.equal(unauthorized.statusCode,401);
     assert.equal(contactWrites.length,1);
   }finally{
