@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { certificateIdPattern, certificateVerificationUrl } from '../../shared/certificates.js';
+import { certificateIdPattern } from '../../shared/certificates.js';
+import { createCertificatePdf } from '../lib/certificatePdf';
 import './certificate.css';
 
 interface IssuedCertificate {
@@ -34,11 +35,7 @@ export function CertificateVerification({ id }: { id: string }) {
     if (!record || downloading) return;
     setDownloading(true); setDownloadError('');
     try {
-      const { jsPDF } = await import('jspdf');
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
-      pdf.setProperties({ title: `EPA certificate - ${record.organization.name}`, author: record.issuer });
-      pdf.addImage(record.image, 'PNG', 0, 0, 297, 210);
-      pdf.link(228,175,27,27,{ url: certificateVerificationUrl(id) });
+      const pdf = createCertificatePdf(record.image, id, record.organization.name);
       pdf.save(`EPA-certificate-${id}.pdf`);
     } catch { setDownloadError('The certificate could not be downloaded. Please try again.'); }
     finally { setDownloading(false); }

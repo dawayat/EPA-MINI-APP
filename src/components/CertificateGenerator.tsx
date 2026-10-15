@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { appreciationAmharic, appreciationEnglish, certificateOrganizations, certificateVerificationUrl, renderCertificate } from '../lib/certificate';
 import { adminHeaders } from '../lib/admin';
+import { createCertificatePdf } from '../lib/certificatePdf';
 import './certificate.css';
 
 export function CertificateGenerator() {
@@ -35,6 +36,9 @@ export function CertificateGenerator() {
     setDownloading(true); setExportError('');
     try {
       const image = canvas.toDataURL('image/png');
+      // Prepare the PDF before registering, so a PDF preparation error cannot
+      // create an issuance record that the administrator cannot download.
+      const pdf = createCertificatePdf(image, certificateId, organization.name);
       const response = await fetch('/api/announcements?action=certificates', {
         method: 'POST', headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: certificateId, organizationId, english, amharic, image }),
@@ -42,11 +46,6 @@ export function CertificateGenerator() {
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.success || result.id !== certificateId) throw new Error(result?.error || 'Could not register the certificate. No PDF was issued.');
       setIssuedId(certificateId);
-      const { jsPDF } = await import('jspdf');
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
-      pdf.setProperties({ title: `Certificate of Appreciation - ${organization.name}`, author: "Ethiopian Psychologists' Association" });
-      pdf.addImage(image, 'PNG', 0, 0, 297, 210);
-      pdf.link(228, 175, 27, 27, { url: certificateVerificationUrl(certificateId) });
       pdf.save(`EPA-appreciation-${organization.id}-${certificateId}.pdf`);
     } catch (e) { setExportError(e instanceof Error ? e.message : 'The PDF could not be downloaded. Please try again.'); }
     finally { setDownloading(false); }
