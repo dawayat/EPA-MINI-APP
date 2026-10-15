@@ -1,7 +1,7 @@
 import { certificateOrganizations, certificateVerificationUrl } from '../../shared/certificates.js';
 export { certificateOrganizations, certificateVerificationUrl } from '../../shared/certificates.js';
 export const membershipEnglish = "has fulfilled the requirements for corporate membership established by the Ethiopian Psychologists' Association (EPA) and is hereby recognized as a Corporate Member of the Association for the year 2026/2027.";
-export const membershipAmharic = 'በኢትዮጵያ ሳይኮሎጂ ባላሙያዎች ማኅበር (EPA) የተወሰኑትን የድርጅት አባልነት መስፈርቶች በማሟላቱ፣ ለ2019 ዓ.ም. የማኅበሩ የድርጅት አባል መሆኑን በዚህ የምስክር ወረቀት እናረጋግጣለን።';
+export const membershipAmharic = 'የኢትዮጵያ ሳይኮሎጂ ባላሙያዎች ማኅበር (EPA) የተቀመጠውን የድርጅት አባልነት መስፈርቶች በማሟላቱ፣ ለ2019 ዓ.ም. የማኅበሩ የድርጅት አባል መሆኑን በዚህ የምስክር ወረቀት እናረጋግጣለን።';
 export interface CertificateOptions { organization: typeof certificateOrganizations[number]; english: string; amharic: string; signature?: string; certificateId: string }
 let fontReady: Promise<void> | undefined;
 async function loadFont() {
@@ -92,7 +92,7 @@ export async function renderCertificate(options: CertificateOptions): Promise<HT
   else text('Signature / ፊርማ',800,970,14,'"EPA Ethiopic"','#7d8589');
   line(635,997,965,997,gold);
   text('Dr. Getahun Tibebu',800,1025,30,'"EPA Display"',navy,600);
-  text('ዶ/ር ጌታሁን ጥበቡ · ፕሬዚዳንት',800,1061,20,'"EPA Ethiopic"');
+  text('ዶ/ር ጌታሁን ጥበቡ · ፕሬዝዳንት',800,1061,20,'"EPA Ethiopic"');
   contain(qr,1230,944,140,140);
   text('SCAN TO VERIFY',1430,989,12,'Arial',gold);
   text('ትክክለኛነቱን',1430,1021,14,'"EPA Ethiopic"');
