@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { appreciationAmharic, appreciationEnglish, certificateOrganizations, certificateSite, renderCertificate } from '../lib/certificate';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { appreciationAmharic, appreciationEnglish, certificateOrganizations, certificateVerificationUrl, renderCertificate } from '../lib/certificate';
+import { adminHeaders } from '../lib/admin';
 import './certificate.css';
 
 export function CertificateGenerator() {
@@ -11,6 +12,9 @@ export function CertificateGenerator() {
   const [error, setError] = useState('');
   const [rendering, setRendering] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  const [issuedId, setIssuedId] = useState('');
+  const [exportError, setExportError] = useState('');
+  const certificateId = useMemo(() => crypto.randomUUID(), [organizationId, english, amharic, signature]);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const organization = certificateOrganizations.find(item => item.id === organizationId)!;
   useEffect(() => {
@@ -18,25 +22,33 @@ export function CertificateGenerator() {
     setRendering(true); setError(''); canvasRef.current = null;
     const timer = window.setTimeout(() => {
       if (!english.trim() || !amharic.trim()) { setError('Enter both appreciation messages.'); setRendering(false); return; }
-      void renderCertificate({ organization, english, amharic, signature }).then(canvas => {
+      void renderCertificate({ organization, english, amharic, signature, certificateId }).then(canvas => {
         if (active) { canvasRef.current = canvas; setPreview(canvas.toDataURL('image/png')); }
       }).catch(e => { if (active) setError(e instanceof Error ? e.message : 'Could not create preview.'); })
         .finally(() => { if (active) setRendering(false); });
     }, 250);
     return () => { active = false; clearTimeout(timer); };
-  }, [organization, english, amharic, signature]);
+  }, [organization, english, amharic, signature, certificateId]);
   async function download() {
     const canvas = canvasRef.current;
     if (!canvas || rendering || downloading) return;
-    setDownloading(true); setError('');
+    setDownloading(true); setExportError('');
     try {
+      const image = canvas.toDataURL('image/png');
+      const response = await fetch('/api/announcements?action=certificates', {
+        method: 'POST', headers: { ...adminHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: certificateId, organizationId, english, amharic, image }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success || result.id !== certificateId) throw new Error(result?.error || 'Could not register the certificate. No PDF was issued.');
+      setIssuedId(certificateId);
       const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
       pdf.setProperties({ title: `Certificate of Appreciation - ${organization.name}`, author: "Ethiopian Psychologists' Association" });
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, 297, 210);
-      pdf.link(232, 177, 23, 23, { url: certificateSite });
-      pdf.save(`EPA-appreciation-${organization.id}-2026-10-17.pdf`);
-    } catch { setError('The PDF could not be downloaded. Please try again.'); }
+      pdf.addImage(image, 'PNG', 0, 0, 297, 210);
+      pdf.link(228, 175, 27, 27, { url: certificateVerificationUrl(certificateId) });
+      pdf.save(`EPA-appreciation-${organization.id}-${certificateId}.pdf`);
+    } catch (e) { setExportError(e instanceof Error ? e.message : 'The PDF could not be downloaded. Please try again.'); }
     finally { setDownloading(false); }
   }
   async function uploadSignature(file?: File) {
@@ -58,13 +70,15 @@ export function CertificateGenerator() {
       <label>President’s signature (optional)<input type="file" accept="image/png,image/jpeg" disabled={downloading} onChange={e=>{ void uploadSignature(e.target.files?.[0]); e.target.value=''; }}/></label>
       <p>Upload the authorized signature as a PNG or JPEG, up to 2 MB. Without an image, the certificate has a blank signature line.</p>
       {signature && <button type="button" onClick={()=>setSignature('')} disabled={downloading}>Remove signature</button>}
-      <button type="button" className="certificate-download" disabled={rendering || downloading || !canvasRef.current || Boolean(error)} onClick={()=>void download()}>{downloading?'Creating PDF…':rendering?'Updating preview…':'Download certificate PDF'}</button>
+      <button type="button" className="certificate-download" disabled={rendering || downloading || !canvasRef.current || Boolean(error)} onClick={()=>void download()}>{downloading?'Registering and creating PDF…':rendering?'Updating preview…':issuedId === certificateId ? 'Download issued certificate PDF' : 'Issue & download certificate PDF'}</button>
       {error && <p role="alert" className="certificate-error">{error}</p>}
+      {exportError && <p role="alert" className="certificate-error">{exportError}</p>}
+      {issuedId === certificateId && <p role="status">Registered with EPA. <a href={certificateVerificationUrl(certificateId)} target="_blank" rel="noreferrer">Open certificate verification</a></p>}
     </div>
     <div className="certificate-preview" aria-busy={rendering}>
       <div className="certificate-preview-heading"><strong>Live preview</strong><span>A4 landscape · English + አማርኛ</span></div>
       {preview ? <img src={preview} alt={`Bilingual certificate of appreciation for ${organization.name}`} style={{ opacity: rendering || error ? 0.5 : 1 }}/> : <p>Preparing certificate…</p>}
-      <p>The QR code opens <a href={certificateSite} target="_blank" rel="noreferrer">the EPA portal</a>. Both messages are editable independently.</p>
+      <p>{issuedId === certificateId ? 'Issued certificate' : 'Draft preview — not yet issued'}. The QR code verifies this specific certificate and displays the saved original. Issuing publishes the recipient, appreciation messages, date, and certificate image on its verification page.</p>
     </div>
   </section>;
 }

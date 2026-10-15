@@ -1,12 +1,8 @@
-export const certificateOrganizations = [
-  { id: 'aha', name: 'Aha Psychological Services', am: 'አሃ ሳይኮሎጂቻል ሰርቪስስ', logo: '/certificates/aha.png' },
-  { id: 'abrihot', name: 'Abrihot Specialized Psychological Center', am: 'አብርሆት ስፔሻላዝድ ሳይኮሎጂቻል ሴንተር', logo: '/certificates/abrihot.jpg' },
-  { id: 'natanim', name: 'Natanim Charitable Organization', am: 'ናታኒም ቻሪታብል ኦርጋናይዜሽን', logo: '/certificates/natanim.jpg' },
-];
+import { certificateOrganizations, certificateVerificationUrl } from '../../shared/certificates.js';
+export { certificateOrganizations, certificateVerificationUrl } from '../../shared/certificates.js';
 export const appreciationEnglish = "With sincere gratitude for your valued contribution to the Ethiopian Psychologists' Association. Your dedication and generous support strengthen our professional community and help advance psychology in Ethiopia. We proudly recognize your partnership and commitment.";
 export const appreciationAmharic = 'ለኢትዮጵያ ሳይኮሎጂ ባላሙያዎች ማኅበር ላበረከታችሁት ውድ አስተዋጽኦ ከልብ እናመሰግናለን። ቁርጠኝነታችሁና ለጋስ ድጋፋችሁ የባለሙያዎችን ትብብር በማጠናከር የሳይኮሎጂ ሙያ በኢትዮጵያ እንዲያድግ አግዟል። ለአጋርነታችሁና ለቁርጠኝነታችሁ ያለንን ክብርና አድናቆት በዚህ የምስክር ወረቀት እንገልጻለን።';
-export const certificateSite = 'https://epa-mini-app.vercel.app';
-export interface CertificateOptions { organization: typeof certificateOrganizations[number]; english: string; amharic: string; signature?: string }
+export interface CertificateOptions { organization: typeof certificateOrganizations[number]; english: string; amharic: string; signature?: string; certificateId: string }
 let fontReady: Promise<void> | undefined;
 async function loadFont() {
   fontReady ??= (async () => {
@@ -25,7 +21,7 @@ export async function renderCertificate(options: CertificateOptions): Promise<HT
     import('qrcode'), loadFont(), image('/epa-logo.png'), image(options.organization.logo),
     options.signature ? image(options.signature) : Promise.resolve(null),
   ]);
-  const qr = await image(await QRCode.toDataURL(certificateSite, { width: 300, margin: 4, errorCorrectionLevel: 'H', color: { dark: '#123650', light: '#ffffff' } }));
+  const qr = await image(await QRCode.toDataURL(certificateVerificationUrl(options.certificateId), { width: 500, margin: 4, errorCorrectionLevel: 'H', color: { dark: '#123650', light: '#ffffff' } }));
   const canvas = document.createElement('canvas'); canvas.width = 2400; canvas.height = 1697;
   const c = canvas.getContext('2d'); if (!c) throw new Error('Canvas is unavailable.');
   c.scale(1.5, 1.5);
@@ -58,6 +54,7 @@ export async function renderCertificate(options: CertificateOptions): Promise<HT
   contain(epa,94,80,118,118);
   text("Ethiopian Psychologists' Association",850,120,35,'"EPA Display"',navy,600);
   text('የኢትዮጵያ ሳይኮሎጂ ባላሙያዎች ማኅበር',850,167,26,'"EPA Ethiopic"');
+  text(`CERTIFICATE ID: ${options.certificateId}`,850,202,11,'Arial','#5b6b76');
   line(95,220,1505,220,'#d9c9ab');
   text('Certificate of Appreciation',435,285,57,'"EPA Display"',navy,600);
   text('የምስጋና የምስክር ወረቀት',1165,285,37,'"EPA Ethiopic Display"',navy,600);
@@ -93,8 +90,9 @@ export async function renderCertificate(options: CertificateOptions): Promise<HT
   line(635,997,965,997,gold);
   text('Dr. Getahun Tibebu',800,1025,28,'"EPA Display"',navy,600);
   text('ዶ/ር ጌታሁን ጥበቡ · ፕሬዚዳንት',800,1061,19,'"EPA Ethiopic"');
-  contain(qr,1250,955,120,120);
-  text('SCAN TO VISIT EPA',1424,999,12,'Arial',gold);
-  text('ድረ ገጻችንን ይጎብኙ',1424,1030,16,'"EPA Ethiopic"');
+  contain(qr,1230,944,140,140);
+  text('SCAN TO VERIFY',1430,989,12,'Arial',gold);
+  text('ትክክለኛነቱን',1430,1021,14,'"EPA Ethiopic"');
+  text('ያረጋግጡ',1430,1047,14,'"EPA Ethiopic"');
   return canvas;
 }
