@@ -46,6 +46,10 @@ EPA_ADMIN_SESSION_SECRET=a-different-long-random-secret
 
 Do not use `VITE_` for these values and do not place them in frontend code. A session lasts eight hours and can be ended with **Sign out** in the admin portal.
 
+## Appreciation certificates
+
+In the signed-in admin portal, open **Certificates** to select Aha Psychological Services, Abrihot Specialized Psychological Center, or Natanim Charitable Organization. Edit the English and Amharic messages independently and download a bilingual A4 landscape PDF. The issue date is October 17, 2026 / ጥቅምት 7፣ 2019 ዓ.ም. Upload an authorized president's signature (PNG/JPEG, up to 2 MB), or leave the signature line blank. The QR code opens the EPA portal. Edits and signature images are kept only in the current certificate editor session; they are not uploaded or saved to the database. Messages that exceed the layout are blocked from export. The bundled Noto Sans Ethiopic font is distributed under the accompanying OFL license.
+
 ## Stack
 - React
 - Vite

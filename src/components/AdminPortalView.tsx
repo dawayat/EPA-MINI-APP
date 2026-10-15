@@ -5,6 +5,7 @@ import { assemblyAnnouncement, assemblyMapsUrl } from '../lib/assemblyAnnounceme
 import { validateAnnouncementLocation } from '../../shared/announcement-email.js';
 import { MemberAvatar } from './MemberAvatar';
 import { MemberReportPreview } from './MemberReportPreview';
+import { CertificateGenerator } from './CertificateGenerator';
 ﻿import React, { useState } from 'react';
 import { 
   Users, Clock, CreditCard, CheckCircle2, XCircle, AlertTriangle,
@@ -125,7 +126,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       setUploadingMemberId(null);
     }
   };
-  const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'members' | 'cpd' | 'elections' | 'universities' | 'audit' | 'announcements' | 'research'>('applications');
+  const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'members' | 'cpd' | 'elections' | 'universities' | 'audit' | 'announcements' | 'research' | 'certificates'>('applications');
   const [selectedAppFilter, setSelectedAppFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -524,6 +525,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
           { id: 'members', label: lang === 'EN' ? 'Members' : 'áŠ á‰£áˆ‹á‰µ' },
           { id: 'announcements', label: lang === 'EN' ? `Announcements (${announcements.length})` : 'áˆ›áˆµá‰³á‹ˆá‰‚á‹«á‹Žá‰½' },
           { id: 'research', label: lang === 'EN' ? `Research Review (${researchSubmissions.filter(item => item.status === 'SUBMITTED' || item.status === 'UNDER_REVIEW').length})` : 'á‹¨áˆáˆ­áˆáˆ­ áŒáˆáŒˆáˆ›' },
+          { id: 'certificates', label: lang === 'EN' ? 'Certificates' : 'የምስክር ወረቀቶች' },
           { id: 'cpd', label: 'CPD Manager' },
           { id: 'elections', label: lang === 'EN' ? 'Elections' : 'áˆáˆ­áŒ«' },
           { id: 'universities', label: lang === 'EN' ? 'Universities' : 'á‹©áŠ’á‰¨áˆ­áˆ²á‰²á‹Žá‰½' },
@@ -539,6 +541,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       </div>
 
       {/* â•â•â•â•â•â•â•â• TAB: APPLICATIONS â•â•â•â•â•â•â•â• */}
+      {activeAdminTab === 'certificates' && <CertificateGenerator />}
       {activeAdminTab === 'applications' && (
         <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl border border-gray-200 dark:border-white/10 shadow-md overflow-hidden">
           {/* Filter and Search Bar */}
