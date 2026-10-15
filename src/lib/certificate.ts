@@ -71,7 +71,7 @@ export async function renderCertificate(options: CertificateOptions): Promise<HT
   };
   const amNames: Record<string,string[]> = {
     aha: [options.organization.am],
-    abrihot: ['አብርሆት ስፔሻላዝድ', 'ሳይኮሎጂቻል ሴንተር'],
+    abrihot: ['አብርሆት ስፔሻላዝድ', 'ሳይኮሎጂካል ሴንተር'],
     natanim: ['ናታኒም', 'ቻሪታብል ኦርጋናይዜሽን'],
   };
   const en=enNames[options.organization.id], am=amNames[options.organization.id];
