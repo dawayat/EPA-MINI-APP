@@ -237,6 +237,7 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
         ...dbRow,
         email_notify: announcementData.email_notify,
         publish_to_telegram: Boolean(announcementData.publish_to_telegram),
+        telegram_only: announcementData.telegram_only === true,
         telegram_media_url: announcementData.telegram_media_url,
         telegram_media_file_id: announcementData.telegram_media_file_id,
         telegram_media_type: announcementData.telegram_media_type,

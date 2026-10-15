@@ -88,6 +88,18 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       requireAdmin(req);
       const a = req.body;
+      // Channel-only posts deliberately bypass portal persistence, recipient
+      // queries, email previews, test emails, and all email delivery paths.
+      if (a.telegram_only === true) {
+        if (!String(a.title || '').trim() || !String(a.content || '').trim()) return res.status(400).json({ error: 'Title and message are required.' });
+        try {
+          const telegram = await postToTelegram({ ...a, publish_to_telegram: true });
+          if (!telegram.posted) return res.status(503).json({ success: false, error: telegram.error || 'Telegram is not configured.', telegram });
+          return res.status(201).json({ success: true, emailed: 0, emailReport: [], telegram });
+        } catch (error) {
+          return res.status(502).json({ success: false, error: `Telegram post failed: ${error.message}` });
+        }
+      }
       validateAnnouncementLocation(a);
       const prepared = announcementEmail('EPA Member', a);
       if (a.preview_email) return res.status(200).json({ html: announcementEmail('EPA Member', a, { preview: true }).html });

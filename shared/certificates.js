@@ -2,6 +2,7 @@ export const certificateOrganizations = [
   { id: 'aha', name: 'Aha Psychological Services', am: 'አሃ ሳይኮሎጂካል ሰርቪስስ', logo: '/certificates/aha.png' },
   { id: 'abrihot', name: 'Abrihot Specialized Psychological Center', am: 'አብርሆት ስፔሻላዝድ ሳይኮሎጂካል ሴንተር', logo: '/certificates/abrihot.jpg' },
   { id: 'natanim', name: 'Natanim Charitable Organization', am: 'ናታኒም ቻሪታብል ኦርጋናይዜሽን', logo: '/certificates/natanim.jpg' },
+  { id: 'medanit', name: 'Medanit Counseling', am: 'መዳኒት ካውንስሊንግ', logo: '/certificates/medanit.png' },
 ];
 export const certificateSite = 'https://epa-mini-app.vercel.app';
 export const certificateDate = '2026-10-17';

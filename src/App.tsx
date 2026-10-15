@@ -581,9 +581,13 @@ export default function App() {
       const result = await publishAnnouncement({ ...fullAnn, recipient_member_ids: ann.recipient_member_ids });
       if (!result.success) {
         console.error('[App] Announcement publish failed:', result.error);
-        showToast(`Database error: ${result.error}`, 'error');
+        showToast(ann.telegram_only ? `Telegram post failed: ${result.error}` : `Database error: ${result.error}`, 'error');
         return { success: false as const, emailReport: [] };
       } else {
+        if (ann.telegram_only) {
+          showToast('Posted to the Telegram channel. No emails sent.', 'success');
+          return { success: true as const, emailReport: [] };
+        }
         const deliverySummary = ann.email_notify === false ? 'Email notifications are turned off.' : `${result.emailed || 0} emails accepted for delivery.`;
         const problems = [result.emailError, ann.publish_to_telegram && !result.telegram?.posted ? `Telegram was not posted: ${result.telegram?.error || 'Telegram is not configured.'}` : ''].filter(Boolean);
         showToast(`Announcement published. ${deliverySummary}${problems.length ? ' ' + problems.join(' ') : ann.publish_to_telegram ? ' Telegram posted.' : ''}`, problems.length ? 'error' : 'success');

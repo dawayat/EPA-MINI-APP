@@ -71,11 +71,13 @@ export async function renderCertificate(options: CertificateOptions): Promise<HT
     aha: ['Aha Psychological Services'],
     abrihot: ['Abrihot Specialized', 'Psychological Center'],
     natanim: ['Natanim', 'Charitable Organization'],
+    medanit: [options.organization.name],
   };
   const amNames: Record<string,string[]> = {
     aha: [options.organization.am],
     abrihot: ['አብርሆት ስፔሻላዝድ', 'ሳይኮሎጂካል ሴንተር'],
     natanim: ['ናታኒም', 'ቻሪታብል ኦርጋናይዜሽን'],
+    medanit: [options.organization.am],
   };
   const en=enNames[options.organization.id], am=amNames[options.organization.id];
   en.forEach((value,i)=>text(value,435,en.length===1?570:546+i*48,46,'"EPA Display"',navy,600));

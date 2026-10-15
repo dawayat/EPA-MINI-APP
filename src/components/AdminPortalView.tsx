@@ -174,6 +174,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   });
   
   const [emailNotify, setEmailNotify] = useState<boolean>(true);
+  const [telegramOnly, setTelegramOnly] = useState(false);
   const [recipientMode, setRecipientMode] = useState<'all' | 'selected'>('all');
   const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]);
   const [recipientSearch, setRecipientSearch] = useState<string>('');
@@ -335,8 +336,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       return;
     }
     if (isUploadingCover) { onToast('Wait for the images to finish uploading.', 'error'); return; }
-    if (emailNotify && recipientMode === 'selected' && !selectedRecipientIds.length) { onToast('Select at least one email recipient.', 'error'); return; }
-    if (newAnn.location_url || newAnn.location_name || newAnn.map_image_url || newAnn.location_address) {
+    if (!telegramOnly && emailNotify && recipientMode === 'selected' && !selectedRecipientIds.length) { onToast('Select at least one email recipient.', 'error'); return; }
+    if (!telegramOnly && (newAnn.location_url || newAnn.location_name || newAnn.map_image_url || newAnn.location_address)) {
       try { validateAnnouncementLocation({ attachments: [{ type: 'location', url: newAnn.location_url, map_image_url: newAnn.map_image_url }] }); }
       catch (error) { onToast((error as Error).message, 'error'); return; }
     }
@@ -345,8 +346,10 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       const recipientIds = emailNotify && recipientMode === 'selected' ? selectedRecipientIds : undefined;
       const res: any = await onAddAnnouncement({
         ...newAnn,
-        email_notify: emailNotify,
-        recipient_member_ids: recipientIds
+        email_notify: !telegramOnly && emailNotify,
+        telegram_only: telegramOnly,
+        publish_to_telegram: telegramOnly || newAnn.publish_to_telegram,
+        recipient_member_ids: telegramOnly ? undefined : recipientIds
       });
 
       if (!res || res.success === false) return;
@@ -369,6 +372,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       setNewAnn({ venue_photo_layout: 'above', venue_photo_crop_url: '', location_url: '', location_name: '', location_address: '', map_image_url: '', title: '', amharic_title: '', category: 'General', content: '', author: 'EPA Executive Directorate', cover_photo_url: '', is_draft: false, file_attachment_url: '', target_audience: [], publish_to_telegram: true, telegram_media_url: '', telegram_media_file_id: '', telegram_media_type: 'image', telegram_button_label: 'Open EPA Mini App', telegram_button_url: '' });
       setSelectedRecipientIds([]);
       setRecipientMode('all');
+      setTelegramOnly(false);
     } finally {
       setIsPublishingAnn(false);
     }
@@ -1444,10 +1448,16 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6 space-y-4">
+            <fieldset className="rounded-2xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-800 dark:bg-sky-950/30">
+              <legend className="px-2 text-sm font-bold">Where to publish</legend>
+              <label className="flex items-center gap-3 text-sm"><input type="radio" name="announcement-delivery" checked={!telegramOnly} onChange={() => setTelegramOnly(false)} disabled={isPublishingAnn} />Portal announcement with optional email and Telegram</label>
+              <label className="mt-3 flex items-center gap-3 text-sm font-bold"><input type="radio" name="announcement-delivery" checked={telegramOnly} onChange={() => { setTelegramOnly(true); setNewAnn(current => ({ ...current, publish_to_telegram: true })); }} disabled={isPublishingAnn} />Telegram channel only</label>
+              {telegramOnly && <p className="mt-3 text-xs leading-5">Posts only to the configured Telegram channel. No emails will be sent and no announcement will be added to the EPA portal.</p>}
+            </fieldset>
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 dark:border-emerald-800 dark:bg-emerald-950/30">
               <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Step 1 · Write your announcement</span>
               <h4 className="mt-1 text-lg font-bold">Start with your message</h4>
-              <p className="mt-2 text-xs leading-5 text-neutral-600 dark:text-neutral-400">Add your title and text, upload the venue photo and map in Step 2, then review the live email in Step 3.</p>
+              <p className="mt-2 text-xs leading-5 text-neutral-600 dark:text-neutral-400">{telegramOnly ? 'Add your title and message, then choose any Telegram media below.' : 'Add your title and text, upload the venue photo and map in Step 2, then review the live email in Step 3.'}</p>
               <button type="button" onClick={() => setNewAnn(current => ({ ...current, title: 'EPA Annual Conference & General Assembly 2026', content: assemblyAnnouncement, category: 'Event', location_name: 'Sapphire Addis Hotel', location_address: 'Namibia Avenue · Bole, Addis Ababa', location_url: assemblyMapsUrl }))} className="mt-3 rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-xs font-bold text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">Use the October 17 General Assembly text</button>
               <p className="mt-2 text-[11px] text-neutral-500">Loads the announcement you supplied and the venue link. You can edit every detail.</p>
             </div>
@@ -1482,12 +1492,12 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-white/10 text-xs focus:outline-none focus:ring-2 focus:ring-[#d4ff00] bg-white dark:bg-black text-gray-900 dark:text-white placeholder:text-neutral-400" />
             </div>
 
-            <AnnouncementEmailComposer value={newAnn} onChange={patch => setNewAnn(current => ({ ...current, ...patch }))} onBusyChange={setIsUploadingCover} />
+            {!telegramOnly && <AnnouncementEmailComposer value={newAnn} onChange={patch => setNewAnn(current => ({ ...current, ...patch }))} onBusyChange={setIsUploadingCover} />}
 
             <div className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4 dark:border-sky-400/20 dark:bg-sky-500/5">
               <div className="flex items-start justify-between gap-3">
-                <div><p className="text-xs font-black uppercase text-sky-950 dark:text-sky-100">Also publish to EPA TEST CHANNEL</p><p className="mt-1 text-[11px] leading-relaxed text-sky-800/80 dark:text-sky-200/70">Posts a caption, optional image or short video, and a secure button that opens the EPA Mini App.</p></div>
-                <input type="checkbox" checked={newAnn.publish_to_telegram} onChange={event => setNewAnn(current => ({ ...current, publish_to_telegram: event.target.checked }))} className="mt-1 h-4 w-4 accent-[#d4ff00]" aria-label="Publish to Telegram" />
+                <div><p className="text-xs font-black uppercase text-sky-950 dark:text-sky-100">{telegramOnly ? 'Post to Telegram channel' : 'Also publish to Telegram channel'}</p><p className="mt-1 text-[11px] leading-relaxed text-sky-800/80 dark:text-sky-200/70">Posts a caption, optional image or short video, and a secure button that opens the EPA Mini App.</p></div>
+                <input type="checkbox" disabled={telegramOnly} checked={telegramOnly || newAnn.publish_to_telegram} onChange={event => setNewAnn(current => ({ ...current, publish_to_telegram: event.target.checked }))} className="mt-1 h-4 w-4 accent-[#d4ff00]" aria-label="Publish to Telegram" />
               </div>
               {newAnn.publish_to_telegram && <div className="mt-4 space-y-3">
                 <div><div className="grid gap-3 sm:grid-cols-2"><input value={newAnn.telegram_button_label} onChange={event => setNewAnn(current => ({ ...current, telegram_button_label: event.target.value }))} placeholder="Button label" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" /><input value={newAnn.telegram_button_url} onChange={event => setNewAnn(current => ({ ...current, telegram_button_url: event.target.value }))} placeholder="Telegram Mini App link (optional)" className="w-full rounded-xl border border-sky-200 bg-white px-3 py-2.5 text-xs text-gray-900 outline-none focus:ring-2 focus:ring-[#d4ff00] dark:border-white/10 dark:bg-black dark:text-white" /></div><p className="mt-1.5 text-[10px] text-sky-800/70 dark:text-sky-200/60">Leave the link blank to use the configured Main Mini App. Do not paste the ordinary Vercel website URL here.</p></div>
@@ -1582,7 +1592,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             </div>
 
                         {/* Email Broadcast & Recipient Checklist */}
-            <div className="rounded-2xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/70 dark:bg-emerald-500/5 p-4 space-y-3">
+            {!telegramOnly && <div className="rounded-2xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/70 dark:bg-emerald-500/5 p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-emerald-700 dark:text-[#d4ff00]" />
@@ -1709,10 +1719,10 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                   )}
                 </div>
               )}
-            </div>
+            </div>}
 
             {/* Draft/Vote Toggle */}
-            <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl">
+            <div hidden={telegramOnly} className={`${telegramOnly ? 'hidden' : 'flex'} items-center gap-3 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl`}>
               <input
                 type="checkbox"
                 id="draft-toggle"
@@ -1741,12 +1751,12 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                 {isPublishingAnn ? (
                   <>
                     <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                    <span>Broadcasting & Sending Emails...</span>
+                    <span>{telegramOnly ? 'Posting to Telegram...' : 'Publishing announcement...'}</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4 text-black" />
-                    <span>{newAnn.is_draft ? 'Publish as Draft for Voting' : 'Publish Announcement'}</span>
+                    <span>{telegramOnly ? 'Post to Telegram channel' : newAnn.is_draft ? 'Publish as Draft for Voting' : 'Publish Announcement'}</span>
                   </>
                 )}
               </button>

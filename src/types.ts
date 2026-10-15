@@ -199,6 +199,7 @@ export interface Announcement {
   telegram_media_file_id?: string;
   telegram_media_type?: 'image' | 'video';
   publish_to_telegram?: boolean;
+  telegram_only?: boolean;
   telegram_button_label?: string;
   telegram_button_url?: string;
 }

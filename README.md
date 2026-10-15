@@ -25,6 +25,8 @@ If the editor reports a database deadlock, wait until active API requests finish
 
 ## Telegram Mini App channel posts
 
+In **New Announcement → Where to publish**, choose **Telegram channel only** to post to the configured channel without sending email or saving a portal announcement. Email previews, recipient selection, and draft voting are hidden in this mode. A failed Telegram post keeps the composer open with an error. Regular portal announcements retain the optional email and Telegram controls.
+
 Set these Vercel environment variables:
 
 ```text
@@ -49,6 +51,8 @@ Do not use `VITE_` for these values and do not place them in frontend code. A se
 ## Corporate membership certificates
 
 New certificates use **Certificate of Corporate Membership**, with **2026/2027** in English and **2019 ዓ.ም.** in Amharic. The English and Amharic membership messages remain independently editable. Already-issued certificates keep their original saved image and wording.
+
+Medanit Counseling is also available in the organization selector with its supplied logo.
 
 In the signed-in admin portal, open **Certificates** to select Aha Psychological Services, Abrihot Specialized Psychological Center, or Natanim Charitable Organization. Edit the English and Amharic messages independently and issue a bilingual A4 landscape PDF. The award date is October 17, 2026 / ጥቅምት 7፣ 2019 ዓ.ም. Upload an authorized president's signature (PNG/JPEG, up to 2 MB), or leave the signature line blank. Messages that exceed the layout are blocked from export. The bundled fonts are distributed under the accompanying OFL licenses.
 
