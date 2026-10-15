@@ -75,7 +75,7 @@ export default async function handleCertificates(req, res) {
         if (!matches(previous)) throw fail(409, 'This certificate ID has already been issued with different content. Refresh the editor to create a new certificate.');
         return res.status(200).json({ success: true, id, verificationUrl: certificateVerificationUrl(id), registeredAt: previous.registeredAt });
       }
-      const record = { id, organization, english, amharic, certificateType: 'CORPORATE_MEMBERSHIP', membershipYear: '2019 E.C.', awardDate: certificateDate, registeredAt: new Date().toISOString(), president: 'Dr. Getahun Tibebu', issuer: "Ethiopian Psychologists' Association", image, imageSha256 };
+      const record = { id, organization, english, amharic, certificateType: 'CORPORATE_MEMBERSHIP', membershipYear: '2026/2027', membershipYearAmharic: '2019 ዓ.ም.', awardDate: certificateDate, registeredAt: new Date().toISOString(), president: 'Dr. Getahun Tibebu', issuer: "Ethiopian Psychologists' Association", image, imageSha256 };
       const bytes = Buffer.from(JSON.stringify({ record, signature: mac(record) }));
       if (bytes.length > MAX_BYTES) throw fail(400, 'The certificate is too large. Use a smaller signature image.');
       const uploaded = await storage.from(BUCKET).upload(`${id}.json`, bytes, { contentType: 'application/json', upsert: false });

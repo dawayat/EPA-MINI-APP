@@ -6,7 +6,7 @@ import './certificate.css';
 interface IssuedCertificate {
   id: string; organization: { id: string; name: string; am: string }; english: string; amharic: string;
   awardDate: string; registeredAt: string; president: string; issuer: string; image: string;
-  certificateType?: string; membershipYear?: string;
+  certificateType?: string; membershipYear?: string; membershipYearAmharic?: string;
 }
 export function CertificateVerification({ id }: { id: string }) {
   const [record, setRecord] = useState<IssuedCertificate | null>(null);
@@ -48,6 +48,7 @@ export function CertificateVerification({ id }: { id: string }) {
         <div className="certificate-verified-badge">✓ VERIFIED · የተረጋገጠ</div>
         <h1>{record.certificateType === 'CORPORATE_MEMBERSHIP' ? 'Certificate of Corporate Membership' : 'Official EPA certificate'}</h1>
         {record.membershipYear && <p><strong>Membership year: {record.membershipYear}</strong></p>}
+        {record.membershipYearAmharic && <p lang="am">የአባልነት ዘመን፦ {record.membershipYearAmharic}</p>}
         <p>This certificate is registered as issued by the Ethiopian Psychologists' Association. Compare the recipient, date, message, and image below with the certificate you received.</p>
         <p lang="am">ይህ የምስክር ወረቀት በማኅበሩ መዝገብ ተመዝግቧል። የተቀባዩን ስም፣ ቀንና መልእክት ከተቀበሉት የምስክር ወረቀት ጋር ያነጻጽሩ።</p>
         <dl><div><dt>Recipient / ተቀባይ</dt><dd>{record.organization.name}<br/><span lang="am">{record.organization.am}</span></dd></div><div><dt>Award date / ቀን</dt><dd>October 17, 2026<br/><span lang="am">ጥቅምት 7፣ 2019 ዓ.ም.</span></dd></div><div><dt>Certificate ID</dt><dd><code>{record.id}</code></dd></div><div><dt>President</dt><dd>{record.president}</dd></div><div><dt>Registered with EPA</dt><dd>{new Date(record.registeredAt).toLocaleString('en-GB', { timeZone: 'Africa/Addis_Ababa' })} (Addis Ababa)</dd></div></dl>

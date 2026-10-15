@@ -53,7 +53,7 @@ test('certificate issuance is admin-only, persistent, immutable, idempotent, and
     assert.equal(verified.data.certificate.english, body.english);
     assert.equal(verified.data.certificate.awardDate, '2026-10-17');
     assert.equal(verified.data.certificate.certificateType, 'CORPORATE_MEMBERSHIP');
-    assert.equal(verified.data.certificate.membershipYear, '2019 E.C.');
+    assert.equal(verified.data.certificate.membershipYear, '2026/2027');
     assert.match(verified.headers['Cache-Control'], /no-store/);
     assert.equal((await request('POST', body, null, token)).code, 200);
     assert.equal(writes, 1, 're-download does not create a second issuance');

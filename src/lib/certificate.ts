@@ -1,6 +1,6 @@
 import { certificateOrganizations, certificateVerificationUrl } from '../../shared/certificates.js';
 export { certificateOrganizations, certificateVerificationUrl } from '../../shared/certificates.js';
-export const membershipEnglish = "has fulfilled the requirements for corporate membership established by the Ethiopian Psychologists' Association (EPA) and is hereby recognized as a Corporate Member of the Association for the year 2019 E.C.";
+export const membershipEnglish = "has fulfilled the requirements for corporate membership established by the Ethiopian Psychologists' Association (EPA) and is hereby recognized as a Corporate Member of the Association for the year 2026/2027.";
 export const membershipAmharic = 'በኢትዮጵያ ሳይኮሎጂ ባላሙያዎች ማኅበር (EPA) የተወሰኑትን የድርጅት አባልነት መስፈርቶች በማሟላቱ፣ ለ2019 ዓ.ም. የማኅበሩ የድርጅት አባል መሆኑን በዚህ የምስክር ወረቀት እናረጋግጣለን።';
 export interface CertificateOptions { organization: typeof certificateOrganizations[number]; english: string; amharic: string; signature?: string; certificateId: string }
 let fontReady: Promise<void> | undefined;
@@ -53,19 +53,19 @@ export async function renderCertificate(options: CertificateOptions): Promise<HT
   line(62,62,250,62,gold,3); line(1350,62,1538,62,gold,3);
   line(62,h-62,250,h-62,gold,3); line(1350,h-62,1538,h-62,gold,3);
   contain(epa,94,80,118,118);
-  text("Ethiopian Psychologists' Association",850,120,35,'"EPA Display"',navy,600);
-  text('የኢትዮጵያ ሳይኮሎጂ ባላሙያዎች ማኅበር',850,167,26,'"EPA Ethiopic"');
-  text(`CERTIFICATE ID: ${options.certificateId}`,850,202,11,'Arial','#5b6b76');
+  text("Ethiopian Psychologists' Association",850,120,37,'"EPA Display"',navy,600);
+  text('የኢትዮጵያ ሳይኮሎጂ ባላሙያዎች ማኅበር',850,167,28,'"EPA Ethiopic"');
+  text(`CERTIFICATE ID: ${options.certificateId}`,850,202,12,'Arial','#5b6b76');
   line(95,220,1505,220,'#d9c9ab');
   text('Certificate of',435,266,43,'"EPA Display"',navy,600);
-  text('Corporate Membership',435,313,52,'"EPA Display"',navy,600);
+  text('Corporate Membership',435,313,54,'"EPA Display"',navy,600);
   text('የድርጅት አባልነት',1165,266,37,'"EPA Ethiopic Display"',navy,600);
   text('የምስክር ወረቀት',1165,313,31,'"EPA Ethiopic Display"',navy,600);
-  text('2019 E.C.',435,355,15,'Arial',gold);
-  text('2019 ዓ.ም.',1165,355,19,'"EPA Ethiopic"',gold);
+  text('2026/2027',435,355,17,'Arial',gold);
+  text('2019 ዓ.ም.',1165,355,21,'"EPA Ethiopic"',gold);
   contain(logo,675,385,250,85);
-  text('THIS IS TO CERTIFY THAT',435,502,14,'Arial',gold);
-  text('ይህ የምስክር ወረቀት የተሰጠው ለ',1165,502,19,'"EPA Ethiopic"',gold);
+  text('THIS IS TO CERTIFY THAT',435,502,16,'Arial',gold);
+  text('ይህ የምስክር ወረቀት የተሰጠው ለ',1165,502,21,'"EPA Ethiopic"',gold);
   // Break long organization names into two balanced lines, rather than shrinking them.
   const enNames: Record<string,string[]> = {
     aha: ['Aha Psychological Services'],
@@ -78,21 +78,21 @@ export async function renderCertificate(options: CertificateOptions): Promise<HT
     natanim: ['ናታኒም', 'ቻሪታብል ኦርጋናይዜሽን'],
   };
   const en=enNames[options.organization.id], am=amNames[options.organization.id];
-  en.forEach((value,i)=>text(value,435,en.length===1?570:546+i*46,43,'"EPA Display"',navy,600));
-  am.forEach((value,i)=>text(value,1165,am.length===1?570:546+i*46,31,'"EPA Ethiopic Display"',navy,600));
+  en.forEach((value,i)=>text(value,435,en.length===1?570:546+i*48,46,'"EPA Display"',navy,600));
+  am.forEach((value,i)=>text(value,1165,am.length===1?570:546+i*48,33,'"EPA Ethiopic Display"',navy,600));
   line(325,630,545,630,gold,2); line(1055,630,1275,630,gold,2);
   line(800,505,800,907,'#e3d9c8');
-  wrapped(options.english,435,674,620,25,'Georgia',35);
-  wrapped(options.amharic,1165,674,620,24,'"EPA Ethiopic"',36);
+  wrapped(options.english,435,670,620,27,'Georgia',38);
+  wrapped(options.amharic,1165,670,620,27,'"EPA Ethiopic"',39);
   line(95,935,1505,935,'#d9c9ab');
   text('DATE OF ISSUE',275,978,12,'Arial',gold);
-  text('October 17, 2026',275,1013,27,'"EPA Display"',navy,600);
-  text('ጥቅምት 7፣ 2019 ዓ.ም.',275,1052,21,'"EPA Ethiopic"');
+  text('October 17, 2026',275,1013,29,'"EPA Display"',navy,600);
+  text('ጥቅምት 7፣ 2019 ዓ.ም.',275,1052,23,'"EPA Ethiopic"');
   if(signature) contain(signature,635,945,330,48);
   else text('Signature / ፊርማ',800,970,14,'"EPA Ethiopic"','#7d8589');
   line(635,997,965,997,gold);
-  text('Dr. Getahun Tibebu',800,1025,28,'"EPA Display"',navy,600);
-  text('ዶ/ር ጌታሁን ጥበቡ · ፕሬዚዳንት',800,1061,19,'"EPA Ethiopic"');
+  text('Dr. Getahun Tibebu',800,1025,30,'"EPA Display"',navy,600);
+  text('ዶ/ር ጌታሁን ጥበቡ · ፕሬዚዳንት',800,1061,20,'"EPA Ethiopic"');
   contain(qr,1230,944,140,140);
   text('SCAN TO VERIFY',1430,989,12,'Arial',gold);
   text('ትክክለኛነቱን',1430,1021,14,'"EPA Ethiopic"');

@@ -48,6 +48,8 @@ Do not use `VITE_` for these values and do not place them in frontend code. A se
 
 ## Corporate membership certificates
 
+New certificates use **Certificate of Corporate Membership**, with **2026/2027** in English and **2019 ዓ.ም.** in Amharic. The English and Amharic membership messages remain independently editable. Already-issued certificates keep their original saved image and wording.
+
 In the signed-in admin portal, open **Certificates** to select Aha Psychological Services, Abrihot Specialized Psychological Center, or Natanim Charitable Organization. Edit the English and Amharic messages independently and issue a bilingual A4 landscape PDF. The award date is October 17, 2026 / ጥቅምት 7፣ 2019 ዓ.ም. Upload an authorized president's signature (PNG/JPEG, up to 2 MB), or leave the signature line blank. Messages that exceed the layout are blocked from export. The bundled fonts are distributed under the accompanying OFL licenses.
 
 **Issue & download** registers an immutable certificate before downloading it. Each certificate has a random UUID and a QR code pointing to `https://epa-mini-app.vercel.app/?certificate=<id>`. This public page checks EPA's issuance registry, shows the saved original image, recipient, bilingual messages, award date, and actual registration time, and offers the original PDF. The PDF is reconstructed from the exact registered image. No membership or admin login is needed to verify an issued certificate. Draft IDs and unknown IDs never show as verified. Re-downloading an unchanged draft reuses its issuance record; editing creates a new ID.
