@@ -62,7 +62,7 @@ export default async function handleCertificates(req, res) {
       const body = req.body || {};
       const organization = certificateOrganizations.find(item => item.id === body.organizationId);
       const { id, english, amharic, image } = body;
-      if (!certificateIdPattern.test(String(id || '')) || !organization || typeof english !== 'string' || typeof amharic !== 'string' || !english.trim() || !amharic.trim() || english.length > 650 || amharic.length > 650) throw fail(400, 'Provide a valid certificate ID, organization, and both appreciation messages.');
+      if (!certificateIdPattern.test(String(id || '')) || !organization || typeof english !== 'string' || typeof amharic !== 'string' || !english.trim() || !amharic.trim() || english.length > 650 || amharic.length > 650) throw fail(400, 'Provide a valid certificate ID, organization, and both certificate messages.');
       if (typeof image !== 'string' || image.length > 3_300_000 || !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(image)) throw fail(400, 'A certificate PNG under 2.4 MB is required. Try a smaller signature image.');
       const png = Buffer.from(image.split(',')[1], 'base64');
       if (png.length < 24 || png.subarray(0,8).toString('hex') !== '89504e470d0a1a0a' || png.readUInt32BE(16) !== 2400 || png.readUInt32BE(20) !== 1697) throw fail(400, 'The certificate image is invalid. Please regenerate it.');
@@ -75,7 +75,7 @@ export default async function handleCertificates(req, res) {
         if (!matches(previous)) throw fail(409, 'This certificate ID has already been issued with different content. Refresh the editor to create a new certificate.');
         return res.status(200).json({ success: true, id, verificationUrl: certificateVerificationUrl(id), registeredAt: previous.registeredAt });
       }
-      const record = { id, organization, english, amharic, awardDate: certificateDate, registeredAt: new Date().toISOString(), president: 'Dr. Getahun Tibebu', issuer: "Ethiopian Psychologists' Association", image, imageSha256 };
+      const record = { id, organization, english, amharic, certificateType: 'CORPORATE_MEMBERSHIP', membershipYear: '2019 E.C.', awardDate: certificateDate, registeredAt: new Date().toISOString(), president: 'Dr. Getahun Tibebu', issuer: "Ethiopian Psychologists' Association", image, imageSha256 };
       const bytes = Buffer.from(JSON.stringify({ record, signature: mac(record) }));
       if (bytes.length > MAX_BYTES) throw fail(400, 'The certificate is too large. Use a smaller signature image.');
       const uploaded = await storage.from(BUCKET).upload(`${id}.json`, bytes, { contentType: 'application/json', upsert: false });

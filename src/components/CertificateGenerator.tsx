@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { appreciationAmharic, appreciationEnglish, certificateOrganizations, certificateVerificationUrl, renderCertificate } from '../lib/certificate';
+import { membershipAmharic, membershipEnglish, certificateOrganizations, certificateVerificationUrl, renderCertificate } from '../lib/certificate';
 import { adminHeaders } from '../lib/admin';
 import { createCertificatePdf } from '../lib/certificatePdf';
 import './certificate.css';
 
 export function CertificateGenerator() {
   const [organizationId, setOrganizationId] = useState('abrihot');
-  const [english, setEnglish] = useState(appreciationEnglish);
-  const [amharic, setAmharic] = useState(appreciationAmharic);
+  const [english, setEnglish] = useState(membershipEnglish);
+  const [amharic, setAmharic] = useState(membershipAmharic);
   const [signature, setSignature] = useState('');
   const [preview, setPreview] = useState('');
   const [error, setError] = useState('');
@@ -22,7 +22,7 @@ export function CertificateGenerator() {
     let active = true;
     setRendering(true); setError(''); canvasRef.current = null;
     const timer = window.setTimeout(() => {
-      if (!english.trim() || !amharic.trim()) { setError('Enter both appreciation messages.'); setRendering(false); return; }
+      if (!english.trim() || !amharic.trim()) { setError('Enter both certificate messages.'); setRendering(false); return; }
       void renderCertificate({ organization, english, amharic, signature, certificateId }).then(canvas => {
         if (active) { canvasRef.current = canvas; setPreview(canvas.toDataURL('image/png')); }
       }).catch(e => { if (active) setError(e instanceof Error ? e.message : 'Could not create preview.'); })
@@ -46,7 +46,7 @@ export function CertificateGenerator() {
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.success || result.id !== certificateId) throw new Error(result?.error || 'Could not register the certificate. No PDF was issued.');
       setIssuedId(certificateId);
-      pdf.save(`EPA-appreciation-${organization.id}-${certificateId}.pdf`);
+      pdf.save(`EPA-corporate-membership-${organization.id}-${certificateId}.pdf`);
     } catch (e) { setExportError(e instanceof Error ? e.message : 'The PDF could not be downloaded. Please try again.'); }
     finally { setDownloading(false); }
   }
@@ -60,11 +60,11 @@ export function CertificateGenerator() {
   }
   return <section className="certificate-generator" aria-label="Certificate generator">
     <div className="certificate-controls">
-      <h2>Certificates of appreciation</h2>
+      <h2>Corporate membership certificates</h2>
       <p>Choose an organization and personalize both languages. English appears on the left and Amharic on the right.</p>
       <label>Organization<select value={organizationId} onChange={e=>setOrganizationId(e.target.value)} disabled={downloading}>{certificateOrganizations.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      <label>English appreciation message<textarea rows={7} maxLength={650} value={english} onChange={e=>setEnglish(e.target.value)} disabled={downloading}/></label>
-      <label>የአማርኛ የምስጋና መልእክት<textarea lang="am" rows={7} maxLength={650} value={amharic} onChange={e=>setAmharic(e.target.value)} disabled={downloading}/></label>
+      <label>English certificate message<textarea rows={7} maxLength={650} value={english} onChange={e=>setEnglish(e.target.value)} disabled={downloading}/></label>
+      <label>የአማርኛ የአባልነት መልእክት<textarea lang="am" rows={7} maxLength={650} value={amharic} onChange={e=>setAmharic(e.target.value)} disabled={downloading}/></label>
       <p><strong>Issue date:</strong> October 17, 2026<br/><span lang="am">ጥቅምት 7፣ 2019 ዓ.ም.</span></p>
       <label>President’s signature (optional)<input type="file" accept="image/png,image/jpeg" disabled={downloading} onChange={e=>{ void uploadSignature(e.target.files?.[0]); e.target.value=''; }}/></label>
       <p>Upload the authorized signature as a PNG or JPEG, up to 2 MB. Without an image, the certificate has a blank signature line.</p>
@@ -76,8 +76,8 @@ export function CertificateGenerator() {
     </div>
     <div className="certificate-preview" aria-busy={rendering}>
       <div className="certificate-preview-heading"><strong>Live preview</strong><span>A4 landscape · English + አማርኛ</span></div>
-      {preview ? <img src={preview} alt={`Bilingual certificate of appreciation for ${organization.name}`} style={{ opacity: rendering || error ? 0.5 : 1 }}/> : <p>Preparing certificate…</p>}
-      <p>{issuedId === certificateId ? 'Issued certificate' : 'Draft preview — not yet issued'}. The QR code verifies this specific certificate and displays the saved original. Issuing publishes the recipient, appreciation messages, date, and certificate image on its verification page.</p>
+      {preview ? <img src={preview} alt={`Bilingual certificate of corporate membership for ${organization.name}`} style={{ opacity: rendering || error ? 0.5 : 1 }}/> : <p>Preparing certificate…</p>}
+      <p>{issuedId === certificateId ? 'Issued certificate' : 'Draft preview — not yet issued'}. The QR code verifies this specific certificate and displays the saved original. Issuing publishes the recipient, certificate messages, date, and certificate image on its verification page.</p>
     </div>
   </section>;
 }

@@ -1,7 +1,7 @@
 import { certificateOrganizations, certificateVerificationUrl } from '../../shared/certificates.js';
 export { certificateOrganizations, certificateVerificationUrl } from '../../shared/certificates.js';
-export const appreciationEnglish = "With sincere gratitude for your valued contribution to the Ethiopian Psychologists' Association. Your dedication and generous support strengthen our professional community and help advance psychology in Ethiopia. We proudly recognize your partnership and commitment.";
-export const appreciationAmharic = 'ለኢትዮጵያ ሳይኮሎጂ ባላሙያዎች ማኅበር ላበረከታችሁት ውድ አስተዋጽኦ ከልብ እናመሰግናለን። ቁርጠኝነታችሁና ለጋስ ድጋፋችሁ የባለሙያዎችን ትብብር በማጠናከር የሳይኮሎጂ ሙያ በኢትዮጵያ እንዲያድግ አግዟል። ለአጋርነታችሁና ለቁርጠኝነታችሁ ያለንን ክብርና አድናቆት በዚህ የምስክር ወረቀት እንገልጻለን።';
+export const membershipEnglish = "has fulfilled the requirements for corporate membership established by the Ethiopian Psychologists' Association (EPA) and is hereby recognized as a Corporate Member of the Association for the year 2019 E.C.";
+export const membershipAmharic = 'በኢትዮጵያ ሳይኮሎጂ ባላሙያዎች ማኅበር (EPA) የተወሰኑትን የድርጅት አባልነት መስፈርቶች በማሟላቱ፣ ለ2019 ዓ.ም. የማኅበሩ የድርጅት አባል መሆኑን በዚህ የምስክር ወረቀት እናረጋግጣለን።';
 export interface CertificateOptions { organization: typeof certificateOrganizations[number]; english: string; amharic: string; signature?: string; certificateId: string }
 let fontReady: Promise<void> | undefined;
 async function loadFont() {
@@ -31,13 +31,14 @@ export async function renderCertificate(options: CertificateOptions): Promise<HT
   function text(value:string,x:number,y:number,size:number,family='Georgia',color=navy,weight=400) { c!.fillStyle=color; c!.font=`${weight} ${size}px ${family}`; c!.textAlign='center'; c!.textBaseline='middle'; c!.fillText(value,x,y); }
   function wrapped(value:string,x:number,y:number,width:number,size:number,family:string,leading:number) {
     c!.font=`${size}px ${family}`; const lines:string[]=[]; let current='';
-    for(const word of value.trim().split(/\s+/)) {
-      if(c!.measureText(word).width>width) throw new Error('Please shorten long words in the appreciation message.');
+    // Keep the membership year together instead of leaving E.C. on its own line.
+    for(const word of value.trim().replace(/2019\s+E\.C\./g, '2019\u00a0E.C.').split(/[\t\r\n ]+/)) {
+      if(c!.measureText(word).width>width) throw new Error('Please shorten long words in the certificate message.');
       const next=current?`${current} ${word}`:word;
       if(c!.measureText(next).width>width && current) { lines.push(current); current=word; } else current=next;
     }
     if(current) lines.push(current);
-    if(lines.length>7) throw new Error('The appreciation message is too long. Please shorten it to fit the certificate.');
+    if(lines.length>7) throw new Error('The certificate message is too long. Please shorten it to fit the certificate.');
     lines.forEach((value,i)=>{ text(value,x,y+i*leading,size,family,'#344b59'); });
   }
   function contain(img:HTMLImageElement,x:number,y:number,width:number,height:number) {
@@ -56,13 +57,15 @@ export async function renderCertificate(options: CertificateOptions): Promise<HT
   text('የኢትዮጵያ ሳይኮሎጂ ባላሙያዎች ማኅበር',850,167,26,'"EPA Ethiopic"');
   text(`CERTIFICATE ID: ${options.certificateId}`,850,202,11,'Arial','#5b6b76');
   line(95,220,1505,220,'#d9c9ab');
-  text('Certificate of Appreciation',435,285,57,'"EPA Display"',navy,600);
-  text('የምስጋና የምስክር ወረቀት',1165,285,37,'"EPA Ethiopic Display"',navy,600);
-  text('IN RECOGNITION OF YOUR VALUED CONTRIBUTION',435,335,13,'Arial',gold);
-  text('ለከበረ አስተዋጽኦአችሁ የተሰጠ እውቅና',1165,335,19,'"EPA Ethiopic"',gold);
-  contain(logo,675,375,250,95);
-  text('PRESENTED WITH GRATITUDE TO',435,502,14,'Arial',gold);
-  text('በክብርና በምስጋና የተበረከተው ለ',1165,502,19,'"EPA Ethiopic"',gold);
+  text('Certificate of',435,266,43,'"EPA Display"',navy,600);
+  text('Corporate Membership',435,313,52,'"EPA Display"',navy,600);
+  text('የድርጅት አባልነት',1165,266,37,'"EPA Ethiopic Display"',navy,600);
+  text('የምስክር ወረቀት',1165,313,31,'"EPA Ethiopic Display"',navy,600);
+  text('2019 E.C.',435,355,15,'Arial',gold);
+  text('2019 ዓ.ም.',1165,355,19,'"EPA Ethiopic"',gold);
+  contain(logo,675,385,250,85);
+  text('THIS IS TO CERTIFY THAT',435,502,14,'Arial',gold);
+  text('ይህ የምስክር ወረቀት የተሰጠው ለ',1165,502,19,'"EPA Ethiopic"',gold);
   // Break long organization names into two balanced lines, rather than shrinking them.
   const enNames: Record<string,string[]> = {
     aha: ['Aha Psychological Services'],
@@ -82,7 +85,7 @@ export async function renderCertificate(options: CertificateOptions): Promise<HT
   wrapped(options.english,435,674,620,25,'Georgia',35);
   wrapped(options.amharic,1165,674,620,24,'"EPA Ethiopic"',36);
   line(95,935,1505,935,'#d9c9ab');
-  text('DATE OF APPRECIATION',275,978,12,'Arial',gold);
+  text('DATE OF ISSUE',275,978,12,'Arial',gold);
   text('October 17, 2026',275,1013,27,'"EPA Display"',navy,600);
   text('ጥቅምት 7፣ 2019 ዓ.ም.',275,1052,21,'"EPA Ethiopic"');
   if(signature) contain(signature,635,945,330,48);

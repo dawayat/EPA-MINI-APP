@@ -6,6 +6,7 @@ import './certificate.css';
 interface IssuedCertificate {
   id: string; organization: { id: string; name: string; am: string }; english: string; amharic: string;
   awardDate: string; registeredAt: string; president: string; issuer: string; image: string;
+  certificateType?: string; membershipYear?: string;
 }
 export function CertificateVerification({ id }: { id: string }) {
   const [record, setRecord] = useState<IssuedCertificate | null>(null);
@@ -45,7 +46,8 @@ export function CertificateVerification({ id }: { id: string }) {
     {loading ? <section aria-live="polite"><h1>Verifying certificate…</h1><p>Checking EPA’s issuance registry.</p></section> : notFound ? <section role="alert"><h1>Certificate not found</h1><p lang="am">ይህ የምስክር ወረቀት በማኅበሩ መዝገብ አልተገኘም።</p><p>This ID has no issued certificate in EPA’s registry. Please check the QR code or contact EPA.</p><code>{id}</code></section> : error ? <section role="alert"><h1>Unable to verify right now</h1><p>{error}</p><button onClick={()=>setRetry(n=>n+1)}>Try again</button></section> : record ? <>
       <section>
         <div className="certificate-verified-badge">✓ VERIFIED · የተረጋገጠ</div>
-        <h1>Official EPA certificate</h1>
+        <h1>{record.certificateType === 'CORPORATE_MEMBERSHIP' ? 'Certificate of Corporate Membership' : 'Official EPA certificate'}</h1>
+        {record.membershipYear && <p><strong>Membership year: {record.membershipYear}</strong></p>}
         <p>This certificate is registered as issued by the Ethiopian Psychologists' Association. Compare the recipient, date, message, and image below with the certificate you received.</p>
         <p lang="am">ይህ የምስክር ወረቀት በማኅበሩ መዝገብ ተመዝግቧል። የተቀባዩን ስም፣ ቀንና መልእክት ከተቀበሉት የምስክር ወረቀት ጋር ያነጻጽሩ።</p>
         <dl><div><dt>Recipient / ተቀባይ</dt><dd>{record.organization.name}<br/><span lang="am">{record.organization.am}</span></dd></div><div><dt>Award date / ቀን</dt><dd>October 17, 2026<br/><span lang="am">ጥቅምት 7፣ 2019 ዓ.ም.</span></dd></div><div><dt>Certificate ID</dt><dd><code>{record.id}</code></dd></div><div><dt>President</dt><dd>{record.president}</dd></div><div><dt>Registered with EPA</dt><dd>{new Date(record.registeredAt).toLocaleString('en-GB', { timeZone: 'Africa/Addis_Ababa' })} (Addis Ababa)</dd></div></dl>
