@@ -1,3 +1,4 @@
+import { BylawsAdmin } from './BylawsPortal';
 import { validRecipientEmail } from '../../shared/announcement-recipients.js';
 import { AnnouncementContactsManager } from './AnnouncementContactsManager';
 import { AnnouncementEmailComposer } from './AnnouncementEmailComposer';
@@ -126,7 +127,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       setUploadingMemberId(null);
     }
   };
-  const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'members' | 'cpd' | 'elections' | 'universities' | 'audit' | 'announcements' | 'research' | 'certificates'>('applications');
+  const [activeAdminTab, setActiveAdminTab] = useState<'applications' | 'members' | 'cpd' | 'elections' | 'universities' | 'audit' | 'announcements' | 'research' | 'certificates' | 'bylaws'>('applications');
   const [selectedAppFilter, setSelectedAppFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -531,6 +532,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
           { id: 'research', label: lang === 'EN' ? `Research Review (${researchSubmissions.filter(item => item.status === 'SUBMITTED' || item.status === 'UNDER_REVIEW').length})` : 'á‹¨áˆáˆ­áˆáˆ­ áŒáˆáŒˆáˆ›' },
           { id: 'certificates', label: lang === 'EN' ? 'Certificates' : 'የምስክር ወረቀቶች' },
           { id: 'cpd', label: 'CPD Manager' },
+          { id: 'bylaws', label: lang === 'EN' ? 'Articles & Bylaws' : 'መተዳደሪያ ደንብ' },
           { id: 'elections', label: lang === 'EN' ? 'Elections' : 'áˆáˆ­áŒ«' },
           { id: 'universities', label: lang === 'EN' ? 'Universities' : 'á‹©áŠ’á‰¨áˆ­áˆ²á‰²á‹Žá‰½' },
           { id: 'audit', label: lang === 'EN' ? 'Audit Logs' : 'áŠ¦á‹²á‰µ' },
@@ -546,6 +548,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
 
       {/* â•â•â•â•â•â•â•â• TAB: APPLICATIONS â•â•â•â•â•â•â•â• */}
       {activeAdminTab === 'certificates' && <CertificateGenerator />}
+      {activeAdminTab === 'bylaws' && <BylawsAdmin members={members} />}
       {activeAdminTab === 'applications' && (
         <div className="bg-gray-50 dark:bg-[#121214] rounded-3xl border border-gray-200 dark:border-white/10 shadow-md overflow-hidden">
           {/* Filter and Search Bar */}

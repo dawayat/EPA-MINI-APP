@@ -1,5 +1,6 @@
 import handleAnnouncementContacts from './_announcement_contacts.js';
 import handleCertificates from './_certificates.js';
+import handleBylaws from './_bylaws.js';
 import { announcementRecipients } from '../shared/announcement-recipients.js';
 import { dbSelect, dbInsert, dbUpdate, cachePublic, cors } from './_db.js';
 import { announcementEmail, validateAnnouncementLocation, isEmailConfigured, sendEmail } from './_email.js';
@@ -61,6 +62,7 @@ async function postToTelegram(a) {
 export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.query?.action === 'bylaws') return handleBylaws(req, res);
   if (req.query?.action === 'contacts') return handleAnnouncementContacts(req, res);
   if (req.query?.action === 'certificates') return handleCertificates(req, res);
 

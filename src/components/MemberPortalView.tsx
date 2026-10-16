@@ -33,9 +33,12 @@ import {
 } from '../lib/community';
 import { memberPhotoUrl, useFallbackMemberPhoto } from '../lib/media';
 import { AnnouncementReaderModal } from './AnnouncementReaderModal';
+import { BylawsPortal } from './BylawsPortal';
+import type { MemberSession } from '../lib/api';
 
 
 interface MemberPortalViewProps {
+  memberSession: MemberSession | null;
   member: Member;
   lang: 'EN' | 'AM';
   cpdCourses: CPDCourse[];
@@ -1225,7 +1228,8 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
 
 // ── MAIN ROUTER ────────────────────────────────────────────────────────────────
 export const MemberPortalView: React.FC<MemberPortalViewProps> = (props) => {
-  if (props.member.membership_type === 'STUDENT') return <StudentPortal {...props} />;
-  if (props.member.membership_type === 'CORPORATE') return <CorporatePortal {...props} />;
-  return <FullMemberPortal {...props} />;
+  return <><BylawsPortal key={props.member.id} member={props.member} session={props.memberSession} lang={props.lang} />{
+    props.member.membership_type === 'STUDENT' ? <StudentPortal {...props} /> :
+    props.member.membership_type === 'CORPORATE' ? <CorporatePortal {...props} /> : <FullMemberPortal {...props} />
+  }</>;
 };

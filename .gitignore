@@ -1,4 +1,8 @@
 node_modules/
+.vercel/
+tmp/
+server-data/bylaws.json
+EPA_Articles_of_Association_Clean.docx
 build/
 dist/
 coverage/

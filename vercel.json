@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/announcements.js": {
+      "includeFiles": "server-data/bylaws.encrypted.json"
+    }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/" }
@@ -8,6 +13,7 @@
       "source": "/(.*)",
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Permissions-Policy", "value": "display-capture=()" },
         { "key": "X-Frame-Options", "value": "ALLOWALL" },
         { "key": "Content-Security-Policy", "value": "frame-ancestors *" }
       ]

@@ -675,6 +675,7 @@ export default function App() {
         {currentTab === 'portal' && (
           activeMember ? (
             <MemberPortalView
+              memberSession={memberSession}
               member={activeMember}
               lang={lang}
               allMembers={members}

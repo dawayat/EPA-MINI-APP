@@ -1,0 +1,10 @@
+.bylaws-banner { display:flex; align-items:center; gap:1.25rem; padding:1.75rem; border-radius:1.5rem; color:white; background:radial-gradient(ellipse at top right, #36451a 0%, #181d15 40%, #101112 75%); border:1px solid #d4ff0030; box-shadow:0 12px 35px #00000012; }
+.bylaws-button { background:#d4ff00; color:#111; border-radius:.75rem; padding:.8rem 1.1rem; font-size:.75rem; font-weight:900; }
+.bylaws-overlay { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; padding:1.5rem; background:#000b; backdrop-filter:blur(10px); }
+.bylaws-dialog { width:min(960px,100%); height:min(900px,94dvh); display:flex; flex-direction:column; overflow:hidden; border-radius:1.5rem; box-shadow:0 30px 100px #0008; }
+.bylaws-scroll { flex:1; overflow:auto; min-height:0; overscroll-behavior:contain; }
+.bylaws-paper { max-width:760px; margin:auto; padding:1.5rem 3rem 3rem; user-select:none; -webkit-user-select:none; }
+.bylaws-paragraph { position:relative; scroll-margin-top:1rem; }
+.bylaws-watermark { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; font-size:11px; font-weight:700; opacity:.13; transform:rotate(-12deg); z-index:1; overflow:hidden; }
+@media(max-width:640px) { .bylaws-overlay { padding:0; } .bylaws-dialog { height:100dvh; max-height:100dvh; border-radius:0; } .bylaws-paper { padding:1.5rem; } .bylaws-banner { padding:1.25rem; gap:.85rem; } }
+@media print { body:has(.bylaws-overlay) { visibility:hidden !important; } .bylaws-overlay { display:none !important; } }

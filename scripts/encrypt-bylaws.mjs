@@ -1,0 +1,15 @@
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { createCipheriv, randomBytes } from 'node:crypto';
+mkdirSync('tmp', { recursive: true });
+const keyPath = 'tmp/bylaws-content-key';
+const key = existsSync(keyPath) ? readFileSync(keyPath, 'utf8').trim() : randomBytes(32).toString('hex');
+if (!/^[a-f0-9]{64}$/i.test(key)) throw new Error('Invalid document encryption key.');
+writeFileSync(keyPath, key);
+const source = readFileSync('server-data/bylaws.json', 'utf8').replace(/^\uFEFF/, '');
+const doc = JSON.parse(source);
+if (doc.paragraphs.filter(p => p.style === 'Heading1' && p.text.startsWith('Article ')).length !== 31) throw new Error('Expected 31 articles. Review the import before encrypting.');
+const iv = randomBytes(12);
+const cipher = createCipheriv('aes-256-gcm', Buffer.from(key, 'hex'), iv);
+const content = Buffer.concat([cipher.update(source, 'utf8'), cipher.final()]);
+writeFileSync('server-data/bylaws.encrypted.json', JSON.stringify({ version: 1, iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), content: content.toString('base64') }));
+console.log(`Encrypted all ${doc.paragraphs.length} paragraphs. Key saved only in ignored tmp/bylaws-content-key.`);
