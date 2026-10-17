@@ -64,6 +64,23 @@ try {
     if ($text.Trim()) { @{ text = $text; style = $style; label = $label; level = $level } }
   })
   New-Item -ItemType Directory -Force server-data | Out-Null
-  @{title='Articles of Association'; source=$Source; paragraphs=$paragraphs} | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 server-data/bylaws.json
+  function Image-DataUrl($entryName) {
+    $imageStream = $archive.GetEntry($entryName).Open()
+    $imageBuffer = [IO.MemoryStream]::new()
+    try { $imageStream.CopyTo($imageBuffer); return 'data:image/png;base64,' + [Convert]::ToBase64String($imageBuffer.ToArray()) }
+    finally { $imageStream.Dispose(); $imageBuffer.Dispose() }
+  }
+  # Preserve the supplied front artwork and its logo, plus the solid navy end sheet.
+  # These assets remain inside the encrypted server document, never public/.
+  $presentation = @{
+    organization = "The Ethiopian Psychologists’ Association"
+    title = 'Articles of Association'
+    date = 'September 2026'
+    frame = Image-DataUrl 'word/media/image1.png'
+    logo = Image-DataUrl 'word/media/image2.png'
+    endColor = '#163E64'
+    endPageText = ''
+  }
+  @{title='Articles of Association'; source=$Source; paragraphs=$paragraphs; presentation=$presentation} | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 server-data/bylaws.json
   Write-Output "Imported $($paragraphs.Count) paragraphs."
 } finally { $archive.Dispose() }

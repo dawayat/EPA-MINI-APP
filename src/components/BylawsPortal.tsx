@@ -27,6 +27,8 @@ function Reader({ member, session, onClose, lang }: { member: Member; session: M
   const url = `${endpoint}&memberId=${encodeURIComponent(member.id)}`;
   useEffect(() => {
     let active = true;
+    let hasDocument = false;
+    let requestGeneration = 0;
     let expiryTimer: ReturnType<typeof setTimeout>;
     const headers = { Authorization: `Bearer ${session.token}` };
     const event = (name: string) => {
@@ -35,16 +37,20 @@ function Reader({ member, session, onClose, lang }: { member: Member; session: M
       void request(url, headers, { event: name }).catch(() => {});
     };
     const refresh = async (initial = false) => {
+      const generation = ++requestGeneration;
       try {
-        const data = await request(`${url}&view=content`, headers);
-        if (!active) return;
-        setDocumentData(data);
+        // Artwork is loaded once; subsequent checks request only access status.
+        const needsDocument = !hasDocument;
+        const data = await request(needsDocument ? `${url}&view=content` : url, headers);
+        if (!active || generation !== requestGeneration) return;
+        if (!needsDocument && !data.available) throw new Error('The administrator has disabled access to these articles.');
+        if (needsDocument) { setDocumentData(data); hasDocument = true; }
         clearTimeout(expiryTimer);
         // Fail closed if the next permission check stalls or the device loses connectivity.
-        expiryTimer = setTimeout(() => { setDocumentData(null); setMessage('Connection interrupted. Close and reopen the reader to verify access.'); }, 25000);
+        expiryTimer = setTimeout(() => { hasDocument = false; requestGeneration++; setDocumentData(null); setMessage('Connection interrupted. Close and reopen the reader to verify access.'); }, 25000);
         if (initial) event('opened');
       } catch (error: any) {
-        if (active) { setDocumentData(null); setMessage(error.message); }
+        if (active && generation === requestGeneration) { hasDocument = false; setDocumentData(null); setMessage(error.message); }
       }
     };
     void refresh(true);
@@ -59,7 +65,7 @@ function Reader({ member, session, onClose, lang }: { member: Member; session: M
     const keyboard = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { onClose(); return; }
       if (e.key === 'Tab') {
-        const items = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), summary, a[href], [tabindex="0"]') || []).filter(element => element.getClientRects().length > 0);
+        const items = Array.from<HTMLElement>(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), summary, a[href], [tabindex="0"]') || []).filter(element => element.getClientRects().length > 0);
         if (items.length) {
           const first = items[0], last = items[items.length - 1];
           if (e.shiftKey && window.document.activeElement === first) { e.preventDefault(); last.focus(); }
