@@ -24,3 +24,21 @@
 /* Source-document front and end sheets, with the original arrangement intact. */
 .book-source-cover,.book-source-end{position:relative;isolation:isolate;flex-shrink:0;width:min(420px,100%);aspect-ratio:8.5/11;border-radius:3px 10px 10px 3px;overflow:hidden;box-shadow:10px 14px 32px #1833232a,3px 0 #dedbcc,6px 0 #f9f6e8,9px 0 #d6d3c6;container-type:inline-size;user-select:none;-webkit-user-select:none}.book-source-cover{background:#eaffff;border:1px solid #9facb9}.book-source-frame{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none}.book-source-cover-content{position:absolute;inset:14% 14% 10%;display:flex;align-items:center;flex-direction:column;text-align:center;color:#074f6a}.book-source-organization{font-family:EPA Book,Georgia,serif;font-size:clamp(21px,7cqw,32px);line-height:1.13;font-weight:700;text-wrap:balance;margin:0;flex-shrink:0}.book-source-cover h3{font-family:EPA Book,Georgia,serif;font-size:clamp(29px,9.5cqw,43px);font-weight:650;line-height:1.04;letter-spacing:-.025em;text-wrap:balance;margin:9% 0 11%;flex-shrink:0}.book-source-logo{width:32%;height:auto;object-fit:contain;filter:drop-shadow(0 3px 7px #1b56921a);flex-shrink:0}.book-source-date{font-family:EPA Book,Georgia,serif;font-weight:650;font-size:clamp(20px,7.5cqw,33px);line-height:1.1;margin-top:auto;flex-shrink:0}.book-source-end{background:#163e64;border:1px solid #112f4d}.book-source-end:before{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,#ffffff07,transparent 35%,#00000008)}.book-source-end:after{content:'';position:absolute;inset:0;box-shadow:inset 11px 0 10px #00000018,inset -1px 0 #ffffff1c;pointer-events:none}.book-end-link{border-top:1px solid var(--book-line);margin-top:16px;padding-top:16px}.book-source-cover-content p,.book-source-cover-content h3{color:#074f6a}.dark .book-source-cover{background:#eaffff}.book-page-next{min-width:88px}@media(max-width:640px){.book-source-cover,.book-source-end{width:min(330px,100%)}.book-source-organization{font-size:7cqw}.book-source-cover h3{font-size:9.5cqw}.book-source-date{font-size:7.5cqw}.book-page-next{min-width:78px}}
 .book-source-logo{mix-blend-mode:multiply}@media(min-width:641px){.book-source-cover,.book-source-end{width:min(420px,100%,max(240px,calc((100dvh - 335px)*.7727)))}}
+
+/* Preserve the source chart's cells and arrows without squeezing its labels on phones. */
+.book-diagram{margin:1.8rem 0 2.4rem;min-width:0;border:1px solid var(--book-line);border-radius:16px;background:var(--book-paper);overflow:hidden}
+.book-diagram figcaption{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:18px 20px;border-bottom:1px solid var(--book-line)}
+.book-diagram figcaption>span:last-child{font:11px/1.5 sans-serif;color:var(--book-muted)}
+.book-diagram-hint{margin:0;padding:10px 20px 0;font:12px/1.6 sans-serif;color:var(--book-muted)}
+.book-diagram-scroll{position:relative;overflow-x:auto;overscroll-behavior-x:contain;padding:22px 14px;scrollbar-width:thin;scrollbar-color:#78978b transparent}
+.book-diagram-scroll:focus-visible{outline:2px solid #78978b;outline-offset:-3px}
+.book-diagram table{width:100%;min-width:580px;table-layout:fixed;border-collapse:separate;border-spacing:10px 0}
+.book-diagram td{width:33.333%;vertical-align:middle;text-align:center;padding:0}
+.book-diagram-node{border:1px solid #9db4a8;border-radius:10px;padding:16px 11px;background:color-mix(in srgb,#90b39b 10%,var(--book-paper));box-shadow:0 3px 8px #123b2510;color:var(--book-ink)}
+.book-diagram-node p{margin:0;font:600 14px/1.5 Georgia,serif;overflow-wrap:break-word}
+.book-diagram-node p+p{margin-top:6px;font:12px/1.5 Georgia,serif;color:var(--book-muted)}
+.book-diagram tr:first-child .book-diagram-node{background:#194c3b;color:#fff;border-color:#194c3b}
+.book-diagram-connector{min-height:12px;color:var(--book-muted)}
+.book-diagram-connector p{margin:0;font:25px/1.5 Georgia,serif}
+.book-diagram-watermark{display:block;text-align:center;margin:18px 0 0;font:10px/1.5 sans-serif;letter-spacing:.12em;color:var(--book-muted);opacity:.55}
+@media(max-width:600px){.book-diagram{margin-left:-6px;margin-right:-6px;border-radius:10px}.book-diagram figcaption{padding:14px}.book-diagram-hint{padding:10px 14px 0}.book-diagram-scroll{padding:18px 4px}}

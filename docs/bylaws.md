@@ -29,3 +29,5 @@ Vercel explicitly bundles `server-data/bylaws.encrypted.json` into the announcem
 ## Verification
 
 Run `npm run lint`, `npm run build`, and `node --test tests/bylaws*.test.mjs`. Tests cover authentication, identity spoofing, inactive access, activation, individual restriction/restoration, deactivation, private caching, trusted event attribution, and authenticated encryption/tamper rejection. The encryption script also verifies all 31 source article headings before preparing a release.
+
+Article 12 now retains the original Word table as a structured diagram: seven rows, three columns, eight bordered boxes, and the original arrows. The reader renders these cells in place, with a keyboard-accessible horizontal scroll region on narrow screens. Import verification compared every original text paragraph against the expanded table data in order; none were lost or duplicated. Checked at 390px: the page remains 390px wide while only the chart scrolls.

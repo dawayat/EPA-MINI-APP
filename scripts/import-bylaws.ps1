@@ -29,8 +29,24 @@ try {
   $ns = [Xml.XmlNamespaceManager]::new($doc.NameTable)
   $ns.AddNamespace('w','http://schemas.openxmlformats.org/wordprocessingml/2006/main')
   $counts = @{}
-  $paragraphs = @($doc.SelectNodes('//w:body/w:p | //w:body/w:tbl//w:p', $ns) | ForEach-Object {
+  $paragraphs = @($doc.SelectNodes('//w:body/w:p | //w:body/w:tbl', $ns) | ForEach-Object {
     $p = $_
+    if ($p.LocalName -eq 'tbl') {
+      $rows = @($p.SelectNodes('./w:tr', $ns) | ForEach-Object {
+        $cells = @($_.SelectNodes('./w:tc', $ns) | ForEach-Object {
+          $cell = $_
+          $lines = @($cell.SelectNodes('./w:p', $ns) | ForEach-Object {
+            $line = ($_.SelectNodes('.//w:t | .//w:tab | .//w:br', $ns) | ForEach-Object { if ($_.LocalName -eq 'tab') { "`t" } elseif ($_.LocalName -eq 'br') { "`n" } else { $_.'#text' } }) -join ''
+            if ($line.Trim()) { $line }
+          })
+          $span = Val $cell './w:tcPr/w:gridSpan'
+          @{ paragraphs = $lines; boxed = ((Val $cell './w:tcPr/w:tcBorders/w:top') -eq 'single'); colSpan = $(if ($span) { [int]$span } else { 1 }) }
+        })
+        @{ cells = $cells }
+      })
+      @{ text = ''; style = $null; label = ''; level = 0; table = @{ rows = $rows } }
+      return
+    }
     $text = ($p.SelectNodes('.//w:t | .//w:tab | .//w:br', $ns) | ForEach-Object { if ($_.LocalName -eq 'tab') { "`t" } elseif ($_.LocalName -eq 'br') { "`n" } else { $_.'#text' } }) -join ''
     $style = Val $p './w:pPr/w:pStyle'
     $styleNode = $styles.SelectSingleNode("//w:style[@w:styleId='$style']", $ns)
@@ -73,7 +89,7 @@ try {
   # Preserve the supplied front artwork and its logo, plus the solid navy end sheet.
   # These assets remain inside the encrypted server document, never public/.
   $presentation = @{
-    organization = "The Ethiopian Psychologists’ Association"
+    organization = "The Ethiopian Psychologists$([char]0x2019) Association"
     title = 'Articles of Association'
     date = 'September 2026'
     frame = Image-DataUrl 'word/media/image1.png'
@@ -81,6 +97,6 @@ try {
     endColor = '#163E64'
     endPageText = ''
   }
-  @{title='Articles of Association'; source=$Source; paragraphs=$paragraphs; presentation=$presentation} | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 server-data/bylaws.json
+  @{title='Articles of Association'; source=$Source; paragraphs=$paragraphs; presentation=$presentation} | ConvertTo-Json -Depth 12 | Set-Content -Encoding utf8 server-data/bylaws.json
   Write-Output "Imported $($paragraphs.Count) paragraphs."
 } finally { $archive.Dispose() }
