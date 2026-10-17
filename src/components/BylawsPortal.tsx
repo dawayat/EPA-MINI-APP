@@ -1,3 +1,4 @@
+import { GovernanceAdmin, GovernancePortal } from './GovernancePortal';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BookOpen, ChevronRight, ShieldCheck, RefreshCw } from 'lucide-react';
 import { createPortal } from 'react-dom';
@@ -105,7 +106,7 @@ function Reader({ member, session, onClose, lang }: { member: Member; session: M
 
   return createPortal(<div className="bylaws-overlay" onContextMenu={e => e.preventDefault()} onCopy={e => e.preventDefault()} onCut={e => e.preventDefault()} onDragStart={e => e.preventDefault()}>
     <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="bylaws-title" className="bylaws-dialog">
-      <BylawsBook documentData={documentData} paused={paused} message={message} onResume={() => setPaused(false)} onClose={onClose} closeButtonRef={closeButton} lang={lang} />
+      <BylawsBook governance={<GovernancePortal member={member} session={session} articlesOnly />} documentData={documentData} paused={paused} message={message} onResume={() => setPaused(false)} onClose={onClose} closeButtonRef={closeButton} lang={lang} />
     </div>
   </div>, document.body);
 }
@@ -144,6 +145,7 @@ export function BylawsAdmin({ members }: { members: Member[] }) {
   const selectedMember = members.find(m => m.id === selected);
   const matching = members.filter(m => `${m.first_name} ${m.father_name} ${m.membership_number}`.toLowerCase().includes(query.toLowerCase()));
   return <section className="space-y-6">
+    <GovernanceAdmin articlesOnly />
     <div className="bylaws-banner"><ShieldCheck size={32} className="text-[#d4ff00] shrink-0" /><div className="flex-1"><p className="text-[10px] uppercase tracking-[.2em] text-[#d4ff00] font-black">Governance library · Admin controls</p><h2 className="font-syne text-2xl font-black mt-2">Articles of Association</h2><p className="text-xs text-neutral-400 mt-2">September 2026 · Student, full member and corporate portals</p></div></div>
     {error && <p role="alert" className="p-4 rounded-xl bg-red-500/10 text-red-600 text-sm">{error}</p>}
     <div className="rounded-2xl border border-black/10 dark:border-white/10 p-6 bg-white dark:bg-white/5"><div className="flex flex-wrap items-center justify-between gap-4"><div><h3 className="font-black">Member visibility <span className="text-xs ml-2 text-neutral-500">{data ? data.enabled ? 'LIVE' : 'HIDDEN' : 'Loading…'}</span></h3><p className="text-sm text-neutral-500 mt-2">Activation adds a prominent reading card to every member portal.</p></div><button disabled={!data || busy} className="bylaws-button disabled:opacity-40" onClick={() => change({ operation: 'activation', enabled: !data?.enabled })}>{data?.enabled ? 'Deactivate for everyone' : 'Activate for all portals'}</button></div><p className="text-xs text-neutral-500 mt-4">Changes reach open readers within 15 seconds under normal connectivity. Access closes if verification fails. Previously viewed content cannot be recalled.</p></div>

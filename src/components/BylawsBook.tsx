@@ -8,10 +8,10 @@ export type ArticleDocument = { paragraphs: { text: string; style: string | null
 function OrganizationDiagram({ table, watermark }: { key?: number; table: DocumentTable; watermark: string }) {
   return <figure className="book-diagram"><figcaption><span className="book-eyebrow">ORGANIZATIONAL STRUCTURE</span><span>Original document arrangement</span></figcaption><p className="book-diagram-hint">On smaller screens, swipe across the diagram to see every column.</p><div className="book-diagram-scroll" tabIndex={0} role="region" aria-label="Association organizational diagram, horizontally scrollable"><table aria-label="Association organizational structure"><tbody>{table.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.cells.map((cell, cellIndex) => <td key={cellIndex} colSpan={cell.colSpan}><div className={cell.boxed ? 'book-diagram-node' : 'book-diagram-connector'}>{cell.paragraphs.map((line, lineIndex) => <p key={lineIndex}>{line}</p>)}</div></td>)}</tr>)}</tbody></table><span className="book-diagram-watermark" aria-hidden="true">EPA · {watermark}</span></div></figure>;
 }
-type Props = { documentData: ArticleDocument | null; paused: boolean; message: string; onResume: () => void; onClose: () => void; closeButtonRef: React.RefObject<HTMLButtonElement>; lang: 'EN' | 'AM' };
+type Props = { governance?: any; documentData: ArticleDocument | null; paused: boolean; message: string; onResume: () => void; onClose: () => void; closeButtonRef: React.RefObject<HTMLButtonElement>; lang: 'EN' | 'AM' };
 
 /** Presentation only. Authorization, leases and capture deterrents remain in Reader. */
-export function BylawsBook({ documentData, paused, message, onResume, onClose, closeButtonRef, lang }: Props) {
+export function BylawsBook({ governance, documentData, paused, message, onResume, onClose, closeButtonRef, lang }: Props) {
   const [page, setPage] = useState(-1);
   const [contentsOpen, setContentsOpen] = useState(false);
   const [largeText, setLargeText] = useState(false);
@@ -63,6 +63,7 @@ export function BylawsBook({ documentData, paused, message, onResume, onClose, c
             <div className="book-article-body">{chapter.paragraphs.map((paragraph, index) => paragraph.table ? <OrganizationDiagram key={index} table={paragraph.table} watermark={documentData.watermark} /> : <div key={index} className={`book-clause book-level-${Math.min(paragraph.level, 3)}`}><span className="book-clause-number">{paragraph.label}</span><p>{paragraph.text}</p><span aria-hidden="true" className="book-watermark">EPA · {documentData.watermark}</span></div>)}</div>
             <div className="book-page-end"><span aria-hidden="true">✦</span><span>End of Article {page + 1}</span></div><div className="book-paper-footer"><span>MEMBERS’ READING COPY</span><span>{String(page + 1).padStart(2, '0')}</span></div>
           </article>}
+          {readable && governance && <div className="book-governance">{governance}</div>}
         </div>
         <footer className="book-pagination"><div className="book-progress-track" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div><button className="book-page-button" onClick={() => goTo(page - 1)} disabled={!readable || page < 0} aria-label={page === 0 ? 'Back to cover' : 'Previous article'}><ArrowLeft size={16} /><span>{page === 0 ? 'Cover' : 'Previous'}</span></button><div className="book-page-position" aria-live="polite"><strong>{page < 0 ? 'Front cover' : atEnd ? 'Back cover' : `Article ${page + 1} of ${chapters.length}`}</strong><span>{page < 0 ? 'Your association. Your shared foundation.' : `${progress}% through the book`}</span></div><button className="book-page-button book-page-next" onClick={() => goTo(page + 1)} disabled={!readable || page >= chapters.length}><span>{page < 0 ? 'Begin' : atEnd ? 'Complete' : page === chapters.length - 1 ? 'Back cover' : 'Next'}</span><ArrowRight size={16} /></button></footer>
       </main>

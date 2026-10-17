@@ -1,3 +1,4 @@
+import { GovernanceAdmin } from './GovernancePortal';
 import { BylawsAdmin } from './BylawsPortal';
 import { validRecipientEmail } from '../../shared/announcement-recipients.js';
 import { AnnouncementContactsManager } from './AnnouncementContactsManager';
@@ -133,8 +134,6 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [showMemberReport, setShowMemberReport] = useState(false);
   const [bulkAction, setBulkAction] = useState<string>('Send Reminder');
-  const [electionOpen, setElectionOpen] = useState<boolean>(false);
-  const [electionVotes, setElectionVotes] = useState({ yonas: 34, selamawit: 51, dawit: 22 });
 
   // Review Modal state
   const [reviewingApp, setReviewingApp] = useState<Application | null>(null);
@@ -219,7 +218,6 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     });
   };
 
-  const totalVotes = electionVotes.yonas + electionVotes.selamawit + electionVotes.dawit;
   const toggleMemberSelect = (id: string) => {
     setSelectedMembers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
@@ -875,58 +873,8 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       )}
 
       {/* â•â•â•â•â•â•â•â• TAB: ELECTIONS â•â•â•â•â•â•â•â• */}
-      {activeAdminTab === 'elections' && (
-        <div className="space-y-6">
-          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white flex items-center gap-2">
-                <Vote className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Election Control' : 'áˆáˆ­áŒ« á‰áŒ¥áŒ¥áˆ­'}
-              </h3>
-              <button onClick={() => { setElectionOpen(!electionOpen); onToast(electionOpen ? 'Election closed.' : 'Election is now LIVE!', electionOpen ? 'info' : 'success'); }}
-                className={`px-4 py-2 rounded-xl text-xs font-black uppercase cursor-pointer transition-all ${
-                  electionOpen ? 'bg-red-500 text-white' : 'bg-[#d4ff00] text-black'
-                }`}>
-                {electionOpen ? (lang === 'EN' ? 'Close Election' : 'áˆáˆ­áŒ« á‹áŒ‹') : (lang === 'EN' ? 'Open Election' : 'áˆáˆ­áŒ« áŠ­áˆá‰µ')}
-              </button>
-            </div>
-            <div className={`flex items-center gap-2 p-3 rounded-xl mb-4 ${electionOpen ? 'bg-green-500/10 border border-green-500/20' : 'bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10'}`}>
-              <div className={`w-2 h-2 rounded-full ${electionOpen ? 'bg-green-500 animate-pulse' : 'bg-neutral-400'}`} />
-              <span className={`text-xs font-mono font-bold ${electionOpen ? 'text-green-600 dark:text-green-400' : 'text-neutral-500'}`}>
-                {electionOpen ? 'ELECTION LIVE â€” Accepting votes' : 'Election is closed'}
-              </span>
-            </div>
-          </div>
-          <div className="bg-gray-50 dark:bg-[#121214] rounded-2xl border border-gray-200 dark:border-white/10 p-6 space-y-4">
-            <h3 className="font-black text-sm uppercase text-gray-900 dark:text-white flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-green-700 dark:text-[#d4ff00]" />{lang === 'EN' ? 'Real-time Tally' : 'á‰…áŒ½á‰ á‰³á‹Š á‹µáˆáŒ½ á‰†áŒ áˆ«'}
-            </h3>
-            <p className="text-xs text-neutral-500 font-mono">{lang === 'EN' ? 'Presidential Candidates â€” Total votes:' : 'áŒ á‰…áˆ‹áˆ‹ á‹µáˆáŒ¾á‰½:'} {totalVotes}</p>
-            {[
-              { name: 'Dr. Yonas Alemu', votes: electionVotes.yonas, color: '#3b82f6' },
-              { name: 'Dr. Selamawit Bekele', votes: electionVotes.selamawit, color: '#d4ff00' },
-              { name: 'Dr. Dawit Mekonnen', votes: electionVotes.dawit, color: '#f59e0b' },
-            ].map((c, i) => (
-              <div key={i}>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="font-bold text-gray-900 dark:text-white">{c.name}</span>
-                  <span className="font-mono font-bold" style={{ color: c.color }}>{c.votes} votes ({Math.round((c.votes / totalVotes) * 100)}%)</span>
-                </div>
-                <div className="w-full h-3 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(c.votes / totalVotes) * 100}%`, background: c.color }} />
-                </div>
-              </div>
-            ))}
-            {electionOpen && (
-              <button onClick={() => setElectionVotes(v => ({ ...v, yonas: v.yonas + Math.floor(Math.random()*3), selamawit: v.selamawit + Math.floor(Math.random()*3), dawit: v.dawit + Math.floor(Math.random()*2) }))}
-                className="text-xs font-mono text-neutral-500 underline cursor-pointer">
-                [Simulate incoming vote]
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {activeAdminTab === 'elections' && <GovernanceAdmin />}
 
-      {/* â•â•â•â•â•â•â•â• TAB: ANNOUNCEMENTS & DRAFTS â•â•â•â•â•â•â•â• */}
       {activeAdminTab === 'announcements' && (
         <div className="space-y-5">
           <div className="flex items-center justify-between">

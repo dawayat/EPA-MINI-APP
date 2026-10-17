@@ -12,7 +12,6 @@ import {
   Announcement, 
   University, 
   CPDCourse, 
-  ElectionCandidate, 
   Election,
   AuditLog, 
   MembershipTypeCode,
@@ -81,7 +80,6 @@ export default function App() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [universities, setUniversities] = useState<University[]>([]);
   const [cpdCourses, setCpdCourses] = useState<CPDCourse[]>([]);
-  const [candidates, setCandidates] = useState<ElectionCandidate[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [researchSubmissions, setResearchSubmissions] = useState<ResearchSubmission[]>([]);
   const [memberStats, setMemberStats] = useState({ member_count: 0, cpd_points: 0 });
@@ -621,9 +619,6 @@ export default function App() {
     );
   };
 
-  const handleVoteCast = (candidateId: string) => {
-    setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, votes_count: c.votes_count + 1 } : c));
-  };
 
   const handleVerifyClick = (token: string) => {
     setActiveVerifyToken(token);
@@ -822,12 +817,10 @@ export default function App() {
 
         {currentTab === 'elections' && (
           <ElectionsBooth
-            candidates={candidates}
             activeMember={activeMember}
+            session={memberSession}
             lang={lang}
-            onVoteCast={handleVoteCast}
             onClose={() => setCurrentTab('portal')}
-            onToast={showToast}
           />
         )}
       </main>
