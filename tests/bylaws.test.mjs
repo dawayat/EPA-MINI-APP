@@ -9,7 +9,8 @@ test('bylaws enforce identity, global activation, per-member access and trusted 
   process.env.EPA_ADMIN_SESSION_SECRET = 'test-admin-secret';
   process.env.EPA_ADMIN_USERNAME = 'admin';
   process.env.EPA_ADMIN_PASSWORD = 'test-password';
-  let enabled = false, restricted = false;
+  let enabled = false, restricted = false, temporary = false;
+  let votingAccessUntil = new Date(Date.now()+86400000).toISOString();
   const events = [];
   const originalFetch = global.fetch;
   global.fetch = async (url, options = {}) => {
@@ -27,7 +28,7 @@ test('bylaws enforce identity, global activation, per-member access and trusted 
       if (body) events.push(body);
       return Response.json(events);
     }
-    if (address.includes('/members')) return Response.json([{ id: 'm1', first_name: 'Ada', father_name: 'Test', membership_number: 'EPA-001', status: 'ACTIVE' }]);
+    if (address.includes('/members')) return Response.json([{ id: 'm1', first_name: 'Ada', father_name: 'Test', membership_number: 'EPA-001', status: 'ACTIVE', registration_required: temporary, voting_access_until: votingAccessUntil }]);
     throw new Error('Unexpected fetch');
   };
   const call = async ({ token, admin, memberId = 'm1', view, body } = {}) => {
@@ -62,5 +63,17 @@ test('bylaws enforce identity, global activation, per-member access and trusted 
     assert.equal((await call({ token: member, view: 'content' })).code, 200);
     await call({ token: admin, admin: true, body: { operation: 'activation', enabled: false } });
     assert.equal((await call({ token: member, view: 'content' })).code, 403);
+    temporary = true;
+    const temporaryToken = createMemberSession('m1', 'voting_only').token;
+    assert.equal((await call({ token: temporaryToken, view: 'content' })).code,403);
+    enabled = true;
+    const temporaryContent = await call({ token: temporaryToken, view: 'content' });
+    assert.equal(temporaryContent.code,200);
+    assert.equal(temporaryContent.data.watermark,'Ada Test · EPA-001');
+    restricted = true;
+    assert.equal((await call({ token: temporaryToken, view: 'content' })).code,403);
+    restricted = false;
+    votingAccessUntil = new Date(Date.now()-1000).toISOString();
+    assert.equal((await call({ token: temporaryToken, view: 'content' })).code,403);
   } finally { global.fetch = originalFetch; }
 });

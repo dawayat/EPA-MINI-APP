@@ -1230,7 +1230,7 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
 
 // ── MAIN ROUTER ────────────────────────────────────────────────────────────────
 export const MemberPortalView: React.FC<MemberPortalViewProps> = (props) => {
-  if (props.member.registration_required) return <><TemporaryVotingPortal member={props.member} session={props.memberSession} onRegister={props.onCompleteRegistration || (() => {})}/><BylawsPortal member={props.member} session={props.memberSession} lang={props.lang}/></>;
+  if (props.member.registration_required) return <><BylawsPortal member={props.member} session={props.memberSession} lang={props.lang}/><TemporaryVotingPortal member={props.member} session={props.memberSession} onRegister={props.onCompleteRegistration || (() => {})}/></>;
   return <><GovernancePortal member={props.member} session={props.memberSession} /><BylawsPortal key={props.member.id} member={props.member} session={props.memberSession} lang={props.lang} />{
     props.member.membership_type === 'STUDENT' ? <StudentPortal {...props} /> :
     props.member.membership_type === 'CORPORATE' ? <CorporatePortal {...props} /> : <FullMemberPortal {...props} />

@@ -30,7 +30,7 @@ test('governance authenticates identities, limits operations, hides election cho
  type='STUDENT';assert.equal((await call({token})).data.polls[0].eligible,false);assert.equal((await call({token,body:{operation:'nominate'}})).code,403);assert.equal((await call({token,body:{operation:'vote'}})).code,403);type='FULL';
  phase='closed';assert.equal((await call({token})).data.polls[0].counts.c1,1);
  assert.equal('voters' in (await call({token})).data.polls[0].candidates[0],false);
- visibility='members';phase='voting';assert.equal('voters' in (await call({token})).data.polls[0].candidates[0],false);
+ visibility='members';phase='voting';assert.equal((await call({token})).data.polls[0].candidates[0].voters[0].name,'Voter Two');assert.equal((await call({token})).data.polls[0].counts.c1,1);
  phase='closed';assert.equal((await call({token})).data.polls[0].candidates[0].voters[0].name,'Voter Two');
  assert.equal((await call({token:adminToken,admin:true})).data.polls[0].candidates[0].voters[0].name,'Voter Two');
  visibility='private';assert.equal('voters' in (await call({token:adminToken,admin:true})).data.polls[0].candidates[0],false);
