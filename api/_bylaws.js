@@ -36,14 +36,15 @@ export default async function handleBylaws(req, res, loadDocument = readBylawsDo
     }
 
     const memberId = String(req.query.memberId || '');
-    requireMemberSession(req, memberId);
+    requireMemberSession(req, memberId, { allowVotingOnly: true });
     const [members, settings, restrictions] = await Promise.all([
-      dbSelect('members', `id=eq.${encodeURIComponent(memberId)}&select=id,first_name,father_name,membership_number,status&limit=1`),
+      dbSelect('members', `id=eq.${encodeURIComponent(memberId)}&select=id,first_name,father_name,membership_number,status,registration_required,voting_access_until&limit=1`),
       dbSelect('bylaws_settings', 'id=eq.articles&limit=1'),
       dbSelect('bylaws_access', `member_id=eq.${encodeURIComponent(memberId)}&limit=1`)
     ]);
     const member = members[0];
     if (!member || !['ACTIVE', 'EXPIRED'].includes(member.status)) throw fail(403, 'Member access is unavailable.');
+    if (member.registration_required && (!member.voting_access_until || Date.parse(member.voting_access_until) <= Date.now())) throw fail(403, 'Temporary voting access has ended. Complete normal registration.');
     const available = settings[0]?.enabled === true && restrictions[0]?.restricted !== true;
     if (req.method === 'GET' && req.query.view !== 'content') return res.status(200).json({ available, ...(available ? { revision: documentRevision } : {}) });
     if (!available) throw fail(403, 'The administrator has disabled access to these articles.');

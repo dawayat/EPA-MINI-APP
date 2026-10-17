@@ -1,4 +1,4 @@
-import { GovernanceAdmin } from './GovernancePortal';
+import { GovernanceAdmin, TemporaryMemberAdmin } from './GovernancePortal';
 import { BylawsAdmin } from './BylawsPortal';
 import { validRecipientEmail } from '../../shared/announcement-recipients.js';
 import { AnnouncementContactsManager } from './AnnouncementContactsManager';
@@ -21,6 +21,7 @@ import { memberPhotoUrl } from '../lib/media';
 import { Application, Member, University, Announcement, AuditLog, ApplicationStatus, ResearchSubmission } from '../types';
 
 interface AdminPortalViewProps {
+  onRefreshMembers?: () => void;
   lang: 'EN' | 'AM';
   applications: Application[];
   members: Member[];
@@ -90,6 +91,7 @@ const ApplicationDocumentPreview: React.FC<{ value: string; label: string; image
 };
 
 export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
+  onRefreshMembers,
   lang,
   applications,
   members,
@@ -798,7 +800,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                         <MemberAvatar src={m.photo_url || memberPhotoUrl(m.id)} alt={m.first_name + " " + m.father_name}
                           className="w-8 h-8 rounded-xl object-cover border border-gray-200 dark:border-white/10" />
                         <div>
-                          <div className="font-black text-gray-900 dark:text-white">{m.first_name} {m.father_name}</div>
+                          <div className="font-black text-gray-900 dark:text-white">{m.first_name} {m.father_name}</div>{m.registration_required && <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300">Temporary voting · Registration required</span>}
                           <div className="text-[10px] text-neutral-500 font-mono">{m.email}</div>
                         </div>
                       </div>
@@ -873,7 +875,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
       )}
 
       {/* â•â•â•â•â•â•â•â• TAB: ELECTIONS â•â•â•â•â•â•â•â• */}
-      {activeAdminTab === 'elections' && <GovernanceAdmin />}
+      {activeAdminTab === 'elections' && <GovernanceAdmin onMemberCreated={onRefreshMembers} />}
 
       {activeAdminTab === 'announcements' && (
         <div className="space-y-5">

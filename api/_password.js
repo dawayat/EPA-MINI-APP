@@ -1,0 +1,3 @@
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+export function hashPassword(password) { const salt=randomBytes(16).toString('hex');return `scrypt$${salt}$${scryptSync(password,salt,64).toString('hex')}`; }
+export function verifyPassword(password,stored) { if(typeof password!=='string'||typeof stored!=='string')return false;if(stored.startsWith('scrypt$')){const [,salt,hash]=stored.split('$');if(!/^[a-f0-9]{128}$/.test(hash||''))return false;return timingSafeEqual(scryptSync(password,salt,64),Buffer.from(hash,'hex'));}const a=Buffer.from(password),b=Buffer.from(stored);return a.length===b.length&&timingSafeEqual(a,b); }

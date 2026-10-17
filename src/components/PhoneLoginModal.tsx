@@ -95,7 +95,7 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
 
   const completeLogin = async (member: Member, session: MemberSession | null = memberSession) => {
     const telegramId = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    if (telegramId && String(member.telegram_id || '') !== String(telegramId)) {
+    if (!member.registration_required && telegramId && String(member.telegram_id || '') !== String(telegramId)) {
       try {
         await fetch('/api/auth', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -132,8 +132,9 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
         const member = data.member as Member;
         const session = (data.session || null) as MemberSession | null;
         setMemberSession(session);
-        if (member.must_change_password) setMode('password');
-        else if (member.onboarding_completed === false) beginProfileCompletion(member);
+        if (member.registration_required) await completeLogin(member, session);
+        else if (member.must_change_password) setMode('password');
+        else if (!member.registration_required && member.onboarding_completed === false) beginProfileCompletion(member);
         else await completeLogin(member, session);
       } else {
         setError(data.error || 'Login failed. Please try again.');
@@ -160,7 +161,7 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
       const member = data.member as Member;
       const session = (data.session || null) as MemberSession | null;
       setMemberSession(session);
-      if (member.onboarding_completed === false) beginProfileCompletion(member);
+      if (!member.registration_required && member.onboarding_completed === false) beginProfileCompletion(member);
       else await completeLogin(member, session);
     } catch {
       setError('Connection error. Please try again.');
@@ -257,7 +258,7 @@ export const PhoneLoginModal: React.FC<PhoneLoginModalProps> = ({
       const session = (data.session || null) as MemberSession | null;
       setMemberSession(session);
       onToast(lang === 'EN' ? 'Password reset successfully!' : 'የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል!', 'success');
-      if (member.onboarding_completed === false) {
+      if (!member.registration_required && member.onboarding_completed === false) {
         beginProfileCompletion(member);
       } else {
         await completeLogin(member, session);

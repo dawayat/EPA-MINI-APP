@@ -1,3 +1,4 @@
+import { approveProvisionalMember } from './_provisional.js';
 import { cachePublic, dbSelect, dbInsert, dbUpdate, noStore, cors } from './_db.js';
 import { isEmailConfigured, memberInviteEmail, sendEmail } from './_email.js';
 import { requireAdmin } from './_admin.js';
@@ -62,7 +63,7 @@ const adminMemberSelect = [
   'first_name', 'father_name', 'grandfather_name', 'amharic_full_name',
   'email', 'phone', 'city', 'membership_type', 'status', 'specialty', 'workplace',
   'cpd_points', 'issued_at', 'expires_at', 'is_verified', 'license_number',
-  'email_verified', 'must_change_password', 'onboarding_completed',
+  'email_verified', 'must_change_password', 'onboarding_completed', 'registration_required', 'voting_access_until',
   'renewal_status:renewal_request->>status',
   'renewal_transaction:renewal_request->payment->>transaction_number'
 ].join(',');
@@ -96,7 +97,7 @@ export default async function handler(req, res) {
       if (view === 'stats') {
         // Keep hero figures truthful without downloading a single profile,
         // contact field, document, or photo.
-        const rows = await dbSelect('members', 'select=cpd_points');
+        const rows = await dbSelect('members', 'registration_required=eq.false&select=cpd_points');
         const cpdPoints = rows.reduce((sum, member) => sum + (Number(member.cpd_points) || 0), 0);
         cachePublic(res, 60, 300);
         return res.status(200).json({ member_count: rows.length, cpd_points: cpdPoints });
@@ -104,7 +105,7 @@ export default async function handler(req, res) {
       if (view === 'directory') {
         const rows = await dbSelect(
           'members',
-          `status=eq.ACTIVE&select=${directorySelect}&order=created_at.desc`
+          `registration_required=eq.false&status=eq.ACTIVE&select=${directorySelect}&order=created_at.desc`
         );
         // Directory data contains no contact details, credentials, payments, or
         // documents. Edge caching prevents repeated directory reads for visitors.
@@ -120,7 +121,7 @@ export default async function handler(req, res) {
         const value = encodeURIComponent(query);
         const rows = await dbSelect(
           'members',
-          `status=eq.ACTIVE&or=(verification_token.ilike.${value},membership_number.ilike.${value},id.ilike.${value})&select=${publicMemberSelect}&limit=1`
+          `registration_required=eq.false&status=eq.ACTIVE&or=(verification_token.ilike.${value},membership_number.ilike.${value},id.ilike.${value})&select=${publicMemberSelect}&limit=1`
         );
         cachePublic(res, 300);
         return res.status(200).json(rows[0] || null);
@@ -250,6 +251,8 @@ export default async function handler(req, res) {
       for (const f of fields) {
         if (m[f] !== undefined && m[f] !== null) row[f] = m[f];
       }
+
+      if (m.source_application_id) return res.status(200).json(await approveProvisionalMember(m.source_application_id, row));
 
       // A Telegram account may only be linked to one EPA record. Do not let a
       // re-used Telegram ID block the rest of the approval workflow (including

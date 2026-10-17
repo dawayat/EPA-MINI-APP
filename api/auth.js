@@ -1,3 +1,4 @@
+import { hashPassword, verifyPassword } from './_password.js';
 import { dbSelect, dbInsert, dbUpdate, cors } from './_db.js';
 import { authenticateAdmin, createAdminSession } from './_admin.js';
 import { createMemberSession } from './_member_session.js';
@@ -44,7 +45,7 @@ export default async function handler(req, res) {
       if (!member) {
         return res.status(401).json({ success: false, error: 'No active EPA member account is linked to this Telegram profile yet.' });
       }
-      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined }, session: createMemberSession(member.id) });
+      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined }, session: createMemberSession(member.id, member.registration_required ? 'voting_only' : 'full') });
     }
 
     if (action === 'bind-telegram') {
@@ -63,9 +64,9 @@ export default async function handler(req, res) {
       if (!loginIdentifier || !currentPassword || !newPassword) return res.status(400).json({ success: false, error: 'Current and new passwords are required.' });
       if (newPassword.length < 8) return res.status(400).json({ success: false, error: 'Use a password with at least 8 characters.' });
       const member = await findMember(loginIdentifier);
-      if (!member || member.phone_password !== currentPassword) return res.status(401).json({ success: false, error: 'Your current password is incorrect.' });
-      await dbUpdate('members', { phone_password: newPassword, must_change_password: false }, 'id', member.id);
-      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined, must_change_password: false }, session: createMemberSession(member.id) });
+      if (!member || !verifyPassword(currentPassword, member.phone_password)) return res.status(401).json({ success: false, error: 'Your current password is incorrect.' });
+      await dbUpdate('members', { phone_password: hashPassword(newPassword), must_change_password: false }, 'id', member.id);
+      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined, must_change_password: false }, session: createMemberSession(member.id, member.registration_required ? 'voting_only' : 'full') });
     }
 
     if (action === 'forgot-password-request') {
@@ -132,12 +133,12 @@ export default async function handler(req, res) {
       await dbUpdate('email_verifications', { verified_at: new Date().toISOString() }, 'id', record.id);
 
       // Update member password and remove must_change_password flag
-      await dbUpdate('members', { phone_password: newPassword, must_change_password: false }, 'id', member.id);
+      await dbUpdate('members', { phone_password: hashPassword(newPassword), must_change_password: false }, 'id', member.id);
 
       return res.status(200).json({
         success: true,
         member: { ...member, phone_password: undefined, must_change_password: false },
-        session: createMemberSession(member.id),
+        session: createMemberSession(member.id, member.registration_required ? 'voting_only' : 'full'),
         message: 'Password reset successfully! Logging you in...'
       });
     }
@@ -152,10 +153,10 @@ export default async function handler(req, res) {
       if (!member.phone_password) {
         return res.status(401).json({ success: false, error: 'No password set for this account. Please contact EPA admin.' });
       }
-      if (member.phone_password !== password) {
+      if (!verifyPassword(password, member.phone_password)) {
         return res.status(401).json({ success: false, error: 'Incorrect password.' });
       }
-      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined }, session: createMemberSession(member.id) });
+      return res.status(200).json({ success: true, member: { ...member, phone_password: undefined }, session: createMemberSession(member.id, member.registration_required ? 'voting_only' : 'full') });
     }
 
     return res.status(400).json({ success: false, error: 'Unknown action' });

@@ -318,12 +318,14 @@ export default function App() {
     };
 
     // Always try to save to Supabase (isSupabaseConfigured is now always true)
-    const result = await submitApplication(fullApp);
+    if (activeMember?.registration_required) fullApp.provisional_member_id = activeMember.id;
+    const result = await submitApplication(fullApp, activeMember?.registration_required ? memberSession || undefined : undefined);
     if (!result.success) {
       console.error('[App] Application submission failed:', result.error);
       throw new Error(result.error || 'Application submission failed.');
     } else {
       showToast('Application submitted and saved successfully!', 'success');
+      if (activeMember?.registration_required) setMembers(prev => prev.map(m => m.id === activeMember.id ? { ...m, registration_submitted_at: new Date().toISOString() } : m));
     }
 
     // The server owns the database UUID; retain it so follow-up review,
@@ -381,7 +383,7 @@ export default function App() {
       : undefined;
 
     const newMember: Member = {
-      id: 'mem-' + Date.now(),
+      id: app.provisional_member_id || ('mem-' + Date.now()),
       membership_number: newMembershipNum,
       verification_token: newVerificationToken,
       telegram_id: app.telegram_id,
@@ -414,7 +416,7 @@ export default function App() {
     // Persist first. A member must never appear approved locally if their
     // account cannot be found after a refresh or by the Telegram sign-in flow.
     try {
-      const memberResult = await createMember(newMember);
+      const memberResult = await createMember({ ...newMember, ...(app.provisional_member_id ? { source_application_id: app.id } : {}) } as any);
       if (!memberResult.success) throw new Error(memberResult.error || 'Member account could not be created.');
       const approvalUpdate = await updateApplicationStatus(appId, 'APPROVED');
 
@@ -423,7 +425,7 @@ export default function App() {
       const savedMember = memberResult.telegram_conflict
         ? { ...newMember, telegram_id: undefined }
         : newMember;
-      setMembers(prev => [savedMember, ...prev]);
+      setMembers(prev => [savedMember, ...prev.filter(m => m.id !== savedMember.id)]);
       setMemberStats(current => ({ member_count: current.member_count + 1, cpd_points: current.cpd_points + newMember.cpd_points }));
       setApplications(prev => prev.map(a => a.id === appId ? { ...a, status: 'APPROVED' } : a));
       setActiveMemberId(newMember.id);
@@ -678,6 +680,7 @@ export default function App() {
               announcements={announcements}
               onOpenIdCard={() => setCurrentTab('idcard')}
               onOpenVoting={() => setCurrentTab('elections')}
+              onCompleteRegistration={() => { setSelectedRegTier('FULL'); setIsRegisterModalOpen(true); }}
               onOpenDirectory={() => setCurrentTab('directory')}
               onRegisterCPD={handleRegisterCPD}
               onSubmitResearch={handleResearchSubmission}
@@ -699,10 +702,10 @@ export default function App() {
               </p>
               <div className="flex flex-col gap-3 w-full max-w-xs">
                 <button 
-                  onClick={() => setIsPhoneLoginOpen(true)} 
+                  onClick={() => { if(activeMember?.registration_required) { setSelectedRegTier('FULL');setIsRegisterModalOpen(true); } else setIsPhoneLoginOpen(true); }}
                   className="px-8 py-3.5 bg-[#d4ff00] text-black font-black uppercase text-xs rounded-xl shadow-[0_0_20px_rgba(212,255,0,0.3)] hover:shadow-[0_0_30px_rgba(212,255,0,0.5)] transition-all active:scale-95"
                 >
-                  ðŸ” {lang === 'EN' ? 'Login with Phone & Password' : 'áˆµáˆáŠ­ á‰áŒ¥áˆ­á‹Ž á‰ áˆ˜áŒ á‰€áˆ áŒá‰£'}
+                  ðŸ” {lang === 'EN' ? (activeMember?.registration_required ? 'Complete registration' : 'Login with Phone & Password') : 'áˆµáˆáŠ­ á‰áŒ¥áˆ­á‹Ž á‰ áˆ˜áŒ á‰€áˆ áŒá‰£'}
                 </button>
                 <button 
                   onClick={() => setCurrentTab('welcome')} 
@@ -717,7 +720,7 @@ export default function App() {
 
 
         {currentTab === 'idcard' && (
-          activeMember ? (
+          activeMember && !activeMember.registration_required ? (
             <DigitalIdCard
               member={activeMember}
               lang={lang}
@@ -734,7 +737,7 @@ export default function App() {
               </h2>
               <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-sm mb-6 leading-relaxed">
                 {lang === 'EN' 
-                  ? 'Log in with your phone and password to view your Digital ID, or submit an application to become a member.'
+                  ? (activeMember?.registration_required ? 'Complete normal registration and receive admin approval before your Digital ID is available.' : 'Log in with your phone and password to view your Digital ID, or submit an application to become a member.')
                   : 'áˆµáˆáŠ­ á‰áŒ¥áˆ­á‹ŽáŠ• áŠ¥áŠ“ á‹¨á‹­áˆˆá á‰ƒáˆá‹ŽáŠ• á‹­áŒ á‰€áˆ™ á‹ˆá‹­áˆ áˆ›áˆ˜áˆáŠ¨á‰» á‹«áˆµáŒˆá‰¡á¢'}
               </p>
               <div className="flex flex-col gap-3 w-full max-w-xs">
@@ -776,6 +779,7 @@ export default function App() {
 
         {currentTab === 'admin' && isAdminAuthenticated && (
           <AdminPortalView
+            onRefreshMembers={() => { void fetchMembers().then(rows => { if(rows.length) setMembers(rows); }); }}
             lang={lang}
             applications={applications}
             members={members}

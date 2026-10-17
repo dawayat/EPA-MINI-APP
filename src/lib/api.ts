@@ -191,7 +191,7 @@ export async function fetchResearchSubmissions(): Promise<ResearchSubmission[]> 
 
 // ─── MUTATIONS ──────────────────────────────────────────────────────────────
 
-export async function submitApplication(appData: Partial<Application>): Promise<{ success: boolean; error?: string; id?: string }> {
+export async function submitApplication(appData: Partial<Application>, session?: MemberSession): Promise<{ success: boolean; error?: string; id?: string }> {
   // Sanitize: remove undefined/null/empty string fields
   const sanitized: Record<string, any> = {};
   for (const [key, val] of Object.entries(appData)) {
@@ -204,6 +204,12 @@ export async function submitApplication(appData: Partial<Application>): Promise<
   if (sanitized.status === 'UNDER_REVIEW') sanitized.status = 'SUBMITTED';
 
   console.log('[API] Submitting application:', sanitized.application_number);
+  if (session && sanitized.provisional_member_id) {
+    const response = await fetch('/api/applications', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.token}` }, body: JSON.stringify(sanitized) });
+    const data = await response.json();
+    if (!response.ok) return { success: false, error: data.error || 'Registration could not be submitted.' };
+    return data;
+  }
   return apiPost('/api/applications', sanitized);
 }
 

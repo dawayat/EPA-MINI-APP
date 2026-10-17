@@ -77,6 +77,7 @@ export interface RenewalRequest {
 }
 
 export interface Application {
+  provisional_member_id?: string;
   id: string;
   application_number: string;
   first_name: string;
@@ -124,6 +125,10 @@ export interface Member {
   email_verified?: boolean;
   must_change_password?: boolean;
   onboarding_completed?: boolean;
+  registration_required?: boolean;
+  registration_submitted_at?: string;
+  voting_access_until?: string;
+  provisional_member_id?: string;
   
   // Personal
   first_name: string;

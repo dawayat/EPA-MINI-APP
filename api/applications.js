@@ -1,3 +1,5 @@
+import { hashPassword } from './_password.js';
+import { requireMemberSession } from './_member_session.js';
 import { dbSelect, dbInsert, dbUpdate, noStore, cors } from './_db.js';
 import { applicationReceivedEmail, applicationStatusEmail, isEmailConfigured, sendEmail } from './_email.js';
 import { requireAdmin } from './_admin.js';
@@ -21,7 +23,7 @@ async function deliverEmail(address, message) {
 const applicationListSelect = [
   'id', 'application_number', 'telegram_id', 'membership_type', 'status',
   'first_name', 'father_name', 'city', 'email', 'submitted_at', 'updated_at',
-  'admin_notes', 'rejection_reason',
+  'admin_notes', 'rejection_reason', 'provisional_member_id',
   'payment_provider:payment->>provider',
   'payment_amount:payment->>amount',
   'payment_status:payment->>status'
@@ -81,6 +83,14 @@ export default async function handler(req, res) {
           row[f] = app[f];
         }
       }
+      if (app.provisional_member_id) {
+        requireMemberSession(req, app.provisional_member_id, { allowVotingOnly: true });
+        const [member] = await dbSelect('members', `id=eq.${encodeURIComponent(app.provisional_member_id)}&limit=1`);
+        if (!member?.registration_required || String(row.email||'').toLowerCase() !== String(member.email).toLowerCase() || row.membership_type !== 'FULL') return res.status(400).json({ error: 'Use your existing account email and full-member registration.' });
+        const existing = await dbSelect('applications', `provisional_member_id=eq.${encodeURIComponent(member.id)}&status=in.(SUBMITTED,UNDER_REVIEW,APPROVED)&limit=1`);
+        if(existing.length) return res.status(409).json({ error: 'Your registration has already been submitted for review.' });
+        row.provisional_member_id = member.id;
+      }
       // The database uses a UUID primary key. Older browser code supplied
       // display IDs such as "app-...", which are not valid UUID values and
       // can make an otherwise verified application fail to save.
@@ -90,7 +100,9 @@ export default async function handler(req, res) {
       if (!row.submitted_at) row.submitted_at = new Date().toISOString();
       if (!row.updated_at) row.updated_at = new Date().toISOString();
 
+      if (row.phone_password) row.phone_password = hashPassword(String(row.phone_password));
       await dbInsert('applications', row);
+      if (row.provisional_member_id) await dbUpdate('members', { registration_submitted_at: new Date().toISOString() }, 'id', row.provisional_member_id);
       const email = await deliverEmail(row.email, applicationReceivedEmail(`${row.first_name || ''} ${row.father_name || ''}`.trim(), row.application_number));
       return res.status(201).json({ success: true, id: row.id, email });
     }
@@ -98,10 +110,11 @@ export default async function handler(req, res) {
     if (req.method === 'PATCH') {
       requireAdmin(req);
       const { id, status, admin_notes } = req.body;
-      const applications = await dbSelect('applications', `id=eq.${encodeURIComponent(id)}&select=email,first_name,father_name,application_number&limit=1`);
+      const applications = await dbSelect('applications', `id=eq.${encodeURIComponent(id)}&select=email,first_name,father_name,application_number,provisional_member_id&limit=1`);
       const application = applications[0];
       if (!application) return res.status(404).json({ success: false, error: 'Application was not found.' });
       await dbUpdate('applications', { status, admin_notes, updated_at: new Date().toISOString() }, 'id', id);
+      if (application.provisional_member_id && ['REJECTED','CORRECTION_REQUIRED'].includes(status)) await dbUpdate('members', { registration_submitted_at: null }, 'id', application.provisional_member_id);
       const shouldNotify = ['APPROVED', 'REJECTED', 'CORRECTION_REQUIRED'].includes(status);
       const email = shouldNotify ? await deliverEmail(application.email, applicationStatusEmail(`${application.first_name || ''} ${application.father_name || ''}`.trim(), application.application_number, status, admin_notes)) : { attempted: false, delivered: false };
       return res.status(200).json({ success: true, email });

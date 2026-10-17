@@ -1,3 +1,5 @@
+import { electionResults } from './_governance_results.js';
+import { createTemporaryMember } from './_provisional.js';
 import { dbSelect, noStore, supabaseHeaders, supabaseUrl } from './_db.js';
 import { requireAdmin } from './_admin.js';
 import { requireMemberSession } from './_member_session.js';
@@ -20,16 +22,19 @@ export default async function handleGovernance(req, res) {
     if (admin) actor = requireAdmin(req).username;
     else {
       actor = String(req.query.memberId || '');
-      requireMemberSession(req, actor);
+      requireMemberSession(req, actor, { allowVotingOnly: true });
       if (!idPattern.test(actor)) throw fail(400, 'Invalid member.');
-      [member] = await dbSelect('members', `id=eq.${encodeURIComponent(actor)}&select=id,first_name,father_name,membership_number,status,membership_type&limit=1`);
+      [member] = await dbSelect('members', `id=eq.${encodeURIComponent(actor)}&select=id,first_name,father_name,membership_number,status,membership_type,registration_required,voting_access_until&limit=1`);
       if (!member || !['ACTIVE', 'EXPIRED'].includes(member.status)) throw fail(403, 'Member access is unavailable.');
     }
     if (req.method === 'POST') {
       const body = req.body || {};
+      if (admin && body.operation === 'temporary-member') return res.status(201).json(await createTemporaryMember(body, actor));
       const allowed = admin ? ['create', 'phase', 'approve'] : ['nominate', 'vote'];
       if (!allowed.includes(body.operation)) throw fail(400, 'Invalid operation.');
       if (!admin && (member.status !== 'ACTIVE' || member.membership_type !== 'FULL')) throw fail(403, 'Only active full professional members may vote or nominate themselves.');
+      if (!admin && member.registration_required && (!member.voting_access_until || Date.parse(member.voting_access_until) <= Date.now())) throw fail(403, 'Temporary voting access has ended. Complete normal registration and obtain approval.');
+      if (!admin && member.registration_required && body.operation === 'nominate') throw fail(403, 'Complete normal registration before nominating yourself.');
       // Actor and admin privilege always come from the verified server session.
       const response = await fetch(supabaseUrl('rpc/governance_action'), { method: 'POST', headers: supabaseHeaders(), body: JSON.stringify({ p_actor: actor, p_admin: admin, p_operation: body.operation, p_payload: body }) });
       const data = await response.json();
@@ -51,14 +56,15 @@ export default async function handleGovernance(req, res) {
     const summaries = await Promise.all(visible.map(async p => {
       const [candidates, votes] = await Promise.all([
         allRows('governance_candidates', `poll_id=eq.${p.id}&select=id,member_id,manifesto,approved,created_at,members(first_name,father_name,membership_number,status,membership_type)&order=created_at.asc`),
-        allRows('governance_votes', `poll_id=eq.${p.id}&select=member_id,choice,created_at,members(first_name,father_name,membership_number)&order=created_at.asc`)
+        allRows('governance_votes', `poll_id=eq.${p.id}&select=member_id,choice,choices,created_at,members(first_name,father_name,membership_number)&order=created_at.asc`)
       ]);
       const counts = {};
-      for (const v of votes) counts[v.choice] = (counts[v.choice] || 0) + 1;
-      return { ...p, eligible: admin || (member.status === 'ACTIVE' && p.eligible_types.includes(member.membership_type)),
+      for (const v of votes) for (const choice of (v.choices || [v.choice])) counts[choice] = (counts[choice] || 0) + 1;
+      const candidateData = candidates.map(c=>({id:c.id,approved:c.approved,...identity(c.members)}));
+      return { ...p, canNominate: !member?.registration_required, results: p.kind === 'election' && p.phase === 'closed' ? electionResults(candidateData, counts, p.seats || 3) : [], eligible: admin || (member.status === 'ACTIVE' && p.eligible_types.includes(member.membership_type) && (!member.registration_required || Date.parse(member.voting_access_until) > Date.now())),
         candidates: candidates.filter(c => admin || c.approved || c.member_id === actor).map(c => ({ id: c.id, memberId: c.member_id, ...identity(c.members), manifesto: c.manifesto, approved: c.approved, eligible: c.members?.status === 'ACTIVE' && p.eligible_types.includes(c.members?.membership_type) })),
         total: votes.length, counts: admin || p.kind === 'articles' || p.phase === 'closed' ? counts : {},
-        myVote: votes.find(v => v.member_id === actor)?.choice || null,
+        myVote: votes.find(v => v.member_id === actor)?.choices || votes.find(v => v.member_id === actor)?.choice || null,
         voters: admin || p.kind === 'articles' ? votes.map(v => ({ ...identity(v.members), votedAt: v.created_at })) : []
       };
     }));

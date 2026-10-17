@@ -1,4 +1,4 @@
-import { GovernancePortal } from './GovernancePortal';
+import { GovernancePortal, TemporaryVotingPortal } from './GovernancePortal';
 import { MemberAvatar } from './MemberAvatar';
 import React, { useState, useEffect } from 'react';
 import {
@@ -47,6 +47,7 @@ interface MemberPortalViewProps {
   announcements: Announcement[];
   onOpenIdCard: () => void;
   onOpenVoting: () => void;
+  onCompleteRegistration?: () => void;
   onOpenDirectory: () => void;
   onRegisterCPD: (courseId: string) => void;
   onSubmitResearch: (submission: Partial<ResearchSubmission>) => Promise<void>;
@@ -1229,6 +1230,7 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
 
 // ── MAIN ROUTER ────────────────────────────────────────────────────────────────
 export const MemberPortalView: React.FC<MemberPortalViewProps> = (props) => {
+  if (props.member.registration_required) return <><TemporaryVotingPortal member={props.member} session={props.memberSession} onRegister={props.onCompleteRegistration || (() => {})}/><BylawsPortal member={props.member} session={props.memberSession} lang={props.lang}/></>;
   return <><GovernancePortal member={props.member} session={props.memberSession} /><BylawsPortal key={props.member.id} member={props.member} session={props.memberSession} lang={props.lang} />{
     props.member.membership_type === 'STUDENT' ? <StudentPortal {...props} /> :
     props.member.membership_type === 'CORPORATE' ? <CorporatePortal {...props} /> : <FullMemberPortal {...props} />

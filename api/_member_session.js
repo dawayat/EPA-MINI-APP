@@ -35,14 +35,14 @@ function readToken(token) {
   }
 }
 
-export function createMemberSession(memberId) {
+export function createMemberSession(memberId, scope = 'full') {
   const expiresAt = Date.now() + SESSION_TTL_MS;
-  const encoded = Buffer.from(JSON.stringify({ kind: 'member', memberId: String(memberId), expiresAt })).toString('base64url');
+  const encoded = Buffer.from(JSON.stringify({ kind: 'member', memberId: String(memberId), expiresAt, scope })).toString('base64url');
   return { token: `${encoded}.${sign(encoded, sessionSecret())}`, expiresAt };
 }
 
 /** Throws unless the bearer token belongs to the member being changed. */
-export function requireMemberSession(req, memberId) {
+export function requireMemberSession(req, memberId, { allowVotingOnly = false } = {}) {
   const authorization = String(req.headers?.authorization || '');
   const token = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
   const decoded = readToken(token);
@@ -62,5 +62,6 @@ export function requireMemberSession(req, memberId) {
     error.statusCode = 401;
     throw error;
   }
-  return { memberId: String(memberId), expiresAt: Number(decoded.payload.expiresAt) };
+  if (decoded.payload.scope === 'voting_only' && !allowVotingOnly) { const error = new Error('Complete normal registration before using full membership services.'); error.statusCode = 403; throw error; }
+  return { scope: decoded.payload.scope || 'full', memberId: String(memberId), expiresAt: Number(decoded.payload.expiresAt) };
 }
