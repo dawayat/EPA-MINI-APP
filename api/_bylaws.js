@@ -5,6 +5,7 @@ import { requireMemberSession } from './_member_session.js';
 
 const fail = (statusCode, message) => Object.assign(new Error(message), { statusCode });
 const memberEvents = new Set(['opened', 'copy_attempt', 'print_attempt', 'save_attempt', 'capture_shortcut']);
+const documentRevision = '2026-09-organizational-diagram-v1';
 
 export default async function handleBylaws(req, res, loadDocument = readBylawsDocument) {
   noStore(res);
@@ -44,10 +45,11 @@ export default async function handleBylaws(req, res, loadDocument = readBylawsDo
     const member = members[0];
     if (!member || !['ACTIVE', 'EXPIRED'].includes(member.status)) throw fail(403, 'Member access is unavailable.');
     const available = settings[0]?.enabled === true && restrictions[0]?.restricted !== true;
-    if (req.method === 'GET' && req.query.view !== 'content') return res.status(200).json({ available });
+    if (req.method === 'GET' && req.query.view !== 'content') return res.status(200).json({ available, ...(available ? { revision: documentRevision } : {}) });
     if (!available) throw fail(403, 'The administrator has disabled access to these articles.');
     if (req.method === 'GET') return res.status(200).json({
       ...loadDocument(),
+      revision: documentRevision,
       watermark: `${member.first_name} ${member.father_name} · ${member.membership_number}`,
       issuedAt: new Date().toISOString()
     });

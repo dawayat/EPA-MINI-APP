@@ -42,3 +42,5 @@
 .book-diagram-connector p{margin:0;font:25px/1.5 Georgia,serif}
 .book-diagram-watermark{display:block;text-align:center;margin:18px 0 0;font:10px/1.5 sans-serif;letter-spacing:.12em;color:var(--book-muted);opacity:.55}
 @media(max-width:600px){.book-diagram{margin-left:-6px;margin-right:-6px;border-radius:10px}.book-diagram figcaption{padding:14px}.book-diagram-hint{padding:10px 14px 0}.book-diagram-scroll{padding:18px 4px}}
+.book-diagram-jump{margin-top:20px}.book-diagram{scroll-margin-top:16px}
+.book-mobile-selector{flex-shrink:0;max-height:40dvh;overflow-y:auto;overscroll-behavior:contain}.book-mobile-selector>.book-eyebrow{display:block;margin-bottom:10px}.book-mobile-selector .book-chapter-link{min-height:46px;font-size:12px;align-items:center}

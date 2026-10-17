@@ -28,6 +28,7 @@ function Reader({ member, session, onClose, lang }: { member: Member; session: M
   useEffect(() => {
     let active = true;
     let hasDocument = false;
+    let loadedRevision: string | undefined;
     let requestGeneration = 0;
     let expiryTimer: ReturnType<typeof setTimeout>;
     const headers = { Authorization: `Bearer ${session.token}` };
@@ -41,10 +42,15 @@ function Reader({ member, session, onClose, lang }: { member: Member; session: M
       try {
         // Artwork is loaded once; subsequent checks request only access status.
         const needsDocument = !hasDocument;
-        const data = await request(needsDocument ? `${url}&view=content` : url, headers);
+        let data = await request(needsDocument ? `${url}&view=content` : url, headers);
         if (!active || generation !== requestGeneration) return;
         if (!needsDocument && !data.available) throw new Error('The administrator has disabled access to these articles.');
-        if (needsDocument) { setDocumentData(data); hasDocument = true; }
+        const revisionChanged = !needsDocument && data.revision !== loadedRevision;
+        if (revisionChanged) {
+          data = await request(`${url}&view=content`, headers);
+          if (!active || generation !== requestGeneration) return;
+        }
+        if (needsDocument || revisionChanged) { setDocumentData(data); hasDocument = true; loadedRevision = data.revision; }
         clearTimeout(expiryTimer);
         // Fail closed if the next permission check stalls or the device loses connectivity.
         expiryTimer = setTimeout(() => { hasDocument = false; requestGeneration++; setDocumentData(null); setMessage('Connection interrupted. Close and reopen the reader to verify access.'); }, 25000);

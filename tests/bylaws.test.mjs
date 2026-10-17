@@ -49,6 +49,8 @@ test('bylaws enforce identity, global activation, per-member access and trusted 
     assert.equal(content.code, 200);
     assert.equal(content.data.watermark, 'Ada Test · EPA-001');
     assert.equal(content.data.paragraphs[0].text, 'Test document clause');
+    assert.equal(typeof content.data.revision, 'string');
+    assert.equal((await call({ token: member })).data.revision, content.data.revision);
     assert.ok(content.data.paragraphs.some(p => p.label === '6.1.'));
     await call({ token: member, body: { event: 'capture_shortcut', actor: 'someone else', member_id: 'm2' } });
     assert.equal(events.at(-1).member_id, 'm1');
