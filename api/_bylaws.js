@@ -5,7 +5,7 @@ import { requireMemberSession } from './_member_session.js';
 
 const fail = (statusCode, message) => Object.assign(new Error(message), { statusCode });
 const memberEvents = new Set(['opened', 'copy_attempt', 'print_attempt', 'save_attempt', 'capture_shortcut']);
-const documentRevision = '2026-09-organizational-diagram-v1';
+const documentRevision = '2026-09-original-chart-grid-v2';
 
 export default async function handleBylaws(req, res, loadDocument = readBylawsDocument) {
   noStore(res);

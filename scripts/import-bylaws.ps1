@@ -32,6 +32,7 @@ try {
   $paragraphs = @($doc.SelectNodes('//w:body/w:p | //w:body/w:tbl', $ns) | ForEach-Object {
     $p = $_
     if ($p.LocalName -eq 'tbl') {
+        $columnWidths = @($p.SelectNodes('./w:tblGrid/w:gridCol', $ns) | ForEach-Object { [int]$_.GetAttribute('w', $ns.LookupNamespace('w')) })
       $rows = @($p.SelectNodes('./w:tr', $ns) | ForEach-Object {
         $cells = @($_.SelectNodes('./w:tc', $ns) | ForEach-Object {
           $cell = $_
@@ -44,7 +45,7 @@ try {
         })
         @{ cells = $cells }
       })
-      @{ text = ''; style = $null; label = ''; level = 0; table = @{ rows = $rows } }
+      @{ text = ''; style = $null; label = ''; level = 0; table = @{ rows = $rows; columnWidths = $columnWidths } }
       return
     }
     $text = ($p.SelectNodes('.//w:t | .//w:tab | .//w:br', $ns) | ForEach-Object { if ($_.LocalName -eq 'tab') { "`t" } elseif ($_.LocalName -eq 'br') { "`n" } else { $_.'#text' } }) -join ''
