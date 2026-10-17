@@ -5,12 +5,12 @@ import { createMemberSession } from '../api/_member_session.js';
 import { createAdminSession } from '../api/_admin.js';
 test('governance authenticates identities, limits operations, hides election choices and uses trusted RPC actors',async()=>{
  process.env.EPA_MEMBER_SESSION_SECRET='test-member-secret';process.env.EPA_ADMIN_SESSION_SECRET='test-admin-secret';process.env.EPA_ADMIN_USERNAME='admin';process.env.EPA_ADMIN_PASSWORD='test';
- const original=global.fetch;let lastRpc,phase='voting',status='ACTIVE',kind='election',type='FULL',articlesEnabled=true;
+ const original=global.fetch;let lastRpc,phase='voting',status='ACTIVE',kind='election',type='FULL',articlesEnabled=true,visibility='private';
  global.fetch=async(url,options={})=>{
   const address=String(url);
   if(address.includes('/rpc/governance_action')){lastRpc=JSON.parse(options.body);return Response.json({success:true});}
   if(address.includes('/members?'))return Response.json([{id:'m1',status,membership_type:type}]);
-  if(address.includes('/governance_polls?'))return Response.json([{id:'poll',title:'Test ballot',kind,phase,eligible_types:['FULL']}]);
+  if(address.includes('/governance_polls?'))return Response.json([{id:'poll',title:'Test ballot',kind,phase,voter_visibility:visibility,eligible_types:['FULL']}]);
   if(address.includes('/governance_candidates?'))return Response.json([{id:'c1',member_id:'m2',approved:true,manifesto:'A statement',members:{first_name:'Candidate',father_name:'One',status:'ACTIVE',membership_type:'FULL'}}]);
   if(address.includes('/governance_votes?'))return Response.json([{member_id:'m2',choice:'c1',created_at:'2026-10-17',members:{first_name:'Voter',father_name:'Two',membership_number:'EPA002'}}]);
   if(address.includes('/bylaws_settings?'))return Response.json([{enabled:articlesEnabled}]);
@@ -29,6 +29,11 @@ test('governance authenticates identities, limits operations, hides election cho
  status='EXPIRED';assert.equal((await call({token,body:{operation:'vote'}})).code,403);status='ACTIVE';
  type='STUDENT';assert.equal((await call({token})).data.polls[0].eligible,false);assert.equal((await call({token,body:{operation:'nominate'}})).code,403);assert.equal((await call({token,body:{operation:'vote'}})).code,403);type='FULL';
  phase='closed';assert.equal((await call({token})).data.polls[0].counts.c1,1);
+ assert.equal('voters' in (await call({token})).data.polls[0].candidates[0],false);
+ visibility='members';phase='voting';assert.equal('voters' in (await call({token})).data.polls[0].candidates[0],false);
+ phase='closed';assert.equal((await call({token})).data.polls[0].candidates[0].voters[0].name,'Voter Two');
+ assert.equal((await call({token:adminToken,admin:true})).data.polls[0].candidates[0].voters[0].name,'Voter Two');
+ visibility='private';assert.equal('voters' in (await call({token:adminToken,admin:true})).data.polls[0].candidates[0],false);
  kind='articles';const articles=(await call({token})).data.polls[0];assert.equal(articles.voters[0].name,'Voter Two');assert.equal('choice' in articles.voters[0],false);
  articlesEnabled=false;assert.equal((await call({token})).data.polls.length,0);
  const admin=(await call({token:adminToken,admin:true})).data;assert.equal(admin.polls[0].total,1);

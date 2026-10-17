@@ -30,7 +30,7 @@ export default async function handleGovernance(req, res) {
     if (req.method === 'POST') {
       const body = req.body || {};
       if (admin && body.operation === 'temporary-member') return res.status(201).json(await createTemporaryMember(body, actor));
-      const allowed = admin ? ['create', 'phase', 'approve'] : ['nominate', 'vote'];
+      const allowed = admin ? ['create', 'phase', 'approve', 'archive', 'restore'] : ['nominate', 'vote'];
       if (!allowed.includes(body.operation)) throw fail(400, 'Invalid operation.');
       if (!admin && (member.status !== 'ACTIVE' || member.membership_type !== 'FULL')) throw fail(403, 'Only active full professional members may vote or nominate themselves.');
       if (!admin && member.registration_required && (!member.voting_access_until || Date.parse(member.voting_access_until) <= Date.now())) throw fail(403, 'Temporary voting access has ended. Complete normal registration and obtain approval.');
@@ -47,7 +47,7 @@ export default async function handleGovernance(req, res) {
       return res.status(200).json(data);
     }
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed.' });
-    const polls = await dbSelect('governance_polls', `select=*&order=created_at.desc${admin ? '' : '&phase=neq.draft'}&limit=100`);
+    const polls = await dbSelect('governance_polls', `select=*&archived_at=${admin && req.query.archived === 'true' ? 'not.is.null' : 'is.null'}&order=created_at.desc${admin ? '' : '&phase=neq.draft'}&limit=100`);
     const [settings, restrictions] = admin ? [[], []] : await Promise.all([
       dbSelect('bylaws_settings', 'id=eq.articles&select=enabled&limit=1'),
       dbSelect('bylaws_access', `member_id=eq.${encodeURIComponent(actor)}&select=restricted&limit=1`)
@@ -62,7 +62,7 @@ export default async function handleGovernance(req, res) {
       for (const v of votes) for (const choice of (v.choices || [v.choice])) counts[choice] = (counts[choice] || 0) + 1;
       const candidateData = candidates.map(c=>({id:c.id,approved:c.approved,...identity(c.members)}));
       return { ...p, canNominate: !member?.registration_required, results: p.kind === 'election' && p.phase === 'closed' ? electionResults(candidateData, counts, p.seats || 3) : [], eligible: admin || (member.status === 'ACTIVE' && p.eligible_types.includes(member.membership_type) && (!member.registration_required || Date.parse(member.voting_access_until) > Date.now())),
-        candidates: candidates.filter(c => admin || c.approved || c.member_id === actor).map(c => ({ id: c.id, memberId: c.member_id, ...identity(c.members), manifesto: c.manifesto, approved: c.approved, eligible: c.members?.status === 'ACTIVE' && p.eligible_types.includes(c.members?.membership_type) })),
+        candidates: candidates.filter(c => admin || c.approved || c.member_id === actor).map(c => ({ id: c.id, memberId: c.member_id, ...identity(c.members), manifesto: c.manifesto, approved: c.approved, ...(p.voter_visibility === 'members' && (admin || p.phase === 'closed') ? { voters: votes.filter(v => (v.choices || [v.choice]).includes(c.id)).map(v => ({ ...identity(v.members), votedAt: v.created_at })) } : {}), eligible: c.members?.status === 'ACTIVE' && p.eligible_types.includes(c.members?.membership_type) })),
         total: votes.length, counts: admin || p.kind === 'articles' || p.phase === 'closed' ? counts : {},
         myVote: votes.find(v => v.member_id === actor)?.choices || votes.find(v => v.member_id === actor)?.choice || null,
         voters: admin || p.kind === 'articles' ? votes.map(v => ({ ...identity(v.members), votedAt: v.created_at })) : []
