@@ -2,6 +2,8 @@
 
 The reader is integrated in all three member portals and the admin's **Articles & Bylaws** tab. It starts hidden. The document is an encrypted, server-only extraction of the supplied Word file, with the original paragraph text and automatic clause numbering preserved. The contents page is replaced by article navigation. It is never included in the frontend bundle or public directory.
 
+The reading experience uses a green book cover, ivory pages, locally hosted Cormorant Garamond headings, and Georgia body text. Each article has its own reading page with previous/next controls, a contents index, progress indicator, and larger-text toggle. Phones use a full-screen layout with collapsible article selection, safe-area spacing, and fixed navigation. Light and dark themes follow the portal theme. This presentation layer does not change document text, authentication, activation, access restrictions, or watermarking.
+
 ## Setup
 
 The additive setup in `supabase/bylaws.sql` has been applied to EPA's project `cnwkuzihcmtenpoliqpn`. It enables RLS, denies browser roles, and grants access only to `service_role`. The articles' visibility was explicitly verified as disabled after setup. Keep visibility disabled until an administrator activates the reader.

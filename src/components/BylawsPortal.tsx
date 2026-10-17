@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpen, ChevronRight, ShieldCheck, X, LockKeyhole, RefreshCw } from 'lucide-react';
+import { BookOpen, ChevronRight, ShieldCheck, RefreshCw } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { BylawsBook, type ArticleDocument } from './BylawsBook';
 import { Member } from '../types';
 import { adminHeaders } from '../lib/admin';
 import type { MemberSession } from '../lib/api';
@@ -13,16 +14,15 @@ async function request(url: string, headers: Record<string, string>, body?: obje
   if (!response.ok) throw new Error(data.error || 'Unable to load the articles.');
   return data;
 }
-type ArticleDocument = { paragraphs: { text: string; style: string | null; label: string; level: number }[]; watermark: string; issuedAt: string };
 
 function Reader({ member, session, onClose, lang }: { member: Member; session: MemberSession; onClose: () => void; lang: 'EN' | 'AM' }) {
   const [documentData, setDocumentData] = useState<ArticleDocument | null>(null);
   const [message, setMessage] = useState('Loading your reading session…');
   const [paused, setPaused] = useState(false);
-  const [section, setSection] = useState(0);
+
   const dialog = useRef<HTMLDivElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
-  const contentArea = useRef<HTMLDivElement>(null);
+
   const lastEvent = useRef<Record<string, number>>({});
   const url = `${endpoint}&memberId=${encodeURIComponent(member.id)}`;
   useEffect(() => {
@@ -59,8 +59,8 @@ function Reader({ member, session, onClose, lang }: { member: Member; session: M
     const keyboard = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { onClose(); return; }
       if (e.key === 'Tab') {
-        const items = dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), select, a[href], [tabindex="0"]');
-        if (items?.length) {
+        const items = Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), summary, a[href], [tabindex="0"]') || []).filter(element => element.getClientRects().length > 0);
+        if (items.length) {
           const first = items[0], last = items[items.length - 1];
           if (e.shiftKey && window.document.activeElement === first) { e.preventDefault(); last.focus(); }
           if (!e.shiftKey && window.document.activeElement === last) { e.preventDefault(); first.focus(); }
@@ -91,26 +91,9 @@ function Reader({ member, session, onClose, lang }: { member: Member; session: M
     };
   }, [url, session.token, onClose]);
 
-  const paragraphs = documentData?.paragraphs.filter(p => !p.style?.startsWith('TOC') && p.text !== 'Table of Content') || [];
-  const headings = paragraphs.map((p, index) => ({ ...p, index })).filter(p => p.style === 'Heading1');
-  const jump = (index: number) => { setSection(index); contentArea.current?.querySelector(`#bylaws-p-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   return createPortal(<div className="bylaws-overlay" onContextMenu={e => e.preventDefault()} onCopy={e => e.preventDefault()} onCut={e => e.preventDefault()} onDragStart={e => e.preventDefault()}>
-    <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="bylaws-title" className="bylaws-dialog bg-white dark:bg-[#121214] text-neutral-900 dark:text-white">
-      <header className="flex items-start justify-between gap-4 border-b border-black/10 dark:border-white/10 p-5 sm:p-7">
-        <div><div className="text-[10px] font-black tracking-[.2em] uppercase text-green-700 dark:text-[#d4ff00]">EPA · Governance library</div><h2 id="bylaws-title" className="font-syne text-xl sm:text-2xl font-black mt-2">{lang === 'AM' ? 'የማኅበሩ መተዳደሪያ ደንብ' : 'Articles of Association'}</h2><p className="text-xs text-neutral-500 mt-2">September 2026 · In-portal reading · Personal watermarked copy</p></div>
-        <button ref={closeButton} onClick={onClose} aria-label="Close articles" className="p-2 rounded-full hover:bg-neutral-100 dark:hover:bg-white/10"><X size={22} /></button>
-      </header>
-      {documentData && <div className="px-5 py-3 border-b border-black/10 dark:border-white/10"><label className="text-xs font-bold flex items-center gap-3"><BookOpen size={16} />Jump to article<select aria-label="Jump to article" value={section} onChange={e => jump(Number(e.target.value))} className="min-w-0 flex-1 rounded-lg bg-neutral-100 dark:bg-neutral-800 p-2 text-xs"><option value={0}>Cover</option>{headings.map(h => <option key={h.index} value={h.index}>{h.text}</option>)}</select></label></div>}
-      <div className="px-5 py-3 text-[11px] text-neutral-500 border-b border-black/10 dark:border-white/10">Copying, printing and saving are restricted. Reader activity is logged. Device screenshots and recordings cannot be reliably detected or blocked.</div>
-      <div ref={contentArea} className="bylaws-scroll" tabIndex={0} aria-label="Articles content">
-        {!documentData ? <div role="status" className="p-10 text-center text-sm text-neutral-500">{message}</div> : paused ? <div className="p-12 text-center"><LockKeyhole className="mx-auto mb-4" /><h3 className="font-bold">Reading paused</h3><p className="text-sm text-neutral-500 mt-2">The document is hidden while this window is inactive.</p><button className="bylaws-button mt-5" onClick={() => setPaused(false)}>Resume reading</button></div> : <article className="bylaws-paper">
-          {paragraphs.map((p, i) => <section id={`bylaws-p-${i}`} key={i} className="bylaws-paragraph">
-            <span aria-hidden="true" className="bylaws-watermark">EPA · {documentData.watermark} · {new Date(documentData.issuedAt).toLocaleDateString()}</span>
-            {p.style === 'Heading1' ? <h3 className="font-syne font-black text-xl mt-8 mb-4">{p.label && <span>{p.label} </span>}{p.text}</h3> : <p style={{ paddingLeft: `${Math.min(p.level, 3) * .45}rem` }} className="leading-[1.9] text-[15px] mb-4 whitespace-pre-wrap">{p.label && <span className="font-bold mr-2">{p.label}</span>}{p.text}</p>}
-          </section>)}
-        </article>}
-      </div>
-      <footer className="p-4 text-center text-[10px] font-bold uppercase tracking-widest text-neutral-500 border-t border-black/10 dark:border-white/10">Ethiopian Psychologists’ Association · Members’ reading room</footer>
+    <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="bylaws-title" className="bylaws-dialog">
+      <BylawsBook documentData={documentData} paused={paused} message={message} onResume={() => setPaused(false)} onClose={onClose} closeButtonRef={closeButton} lang={lang} />
     </div>
   </div>, document.body);
 }
@@ -127,8 +110,10 @@ export const BylawsPortal: React.FC<{ member: Member; session: MemberSession | n
     return () => { active = false; clearInterval(interval); };
   }, [member.id, session?.token]);
   if (!available || !session) return null;
-  return <><button onClick={() => setOpen(true)} className="bylaws-banner w-full text-left mb-6 group">
-    <span className="rounded-2xl bg-[#d4ff00] text-black p-3"><BookOpen size={25} /></span><span className="flex-1"><span className="block text-[10px] font-black uppercase tracking-[.2em] text-[#d4ff00] mb-1">Governance · Now available</span><span className="block text-xl font-black font-syne">{lang === 'AM' ? 'የማኅበሩ መተዳደሪያ ደንብ' : 'Our association. Our shared foundation.'}</span><span className="block text-xs text-neutral-400 mt-2">{lang === 'AM' ? 'የማኅበሩን ደንብ እዚህ ያንብቡ።' : 'Read the EPA Articles of Association inside your portal.'}</span></span><ChevronRight className="shrink-0 group-hover:translate-x-1 transition-transform" /></button>{open && <Reader member={member} session={session} lang={lang} onClose={close} />}</>;
+  return <><button onClick={() => setOpen(true)} className="bylaws-entry">
+    <span className="bylaws-entry-book" aria-hidden="true"><span>EPA</span><BookOpen size={19} strokeWidth={1} /><small>ARTICLES OF<br />ASSOCIATION</small></span>
+    <span className="bylaws-entry-copy"><span className="bylaws-entry-eyebrow">THE EPA GOVERNANCE LIBRARY</span><strong>{lang === 'AM' ? 'የማኅበሩ መተዳደሪያ ደንብ' : 'Articles of Association'}</strong><span className="bylaws-entry-description">{lang === 'AM' ? 'የማኅበሩን ደንብ እዚህ ያንብቡ።' : 'Our principles. Our purpose. Our shared foundation.'}</span><span className="bylaws-entry-link">{lang === 'AM' ? 'ያንብቡ' : 'Open the book'} <ChevronRight size={13} /></span></span>
+    <span className="bylaws-entry-edition">MEMBERS’ EDITION<br /><span>SEPTEMBER 2026</span></span></button>{open && <Reader member={member} session={session} lang={lang} onClose={close} />}</>;
 }
 
 type Activity = { id: string; member_id: string | null; actor: string; event: string; created_at: string };
