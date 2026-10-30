@@ -7,6 +7,16 @@ function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 }
 
+export function renewalApprovalEmail(member) {
+  const name = [member.first_name, member.father_name, member.grandfather_name].filter(Boolean).join(' ');
+  const expiry = new Date(member.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Addis_Ababa' });
+  return {
+    subject: 'Your EPA membership renewal is approved',
+    html: emailShell({ eyebrow: 'Membership renewal', title: 'Your renewal is approved', body: `<p>Hello ${escapeHtml(name)},</p><p>Your payment has been verified and your EPA membership has been renewed for one year.</p><p><b>Membership number:</b> ${escapeHtml(member.membership_number)}<br><b>Status:</b> Active<br><b>Valid until:</b> ${escapeHtml(expiry)}</p><p>Your updated membership details and digital ID are available in the member portal.</p>`, actionLabel: 'Open member portal', actionUrl: appUrl() || undefined }),
+    text: `Hello ${name},\n\nYour EPA membership renewal is approved and your payment has been verified.\nMembership number: ${member.membership_number}\nStatus: Active\nValid until: ${expiry}\n\nSign in to the member portal to view your updated membership and digital ID.`,
+  };
+}
+
 function appUrl() {
   const configured = process.env.APP_URL || process.env.VITE_APP_URL || process.env.VERCEL_URL || '';
   if (!configured) return '';

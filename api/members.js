@@ -3,6 +3,10 @@ import { cachePublic, dbSelect, dbInsert, dbUpdate, noStore, cors } from './_db.
 import { isEmailConfigured, memberInviteEmail, sendEmail } from './_email.js';
 import { requireAdmin } from './_admin.js';
 import { requireMemberSession } from './_member_session.js';
+import { hydrateApplicationMedia } from './_application_media.js';
+import { supabaseHeaders, supabaseUrl } from './_db.js';
+import { renewalExpiry } from '../shared/membership-renewal.js';
+import { renewalApprovalEmail } from './_email.js';
 
 const importId = () => `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const token = () => `epa_tok_${Math.random().toString(36).slice(2, 10)}`;
@@ -86,6 +90,14 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const view = String(req.query.view || '').trim();
+      if (view === 'renewal') {
+        requireAdmin(req);
+        noStore(res);
+        const member = (await dbSelect('members', `id=eq.${encodeURIComponent(String(req.query.id || ''))}&select=id,renewal_request&limit=1`))[0];
+        if (!member) return res.status(404).json({ error: 'Member account was not found.' });
+        const detail = await hydrateApplicationMedia({ payment: member.renewal_request?.payment });
+        return res.status(200).json({ ...member.renewal_request, payment: detail.payment });
+      }
       if (view === 'profile-photo') {
         noStore(res);
         const id = String(req.query.id || '');
@@ -139,6 +151,15 @@ export default async function handler(req, res) {
 
     if (req.method === 'POST') {
       const m = req.body || {};
+      noStore(res);
+      if (m.action === 'resend-renewal-email') {
+        requireAdmin(req);
+        const member = (await dbSelect('members', `id=eq.${encodeURIComponent(String(m.memberId || ''))}&limit=1`))[0];
+        if (!member || member.renewal_request?.status !== 'APPROVED') return res.status(409).json({ success: false, error: 'No approved renewal was found.' });
+        if (!member.email) return res.status(400).json({ success: false, error: 'The member has no email address.' });
+        await sendEmail({ to: member.email, ...renewalApprovalEmail(member) });
+        return res.status(200).json({ success: true, emailed: true });
+      }
       if (m.action === 'record-attendance') {
         requireAdmin(req);
         const token = String(m.token || '').trim();
@@ -161,11 +182,13 @@ export default async function handler(req, res) {
       }
       if (m.action === 'submit-renewal') {
         const memberId = String(m.memberId || '').trim();
+        requireMemberSession(req, memberId);
         const reference = String(m.transaction_number || '').trim();
         const receipt = String(m.receipt_url || '').trim();
         if (!memberId || !reference || !receipt) return res.status(400).json({ success: false, error: 'CBE transaction reference and receipt are required for renewal.' });
         const member = (await dbSelect('members', `id=eq.${encodeURIComponent(memberId)}&limit=1`))[0];
         if (!member) return res.status(404).json({ success: false, error: 'Member account was not found.' });
+        if (member.renewal_request?.status === 'PENDING') return res.status(409).json({ success: false, error: 'A renewal is already waiting for review.' });
         const renewal_request = {
           status: 'PENDING', requested_at: new Date().toISOString(),
           payment: { id: `renew-${Date.now()}`, amount: Number(m.amount || 1500), currency: 'ETB', provider: 'CBE', transaction_number: reference, payment_date: new Date().toISOString().slice(0, 10), status: 'PENDING', receipt_url: receipt }
@@ -173,17 +196,38 @@ export default async function handler(req, res) {
         await dbUpdate('members', { renewal_request }, 'id', memberId);
         return res.status(200).json({ success: true, renewal_request });
       }
-      if (m.action === 'approve-renewal') {
-        requireAdmin(req);
+      if (m.action === 'approve-renewal' || m.action === 'admin-renew') {
+        const admin = requireAdmin(req);
         const memberId = String(m.memberId || '').trim();
         const member = (await dbSelect('members', `id=eq.${encodeURIComponent(memberId)}&limit=1`))[0];
-        if (!member?.renewal_request || member.renewal_request.status !== 'PENDING') return res.status(400).json({ success: false, error: 'No pending renewal was found for this member.' });
-        const currentExpiry = new Date(member.expires_at || 0);
-        const base = Number.isNaN(currentExpiry.getTime()) || currentExpiry.getTime() < Date.now() ? new Date() : currentExpiry;
-        const expiresAt = new Date(base); expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-        const renewal_request = { ...member.renewal_request, status: 'APPROVED', reviewed_at: new Date().toISOString(), payment: { ...member.renewal_request.payment, status: 'VERIFIED' } };
-        await dbUpdate('members', { status: 'ACTIVE', expires_at: expiresAt.toISOString(), renewal_request }, 'id', memberId);
-        return res.status(200).json({ success: true, member: safeMember({ ...member, status: 'ACTIVE', expires_at: expiresAt.toISOString(), renewal_request }) });
+        if (!member) return res.status(404).json({ success: false, error: 'Member account was not found.' });
+        if (member.registration_required || member.status === 'SUSPENDED') return res.status(409).json({ success: false, error: 'Complete registration or resolve the suspension before renewing.' });
+        const manual = m.action === 'admin-renew';
+        if (!manual && member.renewal_request?.status !== 'PENDING') return res.status(409).json({ success: false, error: 'No pending renewal was found for this member.' });
+        if (manual && member.renewal_request?.status === 'PENDING') return res.status(409).json({ success: false, error: 'Review and approve the existing renewal instead.' });
+        if (manual && (!String(m.transaction_number || '').trim() || !/^\d{4}-\d{2}-\d{2}$/.test(m.payment_date || '') || !dateValue(m.payment_date) || dateValue(m.payment_date).slice(0, 10) !== m.payment_date || m.payment_date > new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Addis_Ababa' }) || !(Number(m.amount) > 0) || !Number.isFinite(Number(m.amount)))) return res.status(400).json({ success: false, error: 'Enter a payment reference, valid payment date (today or earlier), and positive amount.' });
+        if (manual && m.expected_expires_at !== member.expires_at) return res.status(409).json({ success: false, error: 'Membership dates changed. Refresh the member list before renewing.' });
+        if (manual && member.renewal_request?.payment?.transaction_number === String(m.transaction_number).trim()) return res.status(409).json({ success: false, error: 'This payment has already been used for renewal.' });
+        const expires_at = renewalExpiry(member.expires_at);
+        const source = manual ? { requested_at: new Date().toISOString(), source: 'ADMIN', payment: { id: `renew-${Date.now()}`, provider: 'CBE', currency: 'ETB', transaction_number: String(m.transaction_number).trim(), amount: Number(m.amount), payment_date: m.payment_date } } : member.renewal_request;
+        const renewal_request = { ...source, status: 'APPROVED', reviewed_by: admin.username, reviewed_at: new Date().toISOString(), previous_expires_at: member.expires_at, expires_at, payment: { ...source.payment, status: 'VERIFIED' } };
+        // Compare the expiry and pending state in the write itself, so retries
+        // and simultaneous admin approvals cannot extend the same term twice.
+        const expiryFilter = member.expires_at ? `eq.${encodeURIComponent(member.expires_at)}` : 'is.null';
+        const statusFilter = member.renewal_request?.status ? `eq.${encodeURIComponent(member.renewal_request.status)}` : 'is.null';
+        const query = `id=eq.${encodeURIComponent(memberId)}&expires_at=${expiryFilter}&renewal_request->>status=${statusFilter}`;
+        const response = await fetch(supabaseUrl('members', query), { method: 'PATCH', headers: { ...supabaseHeaders(), Prefer: 'return=representation' }, body: JSON.stringify({ status: 'ACTIVE', expires_at, renewal_request }) });
+        if (!response.ok) throw new Error('Could not save the renewal. Please try again.');
+        const saved = (await response.json())[0];
+        if (!saved) return res.status(409).json({ success: false, error: 'This renewal has already changed. Refresh the member list.' });
+        let emailed = false;
+        let emailError;
+        try {
+          if (!member.email) throw new Error('The member has no email address.');
+          await sendEmail({ to: member.email, ...renewalApprovalEmail(saved) });
+          emailed = true;
+        } catch (error) { emailError = error.message; }
+        return res.status(200).json({ success: true, member: safeMember(saved), emailed, emailError });
       }
       if (m.action === 'bulk-import') {
         requireAdmin(req);
@@ -310,11 +354,24 @@ export default async function handler(req, res) {
     if (req.method === 'PATCH') {
       noStore(res);
       const { id, action, photo_url, phone, city, workplace, specialty, gender, date_of_birth, bio, student_profile, corporate_profile } = req.body || {};
-      if (!id || !['complete-onboarding', 'update-profile-photo', 'admin-update-profile-photo'].includes(action)) return res.status(400).json({ error: 'A valid member profile update is required.' });
-      if (action === 'admin-update-profile-photo') requireAdmin(req);
+      if (!id || !['complete-onboarding', 'update-profile-photo', 'admin-update-profile-photo', 'update-name', 'admin-update-name'].includes(action)) return res.status(400).json({ error: 'A valid member profile update is required.' });
+      if (action === 'admin-update-profile-photo' || action === 'admin-update-name') requireAdmin(req);
       else requireMemberSession(req, id);
       const existing = (await dbSelect('members', `id=eq.${encodeURIComponent(id)}&limit=1`))[0];
       if (!existing) return res.status(404).json({ success: false, error: 'Member account was not found.' });
+
+      if (action === 'update-name' || action === 'admin-update-name') {
+        const update = {};
+        for (const key of ['first_name', 'father_name', 'grandfather_name', 'amharic_full_name']) {
+          const value = req.body[key];
+          if (typeof value !== 'string' || value.trim().length > 160 || /[\x00-\x1f\x7f]/.test(value) || (['first_name', 'father_name'].includes(key) && !value.trim())) return res.status(400).json({ success: false, error: 'First and father names are required. Each name must be at most 160 characters.' });
+          update[key] = value.trim();
+        }
+        await dbUpdate('members', update, 'id', encodeURIComponent(id));
+        const saved = (await dbSelect('members', `id=eq.${encodeURIComponent(id)}&limit=1`))[0];
+        if (!saved || Object.entries(update).some(([key, value]) => saved[key] !== value)) throw new Error('The name could not be confirmed as saved. Please try again.');
+        return res.status(200).json({ success: true, member: safeMember(saved) });
+      }
 
       if (action === 'update-profile-photo' || action === 'admin-update-profile-photo') {
         if (typeof photo_url !== 'string' || !PROFILE_PHOTO_DATA_URL.test(photo_url) || photo_url.length > MAX_PROFILE_PHOTO_LENGTH) {

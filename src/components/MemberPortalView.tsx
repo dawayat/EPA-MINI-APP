@@ -1,3 +1,4 @@
+import { MemberNameEditor, MemberNames } from './MemberNameEditor';
 import { GovernancePortal, TemporaryVotingPortal } from './GovernancePortal';
 import { MemberAvatar } from './MemberAvatar';
 import React, { useState, useEffect } from 'react';
@@ -52,6 +53,7 @@ interface MemberPortalViewProps {
   onRegisterCPD: (courseId: string) => void;
   onSubmitResearch: (submission: Partial<ResearchSubmission>) => Promise<void>;
   onUpdateProfilePhoto: (file: File) => Promise<void>;
+  onUpdateName: (names: MemberNames) => Promise<void>;
   onToast: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
@@ -494,7 +496,7 @@ const ConnectChatSection: React.FC<ConnectProps> = ({ member, lang, allMembers, 
 // ── STUDENT PORTAL ─────────────────────────────────────────────────────────────
 
 const StudentPortal: React.FC<MemberPortalViewProps> = ({
-  member, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenDirectory, onRegisterCPD, onUpdateProfilePhoto, onToast
+  member, memberSession, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenDirectory, onRegisterCPD, onUpdateProfilePhoto, onToast
 }) => {
   const [section, setSection] = useState<'overview' | 'cpd' | 'mentor' | 'jobs' | 'news'>('overview');
   const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
@@ -646,7 +648,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
                 <p className="text-xs text-amber-600 dark:text-amber-400">{lang === 'EN' ? `Membership expires in ${daysLeft} days.` : `አባልነትዎ በ${daysLeft} ቀናት ያበቃል።`}</p>
               </div>
             )}
-            <RenewalPanel member={member} lang={lang} onToast={onToast} />
+            <RenewalPanel session={memberSession} member={member} lang={lang} onToast={onToast} />
           </div>
 
           </div>
@@ -733,7 +735,7 @@ const StudentPortal: React.FC<MemberPortalViewProps> = ({
 
 // ── FULL MEMBER PORTAL ─────────────────────────────────────────────────────────
 const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
-  member, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenVoting, onOpenDirectory, onRegisterCPD, onSubmitResearch, onUpdateProfilePhoto, onToast
+  member, memberSession, lang, allMembers, cpdCourses, announcements, onOpenIdCard, onOpenVoting, onOpenDirectory, onRegisterCPD, onSubmitResearch, onUpdateProfilePhoto, onToast
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'cpd' | 'announcements' | 'license' | 'research' | 'connect'>('overview');
   const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
@@ -1015,7 +1017,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
                 <span className="font-mono font-bold text-gray-900 dark:text-white">{r.value}</span>
               </div>
             ))}
-            <RenewalPanel member={member} lang={lang} onToast={onToast} />
+            <RenewalPanel session={memberSession} member={member} lang={lang} onToast={onToast} />
           </div>
         </div>
       )}
@@ -1025,7 +1027,7 @@ const FullMemberPortal: React.FC<MemberPortalViewProps> = ({
 
 // ── CORPORATE PORTAL ───────────────────────────────────────────────────────────
 const CorporatePortal: React.FC<MemberPortalViewProps> = ({
-  member, lang, cpdCourses, announcements, onOpenDirectory, onRegisterCPD, onUpdateProfilePhoto, onToast
+  member, memberSession, lang, cpdCourses, announcements, onOpenDirectory, onRegisterCPD, onUpdateProfilePhoto, onToast
 }) => {
   const [section, setSection] = useState<'overview' | 'staff' | 'workshops' | 'jobs' | 'news'>('overview');
   const [likedAnn, setLikedAnn] = useState<Record<string, boolean>>({});
@@ -1136,7 +1138,7 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
               className="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-500 dark:text-amber-400 text-xs font-black uppercase tracking-wider cursor-pointer active:scale-95">
               {lang === 'EN' ? 'Download Membership Badge' : 'የአባልነት ምልክት አውርድ'}
             </button>
-            <RenewalPanel member={member} lang={lang} onToast={onToast} />
+            <RenewalPanel session={memberSession} member={member} lang={lang} onToast={onToast} />
           </div>
         </div>
       )}
@@ -1231,7 +1233,7 @@ const CorporatePortal: React.FC<MemberPortalViewProps> = ({
 // ── MAIN ROUTER ────────────────────────────────────────────────────────────────
 export const MemberPortalView: React.FC<MemberPortalViewProps> = (props) => {
   if (props.member.registration_required) return <><BylawsPortal member={props.member} session={props.memberSession} lang={props.lang}/><TemporaryVotingPortal member={props.member} session={props.memberSession} onRegister={props.onCompleteRegistration || (() => {})}/></>;
-  return <><GovernancePortal member={props.member} session={props.memberSession} /><BylawsPortal key={props.member.id} member={props.member} session={props.memberSession} lang={props.lang} />{
+  return <><div className="max-w-7xl mx-auto px-4 pt-4"><MemberNameEditor member={props.member} onSave={props.onUpdateName} onToast={props.onToast} /></div><GovernancePortal member={props.member} session={props.memberSession} /><BylawsPortal key={props.member.id} member={props.member} session={props.memberSession} lang={props.lang} />{
     props.member.membership_type === 'STUDENT' ? <StudentPortal {...props} /> :
     props.member.membership_type === 'CORPORATE' ? <CorporatePortal {...props} /> : <FullMemberPortal {...props} />
   }</>;

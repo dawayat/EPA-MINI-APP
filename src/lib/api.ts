@@ -259,8 +259,16 @@ export async function publishAnnouncement(announcementData: Partial<Announcement
   }
 }
 
-export async function submitRenewal(memberId: string, transactionNumber: string, receiptUrl: string, amount = 1500) {
-  return apiPost('/api/members', { action: 'submit-renewal', memberId, transaction_number: transactionNumber, receipt_url: receiptUrl, amount });
+export async function submitRenewal(memberId: string, transactionNumber: string, receiptUrl: string, amount = 1500, session?: MemberSession | null) {
+  const response = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.token || ''}` }, body: JSON.stringify({ action: 'submit-renewal', memberId, transaction_number: transactionNumber, receipt_url: receiptUrl, amount }) });
+  return readJsonResponse(response);
+}
+
+export async function updateMemberName(memberId: string, names: Pick<Member, 'first_name' | 'father_name' | 'grandfather_name' | 'amharic_full_name'>, session?: MemberSession | null, asAdmin = false): Promise<Member> {
+  const response = await fetch('/api/members', { method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(asAdmin ? adminHeaders() : { Authorization: `Bearer ${session?.token || ''}` }) }, body: JSON.stringify({ ...names, id: memberId, action: asAdmin ? 'admin-update-name' : 'update-name' }) });
+  const result = await readJsonResponse(response);
+  if (!response.ok || !result.success || !result.member) throw new Error(result.error || 'Could not save name.');
+  return result.member;
 }
 
 export async function approveRenewal(memberId: string) {

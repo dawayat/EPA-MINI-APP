@@ -1,3 +1,4 @@
+import { updateMemberName } from './lib/api';
 import { buildAnnouncement } from '../shared/announcement-payload.js';
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { isSupabaseConfigured } from './lib/supabase';
@@ -685,6 +686,11 @@ export default function App() {
               onRegisterCPD={handleRegisterCPD}
               onSubmitResearch={handleResearchSubmission}
               onUpdateProfilePhoto={handleMemberPhotoUpdate}
+              onUpdateName={async names => {
+                if (!activeMember || !memberSession) throw new Error('Please sign in again.');
+                const updated = await updateMemberName(activeMember.id, names, memberSession);
+                setMembers(current => current.map(member => member.id === updated.id ? { ...member, ...updated } : member));
+              }}
               onToast={showToast}
             />
           ) : (

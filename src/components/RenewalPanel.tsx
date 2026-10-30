@@ -1,9 +1,10 @@
 import React, { useRef, useState } from 'react';
 import { CheckCircle2, CreditCard, UploadCloud } from 'lucide-react';
-import { submitRenewal, uploadFile } from '../lib/api';
+import { submitRenewal, uploadFile, MemberSession } from '../lib/api';
 import { Member } from '../types';
 
 interface RenewalPanelProps {
+  session: MemberSession | null;
   member: Member;
   lang: 'EN' | 'AM';
   onToast: (message: string, type?: 'success' | 'info' | 'error') => void;
@@ -11,7 +12,7 @@ interface RenewalPanelProps {
 
 const feeFor = (type: Member['membership_type']) => type === 'STUDENT' ? 150 : type === 'CORPORATE' ? 10000 : 1500;
 
-export const RenewalPanel: React.FC<RenewalPanelProps> = ({ member, lang, onToast }) => {
+export const RenewalPanel: React.FC<RenewalPanelProps> = ({ member, lang, onToast, session }) => {
   const [reference, setReference] = useState('');
   const [receiptUrl, setReceiptUrl] = useState('');
   const [saving, setSaving] = useState(false);
@@ -34,7 +35,7 @@ export const RenewalPanel: React.FC<RenewalPanelProps> = ({ member, lang, onToas
     if (!reference.trim() || !receiptUrl) { onToast('Enter the CBE transaction number and attach the receipt.', 'error'); return; }
     setSaving(true);
     try {
-      const result = await submitRenewal(member.id, reference.trim(), receiptUrl, fee);
+      const result = await submitRenewal(member.id, reference.trim(), receiptUrl, fee, session);
       if (!result.success) throw new Error(result.error || 'Could not submit the renewal.');
       setSubmitted(true);
       onToast(lang === 'EN' ? 'Renewal sent to EPA for CBE verification.' : 'የማደሻ ጥያቄዎ ለማረጋገጥ ተልኳል።', 'success');

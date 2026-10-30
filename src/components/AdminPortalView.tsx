@@ -1,3 +1,6 @@
+import { AdminRenewalDialog } from './AdminRenewalDialog';
+import { MemberNameEditor } from './MemberNameEditor';
+import { updateMemberName } from '../lib/api';
 import { GovernanceAdmin, TemporaryMemberAdmin } from './GovernancePortal';
 import { BylawsAdmin } from './BylawsPortal';
 import { validRecipientEmail } from '../../shared/announcement-recipients.js';
@@ -429,15 +432,6 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
     } catch (error: any) { stopAttendanceCamera(); onToast(error.message || 'Camera access was not granted.', 'error'); }
   };
 
-  const approvePendingRenewal = async (memberId: string) => {
-    try {
-      const response = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify({ action: 'approve-renewal', memberId }) });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.error || 'Could not approve renewal.');
-      await onMembersImported();
-      onToast('Membership renewed for one year and activated.', 'success');
-    } catch (error: any) { onToast(error.message || 'Could not approve renewal.', 'error'); }
-  };
 
   return (
     <div className="w-full max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-white dark:bg-[#080808] text-gray-900 dark:text-white">
@@ -752,7 +746,7 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
             <div className="rounded-2xl p-5 bg-gray-50 dark:bg-[#121214] border border-gray-200 dark:border-white/10">
               <div className="flex items-center gap-2"><RefreshCw className="w-5 h-5 text-green-700 dark:text-[#d4ff00]" /><h3 className="font-black text-sm uppercase text-gray-900 dark:text-white">Renewal review</h3></div>
               <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">Approve verified CBE renewal requests to reactivate the member and extend their membership by one year.</p>
-              <div className="mt-3 space-y-2 max-h-44 overflow-y-auto">{members.filter(member => member.renewal_request?.status === 'PENDING').length === 0 ? <p className="py-5 text-center text-xs text-neutral-500">No CBE renewals are waiting for review.</p> : members.filter(member => member.renewal_request?.status === 'PENDING').map(member => <div key={member.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-black/20 border border-gray-200 dark:border-white/10"><div className="min-w-0"><p className="font-bold text-xs text-gray-900 dark:text-white truncate">{member.first_name} {member.father_name}</p><p className="text-[10px] font-mono text-neutral-500 truncate">CBE: {member.renewal_request?.payment.transaction_number}</p></div><button onClick={() => void approvePendingRenewal(member.id)} className="shrink-0 px-3 py-2 rounded-lg bg-[#d4ff00] text-black text-[10px] font-black uppercase">Approve</button></div>)}</div>
+              <div className="mt-3 space-y-2 max-h-44 overflow-y-auto">{members.filter(member => member.renewal_request?.status === 'PENDING').length === 0 ? <p className="py-5 text-center text-xs text-neutral-500">No CBE renewals are waiting for review.</p> : members.filter(member => member.renewal_request?.status === 'PENDING').map(member => <div key={member.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-black/20 border border-gray-200 dark:border-white/10"><div className="min-w-0"><p className="font-bold text-xs text-gray-900 dark:text-white truncate">{member.first_name} {member.father_name}</p><p className="text-[10px] font-mono text-neutral-500 truncate">CBE: {member.renewal_request?.payment.transaction_number}</p></div><AdminRenewalDialog member={member} review onSaved={onMembersImported} onToast={onToast} renderReceipt={url => <ApplicationDocumentPreview value={url} label="renewal receipt" />} /></div>)}</div>
             </div>
           </div>
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -826,6 +820,18 @@ export const AdminPortalView: React.FC<AdminPortalViewProps> = ({
                           onChange={event => void uploadMemberPhoto(m, event)}
                           className="absolute inset-0 opacity-0 w-full cursor-pointer disabled:cursor-wait" />
                       </label>
+                      {m.renewal_request?.status === 'APPROVED' && <button type="button" className="px-3 py-2 rounded-lg text-xs font-bold border border-gray-300 dark:border-white/20" onClick={async event => {
+                        const button = event.currentTarget; button.disabled = true;
+                        try {
+                          const response = await fetch('/api/members', { method: 'POST', headers: { 'Content-Type': 'application/json', ...adminHeaders() }, body: JSON.stringify({ action: 'resend-renewal-email', memberId: m.id }) });
+                          const result = await response.json();
+                          if (!response.ok || !result.success) throw new Error(result.error || 'Could not send renewal email.');
+                          onToast('Renewal approval email sent.', 'success');
+                        } catch (error) { onToast(error instanceof Error ? error.message : 'Could not send renewal email.', 'error'); }
+                        finally { button.disabled = false; }
+                      }}>Resend renewal email</button>}
+                      <MemberNameEditor member={m} onToast={onToast} onSave={async names => { await updateMemberName(m.id, names, null, true); await onMembersImported(); }} />
+                      <AdminRenewalDialog member={m} review={m.renewal_request?.status === 'PENDING'} onSaved={onMembersImported} onToast={onToast} renderReceipt={url => <ApplicationDocumentPreview value={url} label="renewal receipt" />} />
                       {onDeleteMember && (
                         <button onClick={() => { if(window.confirm('Delete member? This will force them to re-register.')) onDeleteMember(m.id); }}
                           className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 cursor-pointer" title="Delete Member">
